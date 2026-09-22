@@ -1,0 +1,54 @@
+{
+  "8b": {
+    "carga_s": 6.2,
+    "ram_mb": 1091,
+    "vram_mib": 11435,
+    "pruebas": {
+      "d_corto": {
+        "aciertos": "5/5",
+        "ms": 167,
+        "tok_s": 40.3,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 256 tokens)"
+      },
+      "d_largo": {
+        "aciertos": "0/5",
+        "ms": 991,
+        "tok_s": 37.6,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 15993 tokens)"
+      },
+      "d_curado": {
+        "aciertos": "5/5",
+        "ms": 283,
+        "tok_s": 41.1,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 11246 tokens)"
+      }
+    },
+    "ram_mb_final": 1155
+  },
+  "35b": {
+    "carga_s": 14.4,
+    "ram_mb": 10440,
+    "vram_mib": 8101,
+    "pruebas": {
+      "d_corto": {
+        "aciertos": "5/5",
+        "ms": 430,
+        "tok_s": 27.9,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 256 tokens)"
+      },
+      "d_largo": {
+        "aciertos": "5/5",
+        "ms": 3405,
+        "tok_s": 27.7,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 15637 tokens)"
+      },
+      "d_curado": {
+        "aciertos": "5/5",
+        "ms": 2441,
+        "tok_s": 27.7,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 10885 tokens)"
+      }
+    },
+    "ram_mb_final": 10898
+  }
+}

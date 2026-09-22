@@ -1,0 +1,16 @@
+{
+  "35b": {
+    "carga_s": 19.7,
+    "ram_mb": 10431,
+    "vram_mib": 8141,
+    "pruebas": {
+      "hechos": {
+        "aciertos": "1/1",
+        "ms": 1131,
+        "tok_s": 10.2,
+        "detalle": "10/10"
+      }
+    },
+    "ram_mb_final": 11737
+  }
+}

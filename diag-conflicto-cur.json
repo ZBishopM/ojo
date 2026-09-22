@@ -1,0 +1,16 @@
+{
+  "8b": {
+    "carga_s": 5.2,
+    "ram_mb": 1091,
+    "vram_mib": 11443,
+    "pruebas": {
+      "d_conflicto_cur": {
+        "aciertos": "0/5",
+        "ms": 800,
+        "tok_s": 38.1,
+        "detalle": "dijo '24', esperado 18 (entrada: 14089 tokens)"
+      }
+    },
+    "ram_mb_final": 1117
+  }
+}

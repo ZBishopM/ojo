@@ -1,0 +1,30 @@
+{
+  "8b": {
+    "carga_s": 8.3,
+    "ram_mb": 1082,
+    "vram_mib": 10747,
+    "pruebas": {
+      "hechos": {
+        "aciertos": "1/1",
+        "ms": 250,
+        "tok_s": 35.5,
+        "detalle": "10/10"
+      }
+    },
+    "ram_mb_final": 1151
+  },
+  "bonsai": {
+    "carga_s": 8.7,
+    "ram_mb": 956,
+    "vram_mib": 9199,
+    "pruebas": {
+      "hechos": {
+        "aciertos": "0/1",
+        "ms": 461,
+        "tok_s": 34.3,
+        "detalle": "9/10  fallo -> rimac: 'El río Lima.'"
+      }
+    },
+    "ram_mb_final": 2069
+  }
+}

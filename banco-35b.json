@@ -1,0 +1,52 @@
+{
+  "35b": {
+    "carga_s": 14.4,
+    "ram_mb": 10441,
+    "vram_mib": 8061,
+    "pruebas": {
+      "regex": {
+        "aciertos": "1/1",
+        "ms": 1234,
+        "tok_s": 31.1,
+        "detalle": "^(?:(?!\\bbuild\\b).)*\\bbuild\\s+(\\d+)"
+      },
+      "codigo": {
+        "aciertos": "1/1",
+        "ms": 669,
+        "tok_s": 29.5,
+        "detalle": "imprimio '1060', esperado 1060"
+      },
+      "json": {
+        "aciertos": "1/1",
+        "ms": 2271,
+        "tok_s": 31.7,
+        "detalle": "las cuatro claves correctas"
+      },
+      "extraccion": {
+        "aciertos": "1/1",
+        "ms": 2109,
+        "tok_s": 26.9,
+        "detalle": "dijo '32', esperado 32"
+      },
+      "espanol": {
+        "aciertos": "1/1",
+        "ms": 2939,
+        "tok_s": 28.7,
+        "detalle": "3 lineas, 0 con vineta, espanol=True"
+      },
+      "contexto_largo": {
+        "aciertos": "1/1",
+        "ms": 14847,
+        "tok_s": 25.6,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 14662 tokens)"
+      },
+      "velocidad": {
+        "aciertos": "1/1",
+        "ms": 20544,
+        "tok_s": 26.7,
+        "detalle": "537 tokens a 26.7 tok/s"
+      }
+    },
+    "ram_mb_final": 11662
+  }
+}

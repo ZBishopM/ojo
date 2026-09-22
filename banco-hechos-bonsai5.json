@@ -1,0 +1,16 @@
+{
+  "bonsai": {
+    "carga_s": 7.8,
+    "ram_mb": 956,
+    "vram_mib": 9908,
+    "pruebas": {
+      "hechos": {
+        "aciertos": "0/5",
+        "ms": 420,
+        "tok_s": 31.5,
+        "detalle": "9/10  fallo -> rimac: 'El río Lima.'"
+      }
+    },
+    "ram_mb_final": 2069
+  }
+}

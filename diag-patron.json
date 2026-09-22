@@ -1,0 +1,78 @@
+{
+  "8b": {
+    "carga_s": 5.2,
+    "ram_mb": 1090,
+    "vram_mib": 11435,
+    "pruebas": {
+      "d_invertido": {
+        "aciertos": "5/5",
+        "ms": 982,
+        "tok_s": 37.6,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 15988 tokens)"
+      },
+      "d_orden": {
+        "aciertos": "0/5",
+        "ms": 982,
+        "tok_s": 37.6,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 15993 tokens)"
+      },
+      "d_patron1": {
+        "aciertos": "0/5",
+        "ms": 905,
+        "tok_s": 38.1,
+        "detalle": "dijo 'none', esperado auto"
+      },
+      "d_patron2": {
+        "aciertos": "5/5",
+        "ms": 904,
+        "tok_s": 37.4,
+        "detalle": "dijo '4', esperado 4"
+      },
+      "d_patron3": {
+        "aciertos": "5/5",
+        "ms": 984,
+        "tok_s": 38.3,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 15993 tokens)"
+      }
+    },
+    "ram_mb_final": 1119
+  },
+  "35b": {
+    "carga_s": 13.9,
+    "ram_mb": 10440,
+    "vram_mib": 8093,
+    "pruebas": {
+      "d_invertido": {
+        "aciertos": "5/5",
+        "ms": 3423,
+        "tok_s": 28.2,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 15633 tokens)"
+      },
+      "d_orden": {
+        "aciertos": "5/5",
+        "ms": 3400,
+        "tok_s": 29.0,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 15637 tokens)"
+      },
+      "d_patron1": {
+        "aciertos": "0/5",
+        "ms": 3310,
+        "tok_s": 24.6,
+        "detalle": "dijo 'none', esperado auto"
+      },
+      "d_patron2": {
+        "aciertos": "5/5",
+        "ms": 3318,
+        "tok_s": 25.1,
+        "detalle": "dijo '4', esperado 4"
+      },
+      "d_patron3": {
+        "aciertos": "5/5",
+        "ms": 3409,
+        "tok_s": 28.7,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 15636 tokens)"
+      }
+    },
+    "ram_mb_final": 11753
+  }
+}

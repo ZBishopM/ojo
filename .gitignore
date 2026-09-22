@@ -1,0 +1,19 @@
+# Compilados de Rust: se rehacen con `cargo build --release`.
+target/
+
+# El entorno de Python del oido y sus modelos descargados.
+.venv/
+*.onnx
+*.onnx.data
+*.bin
+*.gguf
+
+# Salida de cada ejecucion. Los .json de resultados SI se guardan: son la
+# evidencia de cada comparacion, y pesan nada.
+*.log
+*.out
+*.jpg
+!escenas/**/*.jpg
+
+# Cache de Data Dragon: se rehace sola por parche.
+ddragon/

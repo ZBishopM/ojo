@@ -1,0 +1,16 @@
+{
+  "8b": {
+    "carga_s": 3.2,
+    "ram_mb": 1082,
+    "vram_mib": 10242,
+    "pruebas": {
+      "espanol": {
+        "aciertos": "1/1",
+        "ms": 1527,
+        "tok_s": 50.2,
+        "detalle": "3 lineas, 0 con vineta, espanol=True"
+      }
+    },
+    "ram_mb_final": 1101
+  }
+}

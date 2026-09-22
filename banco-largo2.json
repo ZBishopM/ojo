@@ -1,0 +1,30 @@
+{
+  "8b": {
+    "carga_s": 5.2,
+    "ram_mb": 1091,
+    "vram_mib": 11418,
+    "pruebas": {
+      "contexto_largo2": {
+        "aciertos": "3/3",
+        "ms": 1569,
+        "tok_s": 37.8,
+        "detalle": "dijo 'WDA_EXCLUDEFROMCAPTURE' (entrada: 15006 tokens)"
+      }
+    },
+    "ram_mb_final": 1118
+  },
+  "35b": {
+    "carga_s": 13.8,
+    "ram_mb": 10440,
+    "vram_mib": 8076,
+    "pruebas": {
+      "contexto_largo2": {
+        "aciertos": "3/3",
+        "ms": 5388,
+        "tok_s": 28.9,
+        "detalle": "dijo 'WDA_EXCLUDEFROMCAPTURE' (entrada: 14669 tokens)"
+      }
+    },
+    "ram_mb_final": 10764
+  }
+}

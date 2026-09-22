@@ -1,0 +1,14 @@
+corpus congelado: 64,279 chars (~16,070 fichas)
+
+=== 8b ===
+  ok     espanol           1527 ms  3 lineas, 0 con vineta, espanol=True
+
+=== RESUMEN ===
+prueba          8b                    
+espanol         1/1  1527 ms          
+carga_s         3.2                   
+ram_mb          1082                  
+ram_mb_final    1101                  
+vram_mib        10242                 
+
+resultados en D:\2026-projects\ojo\banco-congelar.json

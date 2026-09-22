@@ -1,0 +1,34 @@
+{
+  "bonsai": {
+    "carga_s": 5.2,
+    "ram_mb": 973,
+    "vram_mib": 11041,
+    "pruebas": {
+      "d_corto": {
+        "aciertos": "3/3",
+        "ms": 383,
+        "tok_s": 29.8,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 256 tokens)"
+      },
+      "d_largo": {
+        "aciertos": "3/3",
+        "ms": 9323,
+        "tok_s": 23.1,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 21990 tokens)"
+      },
+      "d_invertido": {
+        "aciertos": "3/3",
+        "ms": 9109,
+        "tok_s": 22.5,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 21986 tokens)"
+      },
+      "d_conflicto": {
+        "aciertos": "3/3",
+        "ms": 8923,
+        "tok_s": 22.4,
+        "detalle": "dijo '18', esperado 18 (entrada: 21986 tokens)"
+      }
+    },
+    "ram_mb_final": 1811
+  }
+}

@@ -1,0 +1,7 @@
+
+=== bonsai ===
+InvalidOperation: D:\2026-projects\ojo\banco-modelos.ps1:668
+Line |
+ 668 |      $res = [ordered]@{
+     |      ~~~~~~~~~~~~~~~~~~
+     | Error en la invocación del método porque [System.Object[]] no contiene un método denominado ''op_Division".

@@ -1,0 +1,30 @@
+{
+  "8b": {
+    "carga_s": 5.2,
+    "ram_mb": 1091,
+    "vram_mib": 11426,
+    "pruebas": {
+      "d_conflicto": {
+        "aciertos": "0/5",
+        "ms": 952,
+        "tok_s": 36.0,
+        "detalle": "dijo '24', esperado 18 (entrada: 15987 tokens)"
+      }
+    },
+    "ram_mb_final": 1118
+  },
+  "35b": {
+    "carga_s": 13.9,
+    "ram_mb": 10440,
+    "vram_mib": 8093,
+    "pruebas": {
+      "d_conflicto": {
+        "aciertos": "5/5",
+        "ms": 3365,
+        "tok_s": 24.9,
+        "detalle": "dijo '18', esperado 18 (entrada: 15633 tokens)"
+      }
+    },
+    "ram_mb_final": 10765
+  }
+}

@@ -1,0 +1,9 @@
+
+=== 8b ===
+Invoke-RestMethod: D:\2026-projects\ojo\banco-modelos.ps1:113
+Line |
+ 113 |      $r = Invoke-RestMethod "http://127.0.0.1:$Puerto/v1/chat/completi …
+     |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     |  {   "error": {     "code": 400,     "message": "request (24271 tokens) exceeds the available context size
+     | (16384 tokens), try increasing it",     "type": "exceed_context_size_error",     "n_prompt_tokens": 24271,    
+     | "n_ctx": 16384   } }

@@ -1,0 +1,46 @@
+{
+  "bonsai": {
+    "carga_s": 4.7,
+    "ram_mb": 965,
+    "vram_mib": 9333,
+    "pruebas": {
+      "regex": {
+        "aciertos": "1/1",
+        "ms": 623,
+        "tok_s": 24.2,
+        "detalle": "build\\s+(\\d+)"
+      },
+      "codigo": {
+        "aciertos": "1/1",
+        "ms": 3417,
+        "tok_s": 40.8,
+        "detalle": "imprimio '1060', esperado 1060"
+      },
+      "json": {
+        "aciertos": "1/1",
+        "ms": 1759,
+        "tok_s": 40.2,
+        "detalle": "las cuatro claves correctas"
+      },
+      "extraccion": {
+        "aciertos": "1/1",
+        "ms": 1871,
+        "tok_s": 22.3,
+        "detalle": "dijo '32', esperado 32"
+      },
+      "espanol": {
+        "aciertos": "1/1",
+        "ms": 2746,
+        "tok_s": 36.7,
+        "detalle": "3 lineas, 0 con vineta, espanol=True"
+      },
+      "velocidad": {
+        "aciertos": "1/1",
+        "ms": 15379,
+        "tok_s": 34.3,
+        "detalle": "518 tokens a 34.3 tok/s"
+      }
+    },
+    "ram_mb_final": 2052
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "8b": {
+    "carga_s": 5.2,
+    "ram_mb": 1090,
+    "vram_mib": 11428,
+    "pruebas": {
+      "regex": {
+        "aciertos": "2/3",
+        "ms": 809,
+        "tok_s": 45.4,
+        "detalle": "fallo en 'version: 0.4.1-dev (build 11056, commit e613ef2c8)' -> ''"
+      },
+      "contexto_largo": {
+        "aciertos": "0/3",
+        "ms": 1422,
+        "tok_s": 35.3,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 14995 tokens)"
+      }
+    },
+    "ram_mb_final": 1138
+  },
+  "35b": {
+    "carga_s": 13.3,
+    "ram_mb": 10440,
+    "vram_mib": 8061,
+    "pruebas": {
+      "regex": {
+        "aciertos": "3/3",
+        "ms": 711,
+        "tok_s": 30.5,
+        "detalle": "(?i)^.*build\\s+(\\d+).*"
+      },
+      "contexto_largo": {
+        "aciertos": "3/3",
+        "ms": 5141,
+        "tok_s": 26.1,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 14662 tokens)"
+      }
+    },
+    "ram_mb_final": 10894
+  }
+}

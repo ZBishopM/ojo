@@ -1,0 +1,7 @@
+
+=== bonsai ===
+InvalidOperation: D:\2026-projects\ojo\banco-modelos.ps1:116
+Line |
+ 116 |      $piensa = if ($Pensar) { $true } else { $CONFIG[$clave].pensar }
+     |      ~~~~~~~
+     | No se permite una clave NULL en un literal hash.
