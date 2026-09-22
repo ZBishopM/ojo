@@ -1,232 +1,270 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 Los hechos de la partida de League of Legends, en un JSON pequeno para el
 prompt.
 
-POR QUE ESTO EXISTE, Y POR QUE NO SE MIRA LA PANTALLA:
-
-El juego sirve sus propios datos en local. Es la Live Client Data API, puerto
-2999, documentada por Riot en developer.riotgames.com/docs/lol y SIN CLAVE:
+POR QUE NO SE MIRA LA PANTALLA: el juego sirve sus propios datos en local. Es
+la Live Client Data API, documentada por Riot (developer.riotgames.com/docs/lol)
+y SIN CLAVE:
 
     GET https://127.0.0.1:2999/liveclientdata/allgamedata
 
-Ahi estan, exactos: tu campeon, tus items con nombre y precio, tu oro, las dos
-composiciones, el marcador y el minuto. Leerlo cuesta milisegundos y no se
-equivoca.
+Campeones, items con itemID, oro, las dos composiciones, el marcador, quien esta
+muerto y el minuto. Exacto y en milisegundos. Mirar una captura es mas lento,
+gasta el mmproj y da respuestas que parecen seguras sin serlo. Tampoco se lee
+memoria del juego ni se inyecta nada: es HTTP a un puerto que el propio cliente
+abre, lo mismo que hacen Blitz y Porofessor.
 
-La alternativa era capturar la pantalla y preguntarle al modelo de vision que
-ve. Eso es mas lento, gasta el mmproj (1,08 GB de VRAM que durante la partida
-no sobran) y da respuestas que PARECEN seguras y no lo son. Aqui el dato lo
-declara el juego.
+    .\lol.ps1              los hechos, JSON de una linea (codigo 1 si no hay partida)
+    .\lol.ps1 -Legible     lo mismo con sangria
+    .\lol.ps1 -Crudo       la respuesta entera de la API, para guardar muestras
+    .\lol.ps1 -Prueba      los casos inventados, con comprobaciones
+    . .\lol.ps1            (con punto) solo define las funciones; lo usa ojo.ps1
 
-Tampoco se lee memoria del juego ni se inyecta nada: es una peticion HTTP a un
-puerto que el propio cliente abre. Es lo mismo que hacen Blitz y Porofessor.
-
-    .\lol.ps1              los hechos, como JSON de una linea
-    .\lol.ps1 -Legible     lo mismo con sangria, para leerlo tu
-    .\lol.ps1 -Crudo       la respuesta entera de la API, sin resumir
-
-Si no hay partida sale codigo 1 y no imprime nada: asi `ojo.ps1` puede
-preguntar "hay partida?" sin tratarlo como un error.
+SIN BLOQUE param(), por lo mismo que ddragon.ps1: un param() se ejecuta en el
+ambito de quien carga el archivo con punto y le pisa las variables. Cuando este
+archivo tenia uno, el -ComoModulo de ddragon.ps1 lo apagaba entero en silencio.
 #>
-param(
-    [switch]$Legible,
-    [switch]$Crudo,
-    # Pasa por el mismo resumen una partida inventada, con las diez plazas y
-    # con items. Es la unica forma de comprobar esto sin estar jugando, y hace
-    # falta: los campos que mas se tuercen -- el reparto por equipo y el minuto
-    # -- no se ven con la respuesta de ejemplo de Riot, que es de nivel 1 y con
-    # el inventario vacio.
-    [switch]$Prueba,
-    [int]$Puerto = 2999,
-    [int]$TimeoutSeg = 3
-)
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$PuertoLol = 2999
 
-# El cliente del juego usa un certificado AUTOFIRMADO. Riot lo dice en su propia
-# documentacion y ofrece dos salidas: ignorar el error o instalar su raiz.
-# Aqui se ignora, porque el destino es 127.0.0.1 y el proceso es el juego.
+. "$PSScriptRoot\ddragon.ps1"
+
+# ---- Hay partida? -----------------------------------------------------------
 #
-# Hacen falta las DOS ramas: `-SkipCertificateCheck` existe desde PowerShell 6,
-# y `ojo.ps1` corre en 5.1 (lo lanza `powershell`, no `pwsh`). En 5.1 hay que
-# tocar ServicePointManager, y eso es GLOBAL AL PROCESO.
+# Un sondeo TCP con tope de 200 ms ANTES de pedir nada. Sin el, cuando el juego
+# existe pero aun no ha abierto el puerto (pantalla de carga) Windows tarda ~2 s
+# en rechazar la conexion a un puerto local cerrado: medido, 2.437 ms. Esos 2 s
+# se pagaban en cada pregunta.
+function Test-LolPuerto([int]$ms = 200) {
+    $c = New-Object Net.Sockets.TcpClient
+    try { $c.ConnectAsync('127.0.0.1', $PuertoLol).Wait($ms) -and $c.Connected }
+    catch { $false }
+    finally { $c.Dispose() }
+}
+
+# El certificado del juego es AUTOFIRMADO; Riot dice que se ignore o se use su
+# raiz. Se pide con `curl.exe -k`, que viene con Windows.
 #
-# Y ahi esta la trampa, que me comi entera: la primera version devolvia
-# `r.RequestUri.IsLoopback` a secas, con un comentario mio que decia "da igual,
-# este proceso no habla con nadie mas". Dejo de ser verdad en cuanto anadi el
-# catalogo de Data Dragon: la politica rechazaba ddragon.leagueoflegends.com
-# con "No se puede establecer una relacion de confianza para el canal seguro
-# SSL/TLS", y el catalogo salia vacio sin decir por que.
+# POR QUE curl Y NO Invoke-RestMethod, y esto costo dos intentos:
 #
-# Ahora: loopback pasa siempre -- ahi vive el certificado autofirmado del juego
-# --, y CUALQUIER OTRO destino se valida como siempre. `p` es el codigo de
-# problema que ya calculo la plataforma: 0 es "ningun problema".
-$esPS7 = $PSVersionTable.PSVersion.Major -ge 6
-if (-not $esPS7) {
-    Add-Type -TypeDefinition @'
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class SoloLocalhost : ICertificatePolicy {
-    public bool CheckValidationResult(ServicePoint sp, X509Certificate c, WebRequest r, int p) {
-        if (r.RequestUri.IsLoopback) return true;   // el cliente del juego
-        return p == 0;                              // el resto, validacion normal
-    }
-}
-'@ -ErrorAction SilentlyContinue
-    [Net.ServicePointManager]::CertificatePolicy = New-Object SoloLocalhost
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-}
-
-function Pedir($ruta) {
-    $url = "https://127.0.0.1:$Puerto/liveclientdata/$ruta"
-    $args = @{ Uri = $url; TimeoutSec = $TimeoutSeg; UseBasicParsing = $true }
-    if ($esPS7) { $args['SkipCertificateCheck'] = $true }
-    Invoke-RestMethod @args
-}
-
-function Partida-Inventada {
-    $eq = @()
-    $campeones = @('Annie','Garen','Lux','Jinx','Thresh','Ahri','Darius','Yasuo','Caitlyn','Leona')
-    for ($i = 0; $i -lt 10; $i++) {
-        $eq += [pscustomobject]@{
-            summonerName = "jug$i"
-            championName = $campeones[$i]
-            level        = 9 + $i % 3
-            team         = if ($i -lt 5) { 'ORDER' } else { 'CHAOS' }
-            position     = @('TOP','JUNGLE','MIDDLE','BOTTOM','UTILITY')[$i % 5]
-            items        = if ($i -eq 2) {
-                @([pscustomobject]@{ displayName = 'Sombrero Mortal de Rabadon'; price = 3600 },
-                  [pscustomobject]@{ displayName = 'Botas de Hechicero';        price = 1100 })
-            } else { @() }
-            scores       = [pscustomobject]@{ kills = $i; deaths = 1; assists = 2; creepScore = 100 + $i }
-        }
-    }
-    [pscustomobject]@{
-        activePlayer = [pscustomobject]@{ summonerName = 'jug2'; level = 11; currentGold = 1543.7 }
-        allPlayers   = $eq
-        gameData     = [pscustomobject]@{ gameMode = 'CLASSIC'; gameTime = 754.0 }
-    }
-}
-
-if ($Prueba) {
-    $d = Partida-Inventada
-} else {
-    try {
-        $d = Pedir 'allgamedata'
-    } catch {
-        # No hay partida, o el juego aun no ha abierto el puerto. No es un fallo.
-        exit 1
-    }
-}
-
-if ($Crudo) {
-    $d | ConvertTo-Json -Depth 12
-    exit 0
-}
-
-# --- Resumen ---
+#  1. Una clase C# con Add-Type como politica de certificados. Funciona, pero
+#     compilar son 202 ms (medido) y la politica es GLOBAL al proceso: la
+#     primera version solo aceptaba loopback y tumbo la descarga de Data Dragon.
+#  2. Un scriptblock como callback, para no compilar. NO FUNCIONA: .NET lo
+#     invoca en otro hilo, sin runspace, y revienta CUALQUIER conexion HTTPS
+#     nueva del proceso ("No hay ningun espacio de ejecucion disponible"). La
+#     prueba que parecia decir que si reutilizaba una conexion ya abierta.
 #
-# NOMBRES, NO IDs. El modelo no tiene por que saber que el 3153 es Cuchilla del
-# Rey Arruinado, y meterle numeros crudos es pedirle que invente. La API ya trae
-# `displayName` y `price` en cada item, asi que Data Dragon no hace falta para
-# esto -- solo haria falta para el CATALOGO de lo que se puede comprar, que es
-# otra pregunta y otro dia.
-$yo = $d.activePlayer
-$miNombre = $yo.summonerName
+# curl.exe: 22 ms, y no toca el estado del proceso. Se escribe a un archivo y
+# se lee como UTF-8, para no depender de la pagina de codigos de la consola.
+function Get-LolDatos {
+    if (-not (Test-LolPuerto)) { return $null }
+    $tmp = Join-Path $env:TEMP 'ojo-lol.json'
+    & curl.exe -sk --max-time 3 -o $tmp "https://127.0.0.1:$PuertoLol/liveclientdata/allgamedata" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $tmp)) { return $null }
+    try { [IO.File]::ReadAllText($tmp, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+    catch { $null }
+    finally { Remove-Item $tmp -EA SilentlyContinue }
+}
 
-function Resumir-Jugador($p) {
-    $items = @($p.items | ForEach-Object { $_.displayName }) -join ', '
+# ---- Quien soy ----------------------------------------------------------------
+#
+# Por NOMBRE SIN #TAG, probando todos los campos que Riot ha usado.
+#
+# La primera version comparaba `summonerName` con `-eq`. Riot migro a Riot ID y
+# hay un fallo abierto (RiotGames/developer-relations #857) donde un endpoint
+# devuelve "Nombre#TAG" y otro solo "Nombre". Con `-eq`, nadie era "yo", y los
+# diez jugadores caian en el equipo rival SIN NINGUN AVISO.
+function Nombres-De($o) {
+    @($o.riotId, $o.riotIdGameName, $o.summonerName) | Where-Object { $_ } |
+        ForEach-Object { ("$_" -split '#')[0].Trim().ToLowerInvariant() } | Select-Object -Unique
+}
+
+function Buscar-Yo($d) {
+    $mios = @(Nombres-De $d.activePlayer)
+    $hits = @($d.allPlayers | Where-Object { @(Nombres-De $_ | Where-Object { $mios -contains $_ }).Count })
+    # Exactamente uno, o nada. Adivinar entre dos seria repartir mal los
+    # equipos con cara de dato exacto.
+    if ($hits.Count -eq 1) { $hits[0] } else { $null }
+}
+
+# ---- Resumen para el prompt ----------------------------------------------------
+#
+# NOMBRES, no IDs, salvo donde el ID hace falta para cruzar con el catalogo.
+function Resumir-Jugador($p, $yo) {
     [ordered]@{
-        campeon  = $p.championName
-        puesto   = if ($p.position) { $p.position } else { '' }
-        nivel    = $p.level
-        kda      = "{0}/{1}/{2}" -f $p.scores.kills, $p.scores.deaths, $p.scores.assists
-        cs       = $p.scores.creepScore
-        items    = $items
-        soy_yo   = ($p.summonerName -eq $miNombre)
+        campeon = $p.championName
+        puesto  = "$($p.position)"
+        nivel   = $p.level
+        kda     = "{0}/{1}/{2}" -f $p.scores.kills, $p.scores.deaths, $p.scores.assists
+        cs      = $p.scores.creepScore
+        items   = (@($p.items | ForEach-Object { $_.displayName }) -join ', ')
+        muerto  = if ($p.isDead) { "revive en $([int][math]::Ceiling([double]$p.respawnTimer)) s" } else { '' }
+        soy_yo  = [bool]($yo -and [object]::ReferenceEquals($p, $yo))
     }
 }
 
-# ORDER y CHAOS son los nombres internos de los dos equipos (azul y rojo). Se
-# reparte por el mio, no por el color, porque "nuestro equipo" es lo que se
-# pregunta.
-$miEquipo = (@($d.allPlayers) | Where-Object { $_.summonerName -eq $miNombre }).team
-$nuestros = @($d.allPlayers | Where-Object { $_.team -eq $miEquipo })
-$suyos    = @($d.allPlayers | Where-Object { $_.team -ne $miEquipo })
+function Resumir-Partida($d, $cat) {
+    $yo = Buscar-Yo $d
+    # [math]::Floor Y NO [int]: el cast de PowerShell REDONDEA. 754 s salian
+    # como el minuto 13:34, y 1543,7 de oro como 1544 -- el modelo diria que te
+    # llega para algo que cuesta 1544 y no te llega.
+    $seg = [int][math]::Floor([double]$d.gameData.gameTime)
+    $h = [ordered]@{
+        modo   = $d.gameData.gameMode
+        minuto = "{0}:{1:00}" -f [math]::Floor($seg / 60), ($seg % 60)
+        mi_oro = [int][math]::Floor([double]$d.activePlayer.currentGold)
+    }
+    if (-not $yo) {
+        # Sin identidad no hay "mi equipo": se dan los dos por su color y se
+        # dice por que, en vez de inventar el reparto.
+        $h['identidad'] = 'no pude saber cual de los diez eres; los equipos van por color'
+        $h['equipo_azul'] = @($d.allPlayers | Where-Object team -eq 'ORDER' | ForEach-Object { Resumir-Jugador $_ $null })
+        $h['equipo_rojo'] = @($d.allPlayers | Where-Object team -ne 'ORDER' | ForEach-Object { Resumir-Jugador $_ $null })
+        return $h
+    }
+    $h['mi_campeon']   = $yo.championName
+    $h['mi_nivel']     = $yo.level
+    $h['mi_equipo']    = @($d.allPlayers | Where-Object team -eq $yo.team | ForEach-Object { Resumir-Jugador $_ $yo })
+    $h['equipo_rival'] = @($d.allPlayers | Where-Object team -ne $yo.team | ForEach-Object { Resumir-Jugador $_ $null })
+    # Quien va mas fuerte, CALCULADO aqui y no pedido al modelo. Medido: con los
+    # cinco KDA delante, el 8B dijo Yasuo (7/1/2) teniendo a Leona (9/1/2).
+    # Sacar el maximo de cinco numeros es justo lo que un modelo pequeno hace
+    # mal y un ordenador hace perfecto. Criterio: (asesinatos + asistencias) /
+    # muertes, el KDA de siempre, con las muertes a 1 como minimo.
+    $fuerte = { param($eq) $eq | Sort-Object { ($_.scores.kills + $_.scores.assists) / [math]::Max(1, $_.scores.deaths) } -Descending |
+                Select-Object -First 1 | ForEach-Object { "$($_.championName) ($($_.scores.kills)/$($_.scores.deaths)/$($_.scores.assists))" } }
+    $h['mas_fuerte_mi_equipo'] = & $fuerte @($d.allPlayers | Where-Object team -eq $yo.team)
+    $h['mas_fuerte_rival']     = & $fuerte @($d.allPlayers | Where-Object team -ne $yo.team)
 
-# [math]::Floor Y NO [int], en los dos.
-#
-# El cast a [int] de PowerShell REDONDEA (redondeo bancario), no trunca. La
-# prueba lo caza: 754 segundos son el minuto 12:34, y con [int] salia 13:34
-# porque 754/60 = 12,57 y eso redondea a 13. Un minuto de mas en cada consulta.
-#
-# Con el oro es peor que feo: 1543,7 se convertia en 1544, y con eso el modelo
-# diria que te llega para algo que cuesta 1544 y no te llega.
-$seg = [int][math]::Floor([double]$d.gameData.gameTime)
-$hechos = [ordered]@{
-    modo         = $d.gameData.gameMode
-    minuto       = "{0}:{1:00}" -f [math]::Floor($seg / 60), ($seg % 60)
-    mi_campeon   = (@($d.allPlayers | Where-Object { $_.summonerName -eq $miNombre }).championName)
-    mi_oro       = [int][math]::Floor([double]$yo.currentGold)
-    mi_nivel     = $yo.level
-    mi_equipo    = @($nuestros | ForEach-Object { Resumir-Jugador $_ })
-    equipo_rival = @($suyos    | ForEach-Object { Resumir-Jugador $_ })
+    # El catalogo es un extra: sin el, los hechos de la partida siguen valiendo.
+    if ($cat) {
+        $perfil = Get-DDragonPerfil $cat $yo.rawChampionName
+        $misIds = @($yo.items | ForEach-Object { [string]$_.itemID })
+        $h['parche'] = $cat.parche
+        $h['mi_perfil'] = if ($perfil) { "$($perfil.rol), dano $($perfil.dano)" } else { $null }
+        $h['puedo_completar'] = @(Get-DDragonCompletables $cat $misIds $h.mi_oro $perfil |
+            Select-Object -First 4 |
+            ForEach-Object { if ($_.me_llega) { "$($_.nombre) (te faltan $($_.falta), te llega)" } else { "$($_.nombre) (te faltan $($_.falta))" } })
+        $h['puedo_comprar'] = @(Get-DDragonAsequibles $cat $h.mi_oro $misIds $perfil |
+            ForEach-Object { "$($_.nombre) ($($_.precio))" })
+    }
+    $h
 }
 
-# --- Que me puedo permitir ahora mismo ---
-#
-# Es la mitad de "que items me armo" que SI se puede contestar con datos
-# exactos. La otra mitad -- que conviene este parche, contra que campeon -- es
-# opinion, cambia cada dos semanas y no esta en Data Dragon: el campo
-# `recommended` de cada campeon viene vacio desde que Riot dejo de publicarlo
-# (comprobado con Lux en el 16.18.1). Eso necesita web, y no esta hecho.
-#
-# Se envuelve en try: si no hay red o la cache no esta, los hechos de la
-# partida siguen valiendo. Es un extra, no un requisito.
-try {
-    . "$PSScriptRoot\ddragon.ps1" -ComoModulo
-    $cat = Get-DDragonItems
-    $mios = @($hechos.mi_equipo | Where-Object { $_.soy_yo }).items -split ',\s*' | Where-Object { $_ }
-    $hechos['parche'] = $cat.parche
-    $hechos['puedo_comprar'] = @(Get-DDragonAsequibles $cat.items $hechos.mi_oro $mios |
-        ForEach-Object { "$($_.nombre) ($($_.precio))" })
-} catch {
-    # Se dice POR QUE. Un catch mudo aqui convierte "no hay red" y "la cache
-    # esta rota" en el mismo silencio, y se tarda media hora en descubrir cual
-    # de los dos era.
-    $hechos['puedo_comprar'] = @()
-    $hechos['catalogo_fallo'] = "$_"
-}
-
-if ($Prueba) {
-    # Comprobaciones, no adorno: cada una falla si se tuerce el resumen.
-    $fallos = @()
-    if ($hechos.mi_campeon -ne 'Lux')          { $fallos += "mi_campeon = '$($hechos.mi_campeon)', se esperaba Lux" }
-    if ($hechos.minuto     -ne '12:34')        { $fallos += "minuto = '$($hechos.minuto)', se esperaba 12:34" }
-    if ($hechos.mi_oro     -ne 1543)           { $fallos += "mi_oro = $($hechos.mi_oro), se esperaba 1543" }
-    if ($hechos.mi_equipo.Count    -ne 5)      { $fallos += "mi_equipo tiene $($hechos.mi_equipo.Count), se esperaban 5" }
-    if ($hechos.equipo_rival.Count -ne 5)      { $fallos += "equipo_rival tiene $($hechos.equipo_rival.Count), se esperaban 5" }
-    # El reparto es por MI equipo, no por el color: jug2 es ORDER, asi que los
-    # cinco de ORDER tienen que caer en mi_equipo.
-    if (@($hechos.mi_equipo | Where-Object { $_.soy_yo }).Count -ne 1) { $fallos += 'soy_yo no marca exactamente a uno' }
-    if ($hechos.mi_equipo[2].items -notmatch 'Rabadon')  { $fallos += "los items no llegan: '$($hechos.mi_equipo[2].items)'" }
-    if ($hechos.mi_equipo[2].kda   -ne '2/1/2')          { $fallos += "kda = '$($hechos.mi_equipo[2].kda)', se esperaba 2/1/2" }
-    # El catalogo: con 1543 de oro tiene que proponer algo, y nada que cueste
-    # mas de lo que llevas ni nada que ya tengas puesto.
-    if (-not $hechos.puedo_comprar.Count) { $fallos += 'puedo_comprar vacio: la cache de Data Dragon no cargo' }
-    foreach ($s in $hechos.puedo_comprar) {
-        if ($s -match '\((\d+)\)$' -and [int]$Matches[1] -gt $hechos.mi_oro) {
-            $fallos += "propone '$s' con solo $($hechos.mi_oro) de oro"
+# ---- Partidas inventadas, para probar sin jugar -------------------------------
+function Partida-Inventada([string]$formato = 'tag-solo-en-activo', [int]$oro = 2400, [int]$yo = 2) {
+    $camp = @('Annie','Garen','Lux','Jinx','Thresh','Ahri','Darius','Yasuo','Caitlyn','Leona')
+    $eq = for ($i = 0; $i -lt 10; $i++) {
+        $p = [pscustomobject]@{
+            summonerName = "Jugador$i"; championName = $camp[$i]; rawChampionName = $camp[$i]
+            level = 9 + $i % 3; team = if ($i -lt 5) { 'ORDER' } else { 'CHAOS' }
+            position = @('TOP','JUNGLE','MIDDLE','BOTTOM','UTILITY')[$i % 5]
+            isDead = ($i -eq 7); respawnTimer = if ($i -eq 7) { 12.3 } else { 0 }
+            items = @()
+            scores = [pscustomobject]@{ kills = $i; deaths = 1; assists = 2; creepScore = 100 + $i }
         }
-        if ($s -match 'Rabadon') { $fallos += "propone '$s', que ya lo lleva puesto" }
+        # Lux (yo) lleva una Vara innecesariamente grande: la receta del
+        # Sombrero de Rabadon pide dos.
+        if ($i -eq 2) { $p.items = @([pscustomobject]@{ itemID = 1058; displayName = 'Vara innecesariamente grande'; price = 1200 }) }
+        if ($formato -eq 'riotid') {
+            $p | Add-Member riotId "Jugador$i#EUW" ; $p | Add-Member riotIdGameName "Jugador$i"
+        }
+        $p
     }
-
-    $hechos | ConvertTo-Json -Depth 6
-    if ($fallos) { Write-Host "`nFALLA:`n  $($fallos -join "`n  ")" -ForegroundColor Red; exit 2 }
-    Write-Host "`n8 comprobaciones OK" -ForegroundColor Green
-    exit 0
+    $activo = switch ($formato) {
+        'tag-solo-en-activo' { [pscustomobject]@{ summonerName = "Jugador$yo#EUW"; level = 11; currentGold = $oro + 0.7 } }
+        'riotid'             { [pscustomobject]@{ riotId = "jugador$yo#euw"; summonerName = "Jugador$yo"; level = 11; currentGold = $oro + 0.7 } }
+        'desconocido'        { [pscustomobject]@{ summonerName = 'Otro#EUW'; level = 11; currentGold = $oro + 0.7 } }
+    }
+    [pscustomobject]@{ activePlayer = $activo; allPlayers = @($eq); gameData = [pscustomobject]@{ gameMode = 'CLASSIC'; gameTime = 754.0 } }
 }
 
-if ($Legible) { $hechos | ConvertTo-Json -Depth 6 }
-else          { $hechos | ConvertTo-Json -Depth 6 -Compress }
+function Probar {
+    $cat = Get-DDragon
+    # En el ambito del SCRIPT, y leidos de ahi al final. La primera version
+    # apuntaba en $script:fallos y comprobaba un $fallos local, que estaba
+    # siempre vacio: la prueba devolvia 0 pasara lo que pasara.
+    $script:fallos = @()
+    $script:ok = 0
+    function Comprobar($cond, $msg) { if ($cond) { $script:ok++ } else { $script:fallos += $msg } }
+
+    foreach ($f in 'tag-solo-en-activo', 'riotid') {
+        $h = Resumir-Partida (Partida-Inventada $f) $cat
+        Comprobar ($h.mi_campeon -eq 'Lux')                 "[$f] mi_campeon = '$($h.mi_campeon)'"
+        Comprobar (@($h.mi_equipo).Count -eq 5)             "[$f] mi_equipo tiene $(@($h.mi_equipo).Count)"
+        Comprobar (@($h.mi_equipo | Where-Object { $_.soy_yo }).Count -eq 1) "[$f] soy_yo no marca a uno"
+    }
+    $h = Resumir-Partida (Partida-Inventada 'tag-solo-en-activo') $cat
+    Comprobar ($h.minuto -eq '12:34') "minuto = '$($h.minuto)'"
+    Comprobar ($h.mi_oro -eq 2400)    "mi_oro = $($h.mi_oro)"
+    Comprobar ($h.mi_perfil -eq 'Mage, dano AP') "mi_perfil = '$($h.mi_perfil)'"
+    Comprobar (@($h.equipo_rival | Where-Object { $_.muerto -eq 'revive en 13 s' }).Count -eq 1) 'el muerto no aparece'
+
+    # Rabadon: dos Varas; con una puesta falta el precio del Sombrero menos una Vara.
+    $rab = $cat.items.'3089'; $vara = $cat.items.'1058'
+    $falta = $rab.total - $vara.total
+    Comprobar (@($h.puedo_completar | Where-Object { $_ -like "$($rab.nombre) (te faltan $falta, te llega)" }).Count -eq 1) "completar Rabadon: $($h.puedo_completar -join ' | ')"
+    $h2 = Resumir-Partida (Partida-Inventada 'tag-solo-en-activo' ($falta - 1)) $cat
+    Comprobar (@($h2.puedo_completar | Where-Object { $_ -like "$($rab.nombre) (te faltan $falta)" }).Count -eq 1) "con un oro menos, Rabadon no deberia llegar: $($h2.puedo_completar -join ' | ')"
+
+    # Que propone para comprar, contra LISTAS ESCRITAS A MANO con conocimiento
+    # del juego -- no contra el propio filtro.
+    #
+    # La version anterior de esta prueba comprobaba las etiquetas con las mismas
+    # etiquetas que usaba el filtro: salio 59/59 mientras a Jinx se le proponian
+    # un incensario de soporte, dos items de inicio y un elixir. Una prueba que
+    # repite la logica que prueba no prueba nada.
+    #
+    #   nunca   items que ese campeon no se compra. Si aparece uno, falla.
+    #   si      un item que DEBE salir con 3.500 de oro (los dos cuestan eso).
+    $NUNCA_AP = @('3031', '3047', '2524', '3177', '2140', '3172')   # Filo infinito, Botas blindadas, Bandlemusa, Espada del guardian, Elixir, Grebas de metal
+    $NUNCA_AD = @('3089', '3504', '2524', '3177', '3184', '2140')   # Rabadon, Incensario, Bandlemusa, Espada y Martillo del guardian, Elixir
+    # Hidra titanica y Baile de la muerte: de luchador, no de tirador.
+    $NUNCA_TIRADOR = $NUNCA_AD + @('3748', '6333')
+    foreach ($caso in @(@{ yo = 2; n = 'Lux';   nunca = $NUNCA_AP; si = '3089' },
+                        @{ yo = 3; n = 'Jinx';  nunca = $NUNCA_TIRADOR; si = '3031' },
+                        @{ yo = 1; n = 'Garen'; nunca = $NUNCA_AD; si = $null })) {
+        $hc = Resumir-Partida (Partida-Inventada 'tag-solo-en-activo' 3500 $caso.yo) $cat
+        Comprobar ($hc.mi_campeon -eq $caso.n) "[$($caso.n)] no se identifico"
+        Comprobar (@($hc.puedo_comprar).Count -ge 3) "[$($caso.n)] solo $(@($hc.puedo_comprar).Count) propuestas"
+        $nombres = @($hc.puedo_comprar | ForEach-Object { $_ -replace '\s*\(\d+\)$', '' })
+        Comprobar (@($nombres | Select-Object -Unique).Count -eq $nombres.Count) "[$($caso.n)] repetidos: $($nombres -join ' | ')"
+        foreach ($id in $caso.nunca) {
+            Comprobar ($nombres -notcontains $cat.items.$id.nombre) "[$($caso.n)] propone '$($cat.items.$id.nombre)', que no se compra"
+        }
+        if ($caso.si) { Comprobar ($nombres -contains $cat.items.($caso.si).nombre) "[$($caso.n)] falta '$($cat.items.($caso.si).nombre)': $($nombres -join ' | ')" }
+        foreach ($s in $hc.puedo_comprar) {
+            Comprobar ([int]($s -replace '.*\((\d+)\)$', '$1') -le $hc.mi_oro) "[$($caso.n)] propone '$s' por encima del oro"
+        }
+        Write-Host ("  {0,-6} {1}" -f $caso.n, ($nombres -join ' | '))
+    }
+
+    # Sin identidad: no se inventa el reparto.
+    $h3 = Resumir-Partida (Partida-Inventada 'desconocido') $cat
+    Comprobar ($h3.identidad -and -not $h3.mi_equipo) 'con un nombre que no esta, deberia decir que no sabe quien eres'
+    Comprobar (@($h3.equipo_azul).Count -eq 5 -and @($h3.equipo_rojo).Count -eq 5) 'sin identidad, los equipos por color'
+
+    $h | ConvertTo-Json -Depth 6 | Write-Host
+    if ($script:fallos.Count) {
+        Write-Host "`nFALLA ($($script:fallos.Count) de $($script:fallos.Count + $script:ok)):`n  $($script:fallos -join "`n  ")" -ForegroundColor Red
+        return 2
+    }
+    Write-Host "`n$($script:ok) comprobaciones OK" -ForegroundColor Green
+    0
+}
+
+# Cargado con punto (desde ojo.ps1): solo las funciones.
+if ($MyInvocation.InvocationName -eq '.') { return }
+if ($args -contains '-Prueba') { exit (Probar) }
+
+# Nombres propios y no $d/$h: ojo.ps1 carga este archivo con punto y ya usa $d
+# para la respuesta del modelo. Esta parte no corre al cargarlo (el return de
+# arriba), pero no hace falta dejar la trampa puesta.
+$lolCrudo = Get-LolDatos
+if (-not $lolCrudo) { exit 1 }
+if ($args -contains '-Crudo') { $lolCrudo | ConvertTo-Json -Depth 12; exit 0 }
+$cat = try { Get-DDragon } catch { $null }
+$h = Resumir-Partida $lolCrudo $cat
+if ($args -contains '-Legible') { $h | ConvertTo-Json -Depth 6 } else { $h | ConvertTo-Json -Depth 6 -Compress }

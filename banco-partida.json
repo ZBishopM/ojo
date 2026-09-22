@@ -1,0 +1,422 @@
+[
+  {
+    "nombre": "8b-actual",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "prompt": "actual",
+    "aciertos": "10/16",
+    "ms_medio": 1121.0,
+    "filas": [
+      {
+        "q": "como es nuestra composicion?",
+        "ok": false,
+        "ms": 1530.0,
+        "dijo": "Tu equipo lidera en KDA y CS, pero el rival tiene más muertos y nivel en algunos campeones."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 936.0,
+        "dijo": "En mid juegas contra Yasuo."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 926.0,
+        "dijo": "El rival que esta muerto es Yasuo, revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 968.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 1124.0,
+        "dijo": "Estamos en el minuto 12:34 de la partida."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": false,
+        "ms": 1149.0,
+        "dijo": "El rival va más fuerte con Yasuo en el medio, tiene 7/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": false,
+        "ms": 1496.0,
+        "dijo": "Tu item terminado es la Vara innecesariamente grande."
+      },
+      {
+        "q": "quien es su jungla?",
+        "ok": true,
+        "ms": 934.0,
+        "dijo": "Tu jungla es Darius."
+      },
+      {
+        "q": "como es nuestra composicion?",
+        "ok": false,
+        "ms": 1696.0,
+        "dijo": "Tu equipo lidera en KDA y CS, pero el rival tiene más muertos. ¡Cuida tu posición!"
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 773.0,
+        "dijo": "En mid juegas contra Yasuo."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 1092.0,
+        "dijo": "El rival que esta muerto es Yasuo, revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 781.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 917.0,
+        "dijo": "Estamos en el minuto 12:34 de la partida."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": false,
+        "ms": 1182.0,
+        "dijo": "El rival va más fuerte con Yasuo en el medio, tiene 7/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": false,
+        "ms": 1511.0,
+        "dijo": "Tu item terminado es la Vara innecesariamente grande."
+      },
+      {
+        "q": "quien es su jungla?",
+        "ok": true,
+        "ms": 925.0,
+        "dijo": "Tu jungla es Darius."
+      }
+    ]
+  },
+  {
+    "nombre": "8b-partida",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "prompt": "partida",
+    "aciertos": "12/16",
+    "ms_medio": 613.0,
+    "filas": [
+      {
+        "q": "como es nuestra composicion?",
+        "ok": true,
+        "ms": 1275.0,
+        "dijo": "Tu equipo tiene a Lux en mid, con Annie en top, Garen en jungle, Jinx en bottom y Thresh en soporte. El rival tiene Ahri en top, Darius en jungle, Yasuo en mid, Caitlyn en bottom y Leona en soporte."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 483.0,
+        "dijo": "En mid juegas contra Yasuo, que está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 413.0,
+        "dijo": "Yasuo del equipo rival está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 268.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 332.0,
+        "dijo": "Vamos en el minuto 12:34."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": false,
+        "ms": 741.0,
+        "dijo": "El equipo rival va más fuerte con Yasuo en mid, que tiene 7/1/2 y está vivo, y Caitlyn en bottom con 8/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 745.0,
+        "dijo": "Puedes completar Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es su jungla?",
+        "ok": false,
+        "ms": 634.0,
+        "dijo": "Tu jungla es Garen, nivel 10, con 1 asesinato, 1 muerte y 2 asistencias."
+      },
+      {
+        "q": "como es nuestra composicion?",
+        "ok": true,
+        "ms": 1122.0,
+        "dijo": "Tu equipo tiene a Lux en mid, con Annie en top, Garen en jungle, Jinx en bottom y Thresh en soporte. El rival tiene a Ahri en top, Darius en jungle, Yasuo en mid, Caitlyn en bottom y Leona en soporte."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 501.0,
+        "dijo": "En mid juegas contra Yasuo, que está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 398.0,
+        "dijo": "Yasuo del equipo rival está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 268.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 341.0,
+        "dijo": "Estamos en el minuto 12:34."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": false,
+        "ms": 914.0,
+        "dijo": "El equipo rival va más fuerte con Yasuo en MIDDLE, que tiene 7/1/2 y 107 CS, y Caitlyn en BOTTOM con 8/1/2 y 108 CS."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 739.0,
+        "dijo": "Puedes completar Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es su jungla?",
+        "ok": false,
+        "ms": 634.0,
+        "dijo": "Tu jungla es Garen, nivel 10, con 1 asesinato, 1 muerte y 2 asistencias."
+      }
+    ]
+  },
+  {
+    "nombre": "8b-actual-v2",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "prompt": "actual",
+    "aciertos": "14/16",
+    "ms_medio": 1142.0,
+    "filas": [
+      {
+        "q": "como es nuestra composicion?",
+        "ok": false,
+        "ms": 2046.0,
+        "dijo": "Tu equipo lidera en kills con Thresh, pero el rival tiene más muertes con Leona. Estás en modo clásico, minuto 12:34, con 3500 oro y Lux como campeón."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 830.0,
+        "dijo": "En mid juegas contra Yasuo."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 1161.0,
+        "dijo": "El rival que esta muerto es Yasuo, revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 844.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 952.0,
+        "dijo": "Estamos en el minuto 12:34 de la partida."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": true,
+        "ms": 1083.0,
+        "dijo": "El rival más fuerte es Leona con 9/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 1358.0,
+        "dijo": "Tu equipo puede completar Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es la jungla del equipo rival?",
+        "ok": true,
+        "ms": 965.0,
+        "dijo": "La jungla del equipo rival es Darius."
+      },
+      {
+        "q": "como es nuestra composicion?",
+        "ok": false,
+        "ms": 1983.0,
+        "dijo": "Tu equipo lidera en kills con Thresh, pero el rival tiene más muertes con Leona. Estás en modo clásico, minuto 12:34, con 3500 oro y Lux como campeón."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 791.0,
+        "dijo": "En mid juegas contra Yasuo."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 1098.0,
+        "dijo": "El rival que esta muerto es Yasuo, revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 848.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 901.0,
+        "dijo": "Estamos en el minuto 12:34 de la partida."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": true,
+        "ms": 1082.0,
+        "dijo": "El rival más fuerte es Leona con 9/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 1278.0,
+        "dijo": "Tu equipo puede completar Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es la jungla del equipo rival?",
+        "ok": true,
+        "ms": 1058.0,
+        "dijo": "La jungla del equipo rival es Darius."
+      }
+    ]
+  },
+  {
+    "nombre": "8b-partida-v2",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "prompt": "partida",
+    "aciertos": "16/16",
+    "ms_medio": 535.0,
+    "filas": [
+      {
+        "q": "como es nuestra composicion?",
+        "ok": true,
+        "ms": 1333.0,
+        "dijo": "Tu equipo tiene a Lux como mage de dano AP en mid, apoyado por Thresh en soporte, con Annie en top, Garen en jungle y Jinx en bottom. El rival tiene a Leona como más fuerte, con Yasuo en mid y Caitlyn en bottom."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 507.0,
+        "dijo": "En mid juegas contra Yasuo, que tiene 7/1/2 y está muerto actualmente."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 407.0,
+        "dijo": "Yasuo del equipo rival está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 271.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 345.0,
+        "dijo": "Vamos en el minuto 12:34."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": true,
+        "ms": 485.0,
+        "dijo": "Leona va más fuerte en el equipo rival con un KDA de 9/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 767.0,
+        "dijo": "Puedes completar Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es la jungla del equipo rival?",
+        "ok": true,
+        "ms": 292.0,
+        "dijo": "Darius es la jungla del equipo rival."
+      },
+      {
+        "q": "como es nuestra composicion?",
+        "ok": true,
+        "ms": 1150.0,
+        "dijo": "Tu equipo tiene a Lux como mage de dano AP en mid, apoyado por Thresh en soporte, con Annie en top, Garen en jungle y Jinx en bottom. El rival tiene a Leona como más fuerte, con Yasuo en mid y Caitlyn en bottom."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 538.0,
+        "dijo": "En mid juegas contra Yasuo, que tiene 10 niveles y 7/1/2 en KDA."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 407.0,
+        "dijo": "Yasuo del equipo rival está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 274.0,
+        "dijo": "Tienes 3500 oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 336.0,
+        "dijo": "Vamos en el minuto 12:34."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": true,
+        "ms": 492.0,
+        "dijo": "Leona va más fuerte en el equipo rival con un KDA de 9/1/2."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 660.0,
+        "dijo": "Velo del hada de la muerte, Llamasombría, Reloj de arena de Zhonya y Sombrero mortal de Rabadon."
+      },
+      {
+        "q": "quien es la jungla del equipo rival?",
+        "ok": true,
+        "ms": 289.0,
+        "dijo": "Darius es la jungla del equipo rival."
+      }
+    ]
+  }
+]

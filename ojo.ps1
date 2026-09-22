@@ -308,6 +308,34 @@ Reglas:
 - "decir" es obligatorio, en espanol, y como maximo dos frases.
 '@
 
+# El de PARTIDA: sin pantalla, sin senalar, y diciendo que significa cada campo.
+#
+# Con el de arriba, a "como es nuestra composicion?" el 8B contesto "Tu equipo
+# lidera en KDA y CS" sin nombrar un solo campeon, teniendo los cinco delante:
+# el prompt le habla de mirar la pantalla y apuntar, y durante la partida no hay
+# ni una cosa ni la otra. Elegido por medida (banco-partida.ps1), no a ojo.
+$SISTEMA_PARTIDA = @'
+Eres el copiloto del usuario en su partida de League of Legends. Cada mensaje
+trae los DATOS DE LA PARTIDA, sacados del propio juego: son exactos. Contestas
+solo con ellos.
+
+Respondes SIEMPRE con un unico objeto JSON, sin texto alrededor:
+{"decir": "<la respuesta, en espanol, como maximo dos frases>"}
+
+Reglas:
+- Nombra campeones e items por su nombre, tal como vienen en los datos.
+- "mi_equipo" es el equipo del usuario y "equipo_rival" el contrario; "soy_yo"
+  marca al usuario. "puesto" es la linea: TOP, JUNGLE (jungla), MIDDLE (mid),
+  BOTTOM (tirador) y UTILITY (soporte).
+- "puedo_completar" dice que item termina el usuario con las piezas que ya
+  lleva y cuanto oro le falta; "puedo_comprar", que items completos le llegan
+  con el oro que tiene.
+- "mas_fuerte_rival" y "mas_fuerte_mi_equipo" ya estan calculados: usalos tal
+  cual, no los deduzcas de los KDA.
+- Si la respuesta no esta en los datos -- por ejemplo, que build conviene en
+  este parche --, dilo en una frase. No lo inventes.
+'@
+
 # Los controles REALES de la ventana activa. Esto es lo que arregla la precision
 # fina: el modelo elige de una lista en vez de adivinar un punto. Medido: Qwen
 # acierta 52,7% en ScreenSpot-Pro; un rectangulo de UIA acierta el 100% porque no
@@ -456,7 +484,7 @@ function Vram-Libre {
     } catch { -1 }
 }
 
-function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria) {
+function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $null) {
     $b64 = if ($imagen) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($imagen)) } else { $null }
     $lista = ''
     if ($controles.Count) {
@@ -469,13 +497,21 @@ function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria) {
         if ($b64) { @{ type = 'image_url'; image_url = @{ url = "data:image/jpeg;base64,$b64" } } }
         @{ type = 'text'; text = ($pregunta + $lista + $memoria) }
     )
+    $sistema = $SISTEMA
+    # En PARTIDA: su propio prompt, y los datos delante de la pregunta. Medido
+    # con banco-partida.ps1 (8 preguntas, respuesta conocida, dos vueltas):
+    # el prompt de pantalla 14/16 en 1.142 ms; este, 16/16 en 535 ms.
+    if ($partida) {
+        $sistema = $SISTEMA_PARTIDA
+        $contenido = "DATOS DE LA PARTIDA:`n$partida`n`nPREGUNTA: $pregunta"
+    }
     $cuerpo = @{
         model = 'x'; stream = $false; max_tokens = 300; temperature = 0.1
         # Sin esto el modelo razona, `content` sale vacio y se agota el limite
         # de tokens pensando. Medido: 4.465 ms y nada, contra 361 ms y respuesta.
         chat_template_kwargs = @{ enable_thinking = $false }
         messages = @(
-            @{ role = 'system'; content = $SISTEMA },
+            @{ role = 'system'; content = $sistema },
             # LA IMAGEN VA PRIMERO, y no es cosmetico. llama.cpp cachea el
             # PREFIJO del prompt: 1.886 ms con imagen nueva contra 158 ms con la
             # caliente. El pre-calentamiento consiste en mandar la captura en
@@ -547,13 +583,30 @@ $viejos | ForEach-Object { $null = $_.WaitForExit(500) }
 # composiciones, exactos y en milisegundos. Adivinarlos desde una captura es
 # mas lento, gasta el mmproj y da respuestas que parecen seguras sin serlo.
 #
-# Se mira el proceso primero: 9 ms, contra los ~2 s que tarda Windows en
-# rechazar una conexion a un puerto local cerrado.
+# Tres puertas, de la mas barata a la mas cara:
+#
+#   1. Get-Process 'League of Legends' (9 ms). SOLO el juego: el cliente
+#      (LeagueClient) NO abre el 2999, y dejarlo pasar costaba ~2 s por
+#      pregunta durante la seleccion de campeon -- lo que tarda Windows en
+#      rechazar una conexion a un puerto local cerrado.
+#   2. lol.ps1 cargado CON PUNTO, en este proceso. Antes era un PowerShell
+#      aparte: ~240 ms de arranque en cada pregunta de la partida.
+#   3. Dentro, un sondeo TCP con tope de 200 ms antes de pedir nada, por si el
+#      juego existe pero aun no ha abierto el puerto (pantalla de carga).
 $partida = $null
 $hayPartida = $false
-if (Get-Process -Name 'League of Legends', 'LeagueClient' -EA SilentlyContinue) {
-    $partida = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\lol.ps1" 2>$null
-    $hayPartida = ($LASTEXITCODE -eq 0) -and $partida
+if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
+    try {
+        . "$Raiz\lol.ps1"
+        $datosLol = Get-LolDatos
+        if ($datosLol) {
+            $catLol = try { Get-DDragon } catch { $null }
+            $partida = Resumir-Partida $datosLol $catLol | ConvertTo-Json -Depth 6 -Compress
+            $hayPartida = $true
+        }
+    } catch {
+        Write-Warning "no pude leer la partida: $_"
+    }
 }
 
 # ---- Captura, ANTES de abrir el overlay ------------------------------------
@@ -616,18 +669,14 @@ try {
     $controles = if ($SinLista -or $hayPartida) { @() } else { Leer-Controles }
     $tu.Stop()
 
+    # En partida no se buscan notas del proyecto: nadie pregunta por el
+    # llama-server a mitad de una teamfight, y son ~110 ms.
     $tm = [Diagnostics.Stopwatch]::StartNew()
-    $mm = Leer-Memoria $Pregunta
+    $mm = if ($hayPartida) { @{ texto = ''; cargadas = @() } } else { Leer-Memoria $Pregunta }
     $tm.Stop()
     $memoria = $mm.texto
 
-    # Los hechos de la partida entran como MEMORIA, que es el mismo canal que ya
-    # usan las notas del proyecto: texto al final del mensaje. Asi no hay una
-    # via nueva que mantener, y el prefijo del prompt -- que es lo que llama.cpp
-    # cachea -- sigue siendo el mismo.
-    if ($hayPartida) {
-        $memoria += "`n`nDATOS EXACTOS DE LA PARTIDA EN CURSO (te los da el propio juego, no los inventes ni los contradigas):`n$partida"
-    } elseif (-not $conVision) {
+    if (-not $hayPartida -and -not $conVision) {
         # Perfil de texto sin partida (Hearthstone, o el cliente de LoL antes de
         # la partida). Sin esto, el prompt de sistema le dice que "mira la
         # pantalla" y el modelo la describe inventandosela.
@@ -636,7 +685,7 @@ try {
 
     Marca 'antes_modelo'
 
-    $r = Preguntar-Modelo $tmp $Pregunta $controles $memoria
+    $r = Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida })
     Marca 'despues_modelo'
     $json = Extraer-Json $r.texto
     if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }

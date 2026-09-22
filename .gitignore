@@ -17,3 +17,6 @@ target/
 
 # Cache de Data Dragon: se rehace sola por parche.
 ddragon/
+
+# Certificados de la partida falsa: se regeneran solos.
+*.pem

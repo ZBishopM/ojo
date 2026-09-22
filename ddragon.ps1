@@ -1,134 +1,226 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
-El catalogo de items de League, cacheado en disco.
+El catalogo de League -- items y clase de cada campeon -- cacheado en disco.
 
-QUE ES: Data Dragon, el CDN publico de Riot. Sin clave, sin limite de peticiones
-documentado, y en espanol:
+QUE ES: Data Dragon, el CDN publico de Riot. Sin clave y en espanol:
 
     https://ddragon.leagueoflegends.com/api/versions.json
     https://ddragon.leagueoflegends.com/cdn/<version>/data/es_ES/item.json
+    https://ddragon.leagueoflegends.com/cdn/<version>/data/es_ES/champion.json
 
-POR QUE SE CACHEA: solo cambia cuando hay parche. Bajarlo en cada pregunta
-seria pagar la red por un dato que lleva dos semanas igual, y la propia
-documentacion de Riot pide cachearlo.
+LA CONSULTA NO TOCA LA RED. Se lee la cache mas reciente que haya en disco. La
+red solo se usa al REFRESCAR (`-Refrescar`), que lo lanza `ojo.ps1` cuando el
+servidor arranca en perfil de partida -- el evento de "empieza a jugar", que ya
+existe --, y no en cada pregunta. La primera version consultaba versions.json
+en cada pregunta: 100-300 ms de red por un dato que cambia cada dos semanas.
 
-QUE **NO** ESTA AQUI, y conviene saberlo antes de buscarlo: la build
-recomendada. El campo `recommended` de cada campeon viene **vacio** -- Riot dejo
-de publicarlo (comprobado el 2026-09-22 con Lux en el parche 16.18.1). Lo que
-se arma cada parche es opinion y cambia, y eso solo sale de la web.
+QUE **NO** ESTA AQUI: la build recomendada. El campo `recommended` de cada
+campeon viene vacio -- Riot dejo de publicarlo (comprobado el 2026-09-22 con
+Lux en el 16.18.1). Lo que conviene armarse cada parche es opinion, y eso solo
+sale de la web.
 
-Lo que si responde este catalogo:
-  - cuanto cuesta un item, y cuanto queda para completarlo
-  - de que piezas se hace y en que se convierte
-  - que puedo permitirme con el oro que llevo
+Lo que si responde:
+  - que items completos me puedo permitir, de los que encajan con mi clase
+  - que item termino con las piezas que ya llevo y el oro que tengo
 
-    .\ddragon.ps1                 asegura la cache y dice que hay
-    .\ddragon.ps1 -Refrescar      la rehace aunque el parche no haya cambiado
-    .\ddragon.ps1 -ComoModulo     no hace nada al cargarse; expone las funciones
+    .\ddragon.ps1                 dice que cache hay
+    .\ddragon.ps1 -Refrescar      mira el parche actual y la rehace si cambio
+    . .\ddragon.ps1               (con punto) solo define las funciones
+
+SIN BLOQUE param(), A PROPOSITO. Un archivo que se carga con punto ejecuta su
+param() en el ambito de QUIEN LO CARGA, y cada parametro pisa la variable del
+mismo nombre de alli. Paso el 2026-09-22: lol.ps1 cargaba este archivo, su
+-ComoModulo ponia el de lol.ps1 a verdadero, y lol.ps1 salia sin hacer nada
+con codigo 0 -- y su prueba "pasaba". Es la sexta vez que esa familia de fallos
+muerde en este proyecto. Sin param() no hay nada que pisar.
 #>
-param(
-    [switch]$Refrescar,
-    [switch]$ComoModulo,
-    [string]$Raiz = 'D:\2026-projects\ojo',
-    [string]$Idioma = 'es_ES'
-)
 $ErrorActionPreference = 'Stop'
 
-$DDragonCache = Join-Path $Raiz 'ddragon'
+$DDragonIdioma = 'es_ES'
+$DDragonCache = Join-Path $PSScriptRoot 'ddragon'
 
-function Get-DDragonParche {
-    (Invoke-RestMethod 'https://ddragon.leagueoflegends.com/api/versions.json' -TimeoutSec 20)[0]
-}
+# PowerShell 5.1 corre sobre un .NET que por defecto solo ofrece SSL3 y TLS 1.0,
+# y el CDN de Riot los rechaza ("Se ha terminado la conexion: Error inesperado
+# de envio"). Solo toca la parte de la red: se anade, no se quita nada.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor
+    [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
-# Se guarda RECORTADO, no el archivo entero.
+# WebClient con UTF-8 EXPLICITO, y no Invoke-RestMethod.
 #
-# item.json pesa ~1 MB y trae descripciones en HTML, rutas de icono y bloques de
-# estadisticas que aqui no sirven para nada. Lo que hace falta cabe en una
-# decima parte, y lo que no se guarda no hay que filtrarlo en cada consulta.
-#
-# Solo el mapa 11 (la Grieta del Invocador): los items de ARAM y Arena
-# confundirian una respuesta sobre una partida normal.
-function Build-DDragonCache($parche) {
-    $url = "https://ddragon.leagueoflegends.com/cdn/$parche/data/$Idioma/item.json"
-    # WebClient con UTF-8 EXPLICITO, y no Invoke-RestMethod.
-    #
-    # En PowerShell 5.1, Invoke-RestMethod decodifica el cuerpo con el charset
-    # de la cabecera Content-Type, y si no viene -- que es el caso de este CDN
-    # -- cae en ISO-8859-1. Resultado: "Espada del guardian" salia como
-    # "Espada del guardiAn" y asi se guardaba en la cache. El catalogo esta en
-    # espanol, o sea que esto toca a la mitad de los nombres.
-    #
-    # Esto funciona igual en 5.1 y en 7, que es lo que hace falta: `ojo.ps1`
-    # corre en 5.1 y el resto del rice en 7.
+# En PowerShell 5.1, Invoke-RestMethod decodifica con el charset de la cabecera
+# Content-Type, y este CDN no lo manda: cae en ISO-8859-1 y "Espada del
+# guardian" se guardaba como "Espada del guardiAn". Esto va igual en 5.1 y 7.
+function Bajar-Json($url) {
     $wc = New-Object Net.WebClient
     $wc.Encoding = [Text.Encoding]::UTF8
-    try { $crudo = $wc.DownloadString($url) | ConvertFrom-Json } finally { $wc.Dispose() }
+    try { $wc.DownloadString($url) | ConvertFrom-Json } finally { $wc.Dispose() }
+}
 
+function Guardar($ruta, $obj) {
+    [IO.File]::WriteAllText($ruta, ($obj | ConvertTo-Json -Depth 6 -Compress), [Text.UTF8Encoding]::new($false))
+}
+
+# Se guarda RECORTADO: item.json pesa ~1 MB con HTML, iconos y estadisticas que
+# aqui no sirven. Solo el mapa 11 (la Grieta): los items de ARAM y Arena
+# confundirian una respuesta sobre una partida normal.
+function Build-DDragonCache($parche) {
+    $crudo = Bajar-Json "https://ddragon.leagueoflegends.com/cdn/$parche/data/$DDragonIdioma/item.json"
     $items = @{}
     foreach ($p in $crudo.data.PSObject.Properties) {
         $i = $p.Value
         if (-not $i.maps.'11') { continue }
         $items[$p.Name] = [ordered]@{
-            nombre     = $i.name
-            total      = [int]$i.gold.total
-            base       = [int]$i.gold.base
-            comprable  = [bool]$i.gold.purchasable
-            tags       = @($i.tags   | Where-Object { $_ })
-            # `| Where-Object { $_ }` Y NO `@($i.into)` a secas.
-            #
-            # En PowerShell `@($null)` NO es un array vacio: es un array de UN
-            # elemento nulo, con Count = 1. Un item sin `into` -- o sea, un item
-            # COMPLETO, que es justo el que queremos proponer -- pasaba a
-            # parecer que sube a algo, y el filtro los descartaba todos. La
-            # lista de asequibles salia vacia siempre.
-            de         = @($i.from   | Where-Object { $_ })   # las piezas que lo forman
-            sube_a     = @($i.into   | Where-Object { $_ })   # en que se convierte
+            nombre    = $i.name
+            total     = [int]$i.gold.total
+            comprable = [bool]$i.gold.purchasable
+            # `| Where-Object { $_ }` y NO `@($i.into)`: en PowerShell `@($null)`
+            # es un array de UN elemento nulo, Count = 1. Un item completo -- sin
+            # `into` -- parecia subir a algo y el filtro los descartaba todos.
+            tags      = @($i.tags | Where-Object { $_ })
+            de        = @($i.from | Where-Object { $_ })   # sus piezas
+            sube_a    = @($i.into | Where-Object { $_ })   # en que se convierte
+            # Lo que el item DA de verdad. Las etiquetas de Riot no son fiables
+            # (comprobado): Bandlemusa lleva `AttackSpeed` y no da velocidad de
+            # ataque; el Elixir de colera lleva `Damage` y es un consumible.
+            ap        = [bool]($i.stats.FlatMagicDamageMod -gt 0)
+            ad        = [bool]($i.stats.FlatPhysicalDamageMod -gt 0 -or $i.stats.FlatCritChanceMod -gt 0 -or $i.stats.PercentAttackSpeedMod -gt 0)
+            defensa   = [bool]($i.stats.FlatHPPoolMod -gt 0 -or $i.stats.FlatArmorMod -gt 0 -or $i.stats.FlatSpellBlockMod -gt 0)
+            # Lo que distingue a un tirador de un luchador: critico o velocidad.
+            tirador   = [bool]($i.stats.FlatCritChanceMod -gt 0 -or $i.stats.PercentAttackSpeedMod -gt 0)
         }
     }
-
+    $campeones = @{}
+    $c = Bajar-Json "https://ddragon.leagueoflegends.com/cdn/$parche/data/$DDragonIdioma/champion.json"
+    foreach ($p in $c.data.PSObject.Properties) {
+        # La clave es el id interno ("MonkeyKing"), que es lo que trae la API de
+        # la partida en `rawChampionName`; el nombre visible va aparte.
+        $campeones[$p.Name] = [ordered]@{
+            nombre = $p.Value.name; tags = @($p.Value.tags)
+            # Valoraciones de Riot de 1 a 10. Dicen si pega con dano fisico o
+            # magico mejor que la etiqueta: Katarina es "Assassin" y es de AP.
+            ataque = [int]$p.Value.info.attack; magia = [int]$p.Value.info.magic
+        }
+    }
     $destino = Join-Path $DDragonCache $parche
     New-Item -ItemType Directory -Force -Path $destino | Out-Null
-    $salida = Join-Path $destino 'items.json'
-    [IO.File]::WriteAllText($salida,
-        ($items | ConvertTo-Json -Depth 6 -Compress),
-        [Text.UTF8Encoding]::new($false))
-    $salida
+    Guardar (Join-Path $destino 'items.json') $items
+    Guardar (Join-Path $destino 'campeones-v4.json') $campeones
+    $destino
 }
 
-function Get-DDragonItems {
-    param([switch]$Forzar)
-    $parche = Get-DDragonParche
-    $ruta = Join-Path (Join-Path $DDragonCache $parche) 'items.json'
-    if ($Forzar -or -not (Test-Path $ruta)) { $ruta = Build-DDragonCache $parche }
-    $obj = [IO.File]::ReadAllText($ruta, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
-    @{ parche = $parche; ruta = $ruta; items = $obj }
+function Leer-Cache($dir) {
+    $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones-v4.json') }
 }
 
-# Que items COMPLETOS me puedo permitir ahora mismo.
+# La cache mas reciente en disco, SIN red. Solo si no hay ninguna se baja, que
+# pasa una vez en la vida del equipo.
+function Get-DDragon {
+    $dirs = @(Get-ChildItem $DDragonCache -Directory -EA SilentlyContinue |
+              Where-Object { Test-Path (Join-Path $_.FullName 'campeones-v4.json') } |
+              Sort-Object { [version]($_.Name -replace '[^\d.]', '') } -Descending)
+    if ($dirs.Count) { return Leer-Cache $dirs[0].FullName }
+    Update-DDragon
+}
+
+# Con red: el parche actual, y la cache se rehace solo si cambio.
+function Update-DDragon {
+    $parche = (Invoke-RestMethod 'https://ddragon.leagueoflegends.com/api/versions.json' -TimeoutSec 20)[0]
+    $dir = Join-Path $DDragonCache $parche
+    if (-not (Test-Path (Join-Path $dir 'campeones-v4.json'))) { $dir = Build-DDragonCache $parche }
+    Leer-Cache $dir
+}
+
+# Que items encajan con un campeon: su ROL y su tipo de DANO.
 #
-# "Completo" = no sube a nada (`sube_a` vacio). Sin ese filtro la lista se llena
-# de componentes de 400 de oro y no dice nada util: nadie pregunta si puede
-# permitirse una capa de nulidad.
+# Por que las dos cosas. La primera version miraba solo la primera etiqueta
+# del campeon y aceptaba cualquier item que compartiera una etiqueta con ella.
+# A Lux se le colaron items de tanque ("Llegada del invierno", "Convergencia de
+# Zeke") porque llevan `Mana`, que parecia de mago; y antes aun, sin filtro, se
+# le propusieron Grebas de metal y el modelo dijo que "mejoran tu dano".
 #
-# `$yaLlevo` son los NOMBRES de los items que ya tienes, para no proponerte lo
-# que ya tienes puesto.
-function Get-DDragonAsequibles($items, $oro, $yaLlevo = @(), $cuantos = 8) {
-    $r = foreach ($p in $items.PSObject.Properties) {
+# Ahora: un tanque o un soporte compra defensa y utilidad. Cualquier otro -- el
+# que tiene que pegar -- necesita su tipo de dano. El del CAMPEON sale de las
+# valoraciones de Riot (Katarina, Akali y Diana salen de magia; Ezreal y Kai'Sa,
+# de fisico). El del ITEM sale de sus ESTADISTICAS, no de sus etiquetas, porque
+# las etiquetas mienten (ver Build-DDragonCache). Es una aproximacion, no una
+# build: lo que conviene cada parche es opinion y sale de la web.
+$DDRAGON_APOYO = @('Aura', 'Active', 'ManaRegen')
+
+function Get-DDragonPerfil($cat, $campeonId) {
+    $c = $cat.campeones.$campeonId
+    if (-not $c) { return $null }
+    @{
+        rol  = @($c.tags)[0]
+        dano = if ($c.magia -gt $c.ataque) { 'AP' } else { 'AD' }
+    }
+}
+
+function Test-DDragonEncaja($item, $perfil) {
+    if (-not $perfil) { return $true }
+    if ($perfil.rol -in 'Tank', 'Support') {
+        return $item.defensa -or [bool](@($item.tags) | Where-Object { $DDRAGON_APOYO -contains $_ })
+    }
+    if ($perfil.dano -eq 'AP') { return $item.ap }
+    # Un tirador AD vive de critico y velocidad de ataque; sin esto a Jinx le
+    # salian Hidra titanica y Baile de la muerte, que son de luchador.
+    if ($perfil.rol -eq 'Marksman') { return $item.tirador }
+    $item.ad
+}
+
+# Items COMPLETOS (no suben a nada) que me puedo permitir y que encajan con mi
+# clase. `$yaLlevo` son itemIDs, para no proponer lo que ya tienes.
+function Get-DDragonAsequibles($cat, $oro, $yaLlevo = @(), $clase = $null, $cuantos = 6) {
+    $r = foreach ($p in $cat.items.PSObject.Properties) {
         $i = $p.Value
         if (-not $i.comprable) { continue }
-        # El mismo cuidado con los nulos que al construir la cache: despues de
-        # pasar por JSON un array vacio puede volver como un nulo suelto.
+        # Completo = no sube a nada Y TIENE RECETA. Sin lo segundo se colaban
+        # los items de inicio (Espada del guardian), consumibles y abalorios,
+        # que tampoco suben a nada.
         if (@($i.sube_a | Where-Object { $_ }).Count) { continue }
+        if (-not @($i.de | Where-Object { $_ }).Count) { continue }
         if ($i.total -le 0 -or $i.total -gt $oro) { continue }
-        if ($yaLlevo -contains $i.nombre) { continue }
-        [pscustomobject]@{ nombre = $i.nombre; precio = $i.total; tags = ($i.tags -join ',') }
+        if ($yaLlevo -contains $p.Name) { continue }
+        if (-not (Test-DDragonEncaja $i $clase)) { continue }
+        [pscustomobject]@{ id = $p.Name; nombre = $i.nombre; precio = $i.total }
     }
-    @($r | Sort-Object precio -Descending | Select-Object -First $cuantos)
+    # Sin duplicados: Data Dragon tiene varios IDs con el MISMO nombre, y salia
+    # "Mandato imperial" dos veces. Y con desempate por nombre, para que 5.1 y 7
+    # den la misma lista: el orden de las propiedades del JSON no es el mismo.
+    @($r | Sort-Object @{ e = 'precio'; Descending = $true }, nombre |
+        Group-Object nombre | ForEach-Object { $_.Group[0] } |
+        Sort-Object @{ e = 'precio'; Descending = $true }, nombre |
+        Select-Object -First $cuantos)
 }
 
-if ($ComoModulo) { return }
+# Que item TERMINO con las piezas que ya llevo.
+#
+# Es la pregunta util a mitad de partida -- "vuelvo a base, que me hago?" -- y
+# se contesta exacto: lo que falta es el precio total menos el de las piezas
+# que ya tienes y que forman parte de la receta. Cada pieza cuenta una vez: si
+# la receta pide dos Varas y llevas una, solo se descuenta una.
+function Get-DDragonCompletables($cat, $misIds, $oro, $clase = $null) {
+    $candidatos = @{}
+    foreach ($id in $misIds) {
+        foreach ($destino in @($cat.items.$id.sube_a)) { if ($destino) { $candidatos[$destino] = $true } }
+    }
+    $r = foreach ($dest in $candidatos.Keys) {
+        $d = $cat.items.$dest
+        if (-not $d -or -not $d.comprable) { continue }
+        if (-not (Test-DDragonEncaja $d $clase)) { continue }
+        $bolsa = [Collections.Generic.List[string]]@($misIds)
+        $descuento = 0
+        foreach ($pieza in @($d.de)) {
+            if ($bolsa.Remove([string]$pieza)) { $descuento += [int]$cat.items.$pieza.total }
+        }
+        $falta = $d.total - $descuento
+        [pscustomobject]@{ id = $dest; nombre = $d.nombre; falta = $falta; me_llega = ($falta -le $oro) }
+    }
+    @($r | Sort-Object @{ e = 'me_llega'; Descending = $true }, falta)
+}
 
-$c = Get-DDragonItems -Forzar:$Refrescar
-$n = @($c.items.PSObject.Properties).Count
-"parche $($c.parche): $n items de la Grieta en cache"
-"   $($c.ruta)  ($([int]((Get-Item $c.ruta).Length/1KB)) KB)"
+# Cargado con punto: solo las funciones.
+if ($MyInvocation.InvocationName -eq '.') { return }
+
+$c = if ($args -contains '-Refrescar') { Update-DDragon } else { Get-DDragon }
+"parche $($c.parche): $(@($c.items.PSObject.Properties).Count) items de la Grieta, $(@($c.campeones.PSObject.Properties).Count) campeones"
