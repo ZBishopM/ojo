@@ -57,7 +57,21 @@ if ($SoloTexto) { $texto; exit 0 }
 $t0 = Get-Date
 
 # `ojo.ps1` hace el resto: captura, controles de UIA, memorias y dibujo.
-$salida = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\ojo.ps1" $texto -Segundos $Segundos -Modelo $Modelo 2>&1 | Out-String
+#
+# EN ESTE MISMO PROCESO, no en uno nuevo. Antes se lanzaba otro PowerShell, y
+# cada pregunta pagaba dos arranques: este (lo lanza el atajo) y el de
+# ojo.ps1. `ojo.ps1` no tiene ningun `exit`, asi que puede correr aqui sin
+# llevarse este script por delante; sus errores se recogen en el catch.
+#
+# -Modelo solo si se pidio a mano: el modelo lo decide el servidor que haya
+# puesto (ojo.ps1 se lo pregunta a /props).
+$argsOjo = @{ Pregunta = $texto; Segundos = $Segundos }
+if ($PSBoundParameters.ContainsKey('Modelo')) { $argsOjo.Modelo = $Modelo }
+try {
+    $salida = & "$Raiz\ojo.ps1" @argsOjo *>&1 | Out-String
+} catch {
+    $salida = "ojo.ps1 fallo: $_"
+}
 $salida | Add-Content $log -Encoding utf8
 
 # Una fila por frase, con TODAS las etapas juntas. Antes los tiempos del oido

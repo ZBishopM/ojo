@@ -125,7 +125,12 @@ OjoParar() {
     ; El /parar y todo lo que viene detras -- transcribir, capturar, preguntar
     ; al modelo -- se hace FUERA de aqui. Bloquear el bucle de mensajes de AHK
     ; mientras el modelo piensa dejaria el teclado sordo varios segundos.
-    Run('pwsh -NoProfile -WindowStyle Hidden -File "' . OjoRaiz . '\hablar.ps1"', , 'Hide')
+    ;
+    ; `powershell` (5.1) y no `pwsh` (7): hablar.ps1 ejecuta ojo.ps1 DENTRO de
+    ; su propio proceso, y ojo.ps1 esta hecho para 5.1. Medido el 2026-09-22,
+    ; de soltar a dibujo, mediana de 10: dos procesos 2.614 ms, uno en 7
+    ; 2.312, uno en 5.1 2.091. 5.1 arranca en 165 ms; 7 en 289.
+    Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' . OjoRaiz . '\hablar.ps1"', , 'Hide')
 }
 
 ; ------------------------------------------------------------

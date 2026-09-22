@@ -156,5 +156,321 @@
         "fuera": 519
       }
     ]
+  },
+  {
+    "nombre": "fase2-q6",
+    "n": 10,
+    "total": 2280,
+    "modelo": 1549,
+    "fuera": 483,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2276,
+        "modelo": 1492,
+        "etapas": 1786,
+        "fuera": 490
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2280,
+        "modelo": 1549,
+        "etapas": 1797,
+        "fuera": 483
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 2996,
+        "modelo": 2254,
+        "etapas": 2512,
+        "fuera": 484
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1776,
+        "modelo": 1063,
+        "etapas": 1297,
+        "fuera": 479
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2819,
+        "modelo": 2106,
+        "etapas": 2330,
+        "fuera": 489
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 1746,
+        "modelo": 1036,
+        "etapas": 1263,
+        "fuera": 483
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2241,
+        "modelo": 1548,
+        "etapas": 1775,
+        "fuera": 466
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3175,
+        "modelo": 2438,
+        "etapas": 2694,
+        "fuera": 481
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1759,
+        "modelo": 1062,
+        "etapas": 1286,
+        "fuera": 473
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2825,
+        "modelo": 2113,
+        "etapas": 2349,
+        "fuera": 476
+      }
+    ]
+  },
+  {
+    "nombre": "hablar-dos-procesos",
+    "n": 10,
+    "total": 2614,
+    "modelo": 1554,
+    "fuera": 843,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2160,
+        "modelo": 1045,
+        "etapas": 1273,
+        "fuera": 887
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2628,
+        "modelo": 1564,
+        "etapas": 1793,
+        "fuera": 835
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3399,
+        "modelo": 2297,
+        "etapas": 2554,
+        "fuera": 845
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 2198,
+        "modelo": 1134,
+        "etapas": 1359,
+        "fuera": 839
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 3190,
+        "modelo": 2114,
+        "etapas": 2344,
+        "fuera": 846
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2123,
+        "modelo": 1040,
+        "etapas": 1271,
+        "fuera": 852
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2614,
+        "modelo": 1554,
+        "etapas": 1779,
+        "fuera": 835
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3371,
+        "modelo": 2262,
+        "etapas": 2528,
+        "fuera": 843
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1577,
+        "modelo": 512,
+        "etapas": 740,
+        "fuera": 837
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2411,
+        "modelo": 1344,
+        "etapas": 1575,
+        "fuera": 836
+      }
+    ]
+  },
+  {
+    "nombre": "hablar-un-proceso-5.1",
+    "n": 10,
+    "total": 2091,
+    "modelo": 1330,
+    "fuera": 506,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2091,
+        "modelo": 1330,
+        "etapas": 1554,
+        "fuera": 537
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2305,
+        "modelo": 1561,
+        "etapas": 1794,
+        "fuera": 511
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3039,
+        "modelo": 2280,
+        "etapas": 2555,
+        "fuera": 484
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1833,
+        "modelo": 1087,
+        "etapas": 1314,
+        "fuera": 519
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 1306,
+        "modelo": 588,
+        "etapas": 810,
+        "fuera": 496
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 1844,
+        "modelo": 1109,
+        "etapas": 1340,
+        "fuera": 504
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2271,
+        "modelo": 1552,
+        "etapas": 1771,
+        "fuera": 500
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3134,
+        "modelo": 2387,
+        "etapas": 2662,
+        "fuera": 472
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1795,
+        "modelo": 1070,
+        "etapas": 1289,
+        "fuera": 506
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 1863,
+        "modelo": 1132,
+        "etapas": 1352,
+        "fuera": 511
+      }
+    ]
+  },
+  {
+    "nombre": "hablar-un-proceso-7",
+    "n": 10,
+    "total": 2312,
+    "modelo": 1556.0,
+    "fuera": 548,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 1928,
+        "modelo": 1054.0,
+        "etapas": 1291,
+        "fuera": 637
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2328,
+        "modelo": 1559.0,
+        "etapas": 1780,
+        "fuera": 548
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3059,
+        "modelo": 2292.0,
+        "etapas": 2526,
+        "fuera": 533
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1941,
+        "modelo": 1169.0,
+        "etapas": 1384,
+        "fuera": 557
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2889,
+        "modelo": 2119.0,
+        "etapas": 2338,
+        "fuera": 551
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 1896,
+        "modelo": 1131.0,
+        "etapas": 1348,
+        "fuera": 548
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 2312,
+        "modelo": 1556.0,
+        "etapas": 1765,
+        "fuera": 547
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3082,
+        "modelo": 2317.0,
+        "etapas": 2550,
+        "fuera": 532
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 1852,
+        "modelo": 1082.0,
+        "etapas": 1303,
+        "fuera": 549
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 1909,
+        "modelo": 1148.0,
+        "etapas": 1362,
+        "fuera": 547
+      }
+    ]
   }
 ]
