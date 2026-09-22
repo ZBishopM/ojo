@@ -64,6 +64,19 @@ $CONFIG = @{
         extra = @()
         pensar = $false
     }
+    # Para decidir la cuantizacion del 8B de Ojo (2026-09-22). Las dos con KV
+    # q8_0, que es como corre ahora: asi lo unico que cambia entre ellas son
+    # los pesos.
+    '8b-kv8' = @{
+        gguf  = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q8_0.gguf'
+        extra = @('-ctk', 'q8_0', '-ctv', 'q8_0')
+        pensar = $false
+    }
+    '8b-q6' = @{
+        gguf  = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q6_K.gguf'
+        extra = @('-ctk', 'q8_0', '-ctv', 'q8_0')
+        pensar = $false
+    }
     'bonsai' = @{
         gguf  = 'F:\ai\models\bonsai-2-27b\Ternary-Bonsai-2-27B-PQ2_0.gguf'
         exe   = 'F:\ai\llama.cpp-prism\llama-server.exe'

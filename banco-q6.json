@@ -1,0 +1,234 @@
+{
+  "8b-kv8": {
+    "carga_s": 3.2,
+    "ram_mb": 1098,
+    "vram_mib": 11098,
+    "pruebas": {
+      "regex": {
+        "aciertos": "0/1",
+        "ms": 705,
+        "tok_s": 50.7,
+        "detalle": "fallo en 'version: 0.4.1-dev (build 11056, commit e613ef2c8)' -> ''"
+      },
+      "codigo": {
+        "aciertos": "1/1",
+        "ms": 2271,
+        "tok_s": 50.3,
+        "detalle": "imprimio '1060', esperado 1060"
+      },
+      "json": {
+        "aciertos": "1/1",
+        "ms": 1162,
+        "tok_s": 50.7,
+        "detalle": "las cuatro claves correctas"
+      },
+      "extraccion": {
+        "aciertos": "1/1",
+        "ms": 540,
+        "tok_s": 43.3,
+        "detalle": "dijo '32', esperado 32"
+      },
+      "espanol": {
+        "aciertos": "1/1",
+        "ms": 1562,
+        "tok_s": 50.9,
+        "detalle": "3 lineas, 0 con vineta, espanol=True"
+      },
+      "contexto_largo": {
+        "aciertos": "0/1",
+        "ms": 6828,
+        "tok_s": 37.2,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22153 tokens)"
+      },
+      "contexto_largo2": {
+        "aciertos": "1/1",
+        "ms": 6915,
+        "tok_s": 38.7,
+        "detalle": "dijo 'WDA_EXCLUDEFROMCAPTURE' (entrada: 22164 tokens)"
+      },
+      "d_corto": {
+        "aciertos": "1/1",
+        "ms": 149,
+        "tok_s": 49.2,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 256 tokens)"
+      },
+      "d_largo": {
+        "aciertos": "0/1",
+        "ms": 6813,
+        "tok_s": 37.9,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22144 tokens)"
+      },
+      "d_curado": {
+        "aciertos": "1/1",
+        "ms": 7812,
+        "tok_s": 33.4,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 24186 tokens)"
+      },
+      "d_invertido": {
+        "aciertos": "1/1",
+        "ms": 6791,
+        "tok_s": 38.8,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 22139 tokens)"
+      },
+      "d_orden": {
+        "aciertos": "0/1",
+        "ms": 6848,
+        "tok_s": 37.6,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22143 tokens)"
+      },
+      "d_conflicto": {
+        "aciertos": "0/1",
+        "ms": 6745,
+        "tok_s": 37.0,
+        "detalle": "dijo '24', esperado 18 (entrada: 22138 tokens)"
+      },
+      "d_conflicto_cur": {
+        "aciertos": "0/1",
+        "ms": 1386,
+        "tok_s": 38.1,
+        "detalle": "dijo '24', esperado 18 (entrada: 19766 tokens)"
+      },
+      "d_patron2": {
+        "aciertos": "1/1",
+        "ms": 6730,
+        "tok_s": 36.5,
+        "detalle": "dijo '4', esperado 4"
+      },
+      "d_patron3": {
+        "aciertos": "1/1",
+        "ms": 6885,
+        "tok_s": 38.9,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 22144 tokens)"
+      },
+      "hechos": {
+        "aciertos": "1/1",
+        "ms": 175,
+        "tok_s": 50.3,
+        "detalle": "10/10"
+      },
+      "velocidad": {
+        "aciertos": "1/1",
+        "ms": 11434,
+        "tok_s": 50.3,
+        "detalle": "574 tokens a 50.3 tok/s"
+      }
+    },
+    "ram_mb_final": 1412
+  },
+  "8b-q6": {
+    "carga_s": 4.1,
+    "ram_mb": 954,
+    "vram_mib": 9362,
+    "pruebas": {
+      "regex": {
+        "aciertos": "0/1",
+        "ms": 589,
+        "tok_s": 61.0,
+        "detalle": "fallo en 'version: 0.4.1-dev (build 11056, commit e613ef2c8)' -> '-dev'"
+      },
+      "codigo": {
+        "aciertos": "1/1",
+        "ms": 1845,
+        "tok_s": 62.0,
+        "detalle": "imprimio '1060', esperado 1060"
+      },
+      "json": {
+        "aciertos": "1/1",
+        "ms": 951,
+        "tok_s": 63.0,
+        "detalle": "las cuatro claves correctas"
+      },
+      "extraccion": {
+        "aciertos": "1/1",
+        "ms": 605,
+        "tok_s": 50.9,
+        "detalle": "dijo '32', esperado 32"
+      },
+      "espanol": {
+        "aciertos": "1/1",
+        "ms": 1497,
+        "tok_s": 63.1,
+        "detalle": "3 lineas, 0 con vineta, espanol=True"
+      },
+      "contexto_largo": {
+        "aciertos": "0/1",
+        "ms": 7506,
+        "tok_s": 43.5,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22153 tokens)"
+      },
+      "contexto_largo2": {
+        "aciertos": "1/1",
+        "ms": 7596,
+        "tok_s": 41.9,
+        "detalle": "dijo 'WDA_EXCLUDEFROMCAPTURE' (entrada: 22164 tokens)"
+      },
+      "d_corto": {
+        "aciertos": "1/1",
+        "ms": 138,
+        "tok_s": 58.9,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 256 tokens)"
+      },
+      "d_largo": {
+        "aciertos": "0/1",
+        "ms": 7533,
+        "tok_s": 44.1,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22144 tokens)"
+      },
+      "d_curado": {
+        "aciertos": "1/1",
+        "ms": 8471,
+        "tok_s": 44.3,
+        "detalle": "dijo '8192', esperado 8192 (entrada: 24186 tokens)"
+      },
+      "d_invertido": {
+        "aciertos": "1/1",
+        "ms": 7480,
+        "tok_s": 43.4,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 22139 tokens)"
+      },
+      "d_orden": {
+        "aciertos": "0/1",
+        "ms": 7480,
+        "tok_s": 45.2,
+        "detalle": "dijo '1024', esperado 8192 (entrada: 22143 tokens)"
+      },
+      "d_conflicto": {
+        "aciertos": "0/1",
+        "ms": 7498,
+        "tok_s": 43.0,
+        "detalle": "dijo '24', esperado 18 (entrada: 22138 tokens)"
+      },
+      "d_conflicto_cur": {
+        "aciertos": "0/1",
+        "ms": 1476,
+        "tok_s": 44.0,
+        "detalle": "dijo '24', esperado 18 (entrada: 19766 tokens)"
+      },
+      "d_patron2": {
+        "aciertos": "1/1",
+        "ms": 7405,
+        "tok_s": 40.4,
+        "detalle": "dijo '4', esperado 4"
+      },
+      "d_patron3": {
+        "aciertos": "1/1",
+        "ms": 7571,
+        "tok_s": 41.6,
+        "detalle": "dijo '1024', esperado 1024 (entrada: 22144 tokens)"
+      },
+      "hechos": {
+        "aciertos": "1/1",
+        "ms": 159,
+        "tok_s": 55.9,
+        "detalle": "10/10"
+      },
+      "velocidad": {
+        "aciertos": "1/1",
+        "ms": 9617,
+        "tok_s": 62.5,
+        "detalle": "600 tokens a 62.5 tok/s"
+      }
+    },
+    "ram_mb_final": 1272
+  }
+}

@@ -106,8 +106,23 @@ $MODELOS = @{
     #
     # `--image-max-tokens 1024` se probo y no cambia nada: el bufer lo fija el
     # calentamiento, no el tope.
+    #
+    # PESOS Q6_K Y NO Q8_0 (2026-09-22), comparados con las dos cosas iguales
+    # (KV q8_0, sin calentamiento):
+    #
+    #                        Q8_0      Q6_K
+    #   VRAM total          10.061    8.279 MiB
+    #   genera               50,3      62,5 tok/s   (menos bytes que mover)
+    #   banco de texto       12/18     12/18        mismas pruebas, mismos fallos
+    #   banco de vision      4/5 2/6   4/5 3/6      leer / senalar
+    #   prefill de 22k       6,8 s     7,5 s        el unico que pierde; Ojo usa 1-3k
+    #
+    # Con esto quedan ~2.700 MiB libres con el escritorio normal, y el desalojo
+    # que hundia el modelo a 4 tok/s necesita que otro proceso tome todo eso.
+    # El mmproj se queda en F16: el Q8_0 ahorraria 367 MiB mas, pero es la
+    # parte mas sensible de la vision y el margen ya sobra.
     '8b'  = @{
-        gguf   = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q8_0.gguf'
+        gguf   = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q6_K.gguf'
         mmproj = 'F:\ai\models\qwen3-vl-8b\mmproj-F16.gguf'
         extra  = @('-ctk', 'q8_0', '-ctv', 'q8_0', '--no-warmup')
     }
@@ -163,9 +178,20 @@ foreach ($f in @($captura, $overlay, $uia, $llama, $rutaModelo, $mmproj | Where-
     if (-not (Test-Path $f)) { throw "falta $f" }
 }
 
+# Vivo = contesta /props, y de paso se guarda LO QUE ES: que modelo hay puesto
+# y si ve imagenes.
+#
+# POR QUE NO BASTA CON /health: el modelo que corre no tiene por que ser el que
+# pide `-Modelo`. El supervisor pone el de TEXTO cuando hay un juego abierto, y
+# ojo.ps1 seguia creyendo que hablaba con el 8B: mandaba la captura a un
+# servidor sin mmproj (error) y anotaba `8b` en el CSV aunque contestara el 4B.
+# El servidor sabe lo que es; se le pregunta.
+$SERVIDOR = $null
 function Servidor-Vivo {
-    try { (Invoke-RestMethod "http://127.0.0.1:$Puerto/health" -TimeoutSec 2).status -eq 'ok' }
-    catch { $false }
+    try {
+        $script:SERVIDOR = Invoke-RestMethod "http://127.0.0.1:$Puerto/props" -TimeoutSec 2
+        [bool]$script:SERVIDOR.model_path
+    } catch { $script:SERVIDOR = $null; $false }
 }
 
 function Levantar-Servidor {
@@ -449,7 +475,12 @@ function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria) {
     $r = Invoke-RestMethod "http://127.0.0.1:$Puerto/v1/chat/completions" -Method Post `
         -Body $bytes -ContentType 'application/json; charset=utf-8' -TimeoutSec 300
     $sw.Stop()
-    @{ ms = [math]::Round($sw.Elapsed.TotalMilliseconds); texto = $r.choices[0].message.content }
+    # `timings` viene gratis en cada respuesta de llama-server. tok/s es el
+    # SINTOMA directo de que el modelo ha sido desalojado de la VRAM (de ~50 a
+    # ~5), y prompt_n dice cuanto contexto se gasto de verdad.
+    @{ ms = [math]::Round($sw.Elapsed.TotalMilliseconds); texto = $r.choices[0].message.content
+       tok_s = [math]::Round([double]$r.timings.predicted_per_second, 1)
+       prompt_n = [int]$r.timings.prompt_n }
 }
 
 # Los modelos envuelven el JSON en ```json pase lo que pase en el prompt, y a
@@ -515,7 +546,10 @@ if (Get-Process -Name 'League of Legends', 'LeagueClient' -EA SilentlyContinue) 
 # anti-cheat. Capturar primero no necesita ninguna de las dos cosas.
 $tmp = $null
 $tc = [Diagnostics.Stopwatch]::StartNew()
-if (-not $hayPartida) {
+# Sin vision no hay captura: mandarle una imagen a un servidor sin mmproj es un
+# error seguro, y adivinar la pantalla sin verla seria inventar.
+$conVision = [bool]$SERVIDOR.modalities.vision
+if (-not $hayPartida -and $conVision) {
     $tmp = Join-Path $env:TEMP 'ojo.jpg'
     & $captura --salida $tmp | Out-Null
 }
@@ -569,17 +603,13 @@ try {
     # cachea -- sigue siendo el mismo.
     if ($hayPartida) {
         $memoria += "`n`nDATOS EXACTOS DE LA PARTIDA EN CURSO (te los da el propio juego, no los inventes ni los contradigas):`n$partida"
+    } elseif (-not $conVision) {
+        # Perfil de texto sin partida (Hearthstone, o el cliente de LoL antes de
+        # la partida). Sin esto, el prompt de sistema le dice que "mira la
+        # pantalla" y el modelo la describe inventandosela.
+        $memoria += "`n`nAHORA NO VES LA PANTALLA: no hay imagen. No describas lo que no ves; si la pregunta necesita verla, dilo en una frase."
     }
 
-    # JUSTO ANTES de preguntar, que es cuando la falta de VRAM hace dano. Leerlo
-    # despues no vale: para entonces el servidor ya pago el derrame.
-    $vramLibre = Vram-Libre
-    # 300 MiB: por debajo de eso el derrame ya se midio. No se aborta -- una
-    # respuesta lenta sigue siendo una respuesta -- pero queda dicho en el log,
-    # que es donde se mira cuando una tanda sale rara.
-    if ($vramLibre -ge 0 -and $vramLibre -lt 300) {
-        Write-Host "AVISO: solo $vramLibre MiB de VRAM libres. Algo mas esta usando la tarjeta; la respuesta va a ir lenta." -ForegroundColor Yellow
-    }
     Marca 'antes_modelo'
 
     $r = Preguntar-Modelo $tmp $Pregunta $controles $memoria
@@ -657,6 +687,19 @@ try {
     $tDibujo = Get-Date
     Marca 'dibujo'
 
+    # DESPUES de dibujar, fuera del camino que espera el usuario: nvidia-smi son
+    # 49 ms por pregunta. La VRAM libre no cambia en los dos segundos que tarda
+    # el modelo, asi que leerla ahora cuenta lo mismo.
+    $vramLibre = Vram-Libre
+
+    # El aviso mira el SINTOMA, no la causa. Un umbral de VRAM libre no sirve:
+    # con el escritorio normal ya hay menos de 300 MiB libres y el modelo va
+    # bien, asi que saltaria siempre. Lo que delata el desalojo es la velocidad:
+    # medido, de ~50 a 4-7 tok/s. Por debajo de 25 algo esta robando VRAM.
+    if ($r.tok_s -gt 0 -and $r.tok_s -lt 25) {
+        Write-Host "AVISO: el modelo genero a $($r.tok_s) tok/s (normal: ~50-60). Algo esta usando la tarjeta y Windows lo ha desalojado de la VRAM; libres ahora: $vramLibre MiB." -ForegroundColor Yellow
+    }
+
     # Linea legible por maquina, para que `hablar.ps1` pueda juntar estos
     # tiempos con los suyos (oido y STT) en una sola fila por frase. Sin esto
     # las etapas viven en dos archivos distintos y no se puede saber cual es la
@@ -665,11 +708,14 @@ try {
     # Va con un prefijo fijo para poder pescarla del resto de la salida.
     $medida = [ordered]@{
         pregunta    = $Pregunta
-        modelo      = $Modelo
+        # El que CONTESTO, leido del servidor, no el que se pidio.
+        modelo      = if ($SERVIDOR.model_path) { [IO.Path]::GetFileNameWithoutExtension($SERVIDOR.model_path) } else { $Modelo }
         captura_ms  = [math]::Round($tc.Elapsed.TotalMilliseconds)
         uia_ms      = [math]::Round($tu.Elapsed.TotalMilliseconds)
         memoria_ms  = [math]::Round($tm.Elapsed.TotalMilliseconds)
         modelo_ms   = $r.ms
+        tok_s       = $r.tok_s
+        prompt_n    = $r.prompt_n
         vram_libre_mib = $vramLibre
         controles   = $controles.Count
         memorias    = if ($mm.cargadas) { $mm.cargadas -join '+' } else { '' }
