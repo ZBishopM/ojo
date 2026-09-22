@@ -334,6 +334,8 @@ Reglas:
   con el oro que tiene.
 - "mas_fuerte_rival" y "mas_fuerte_mi_equipo" ya estan calculados: usalos tal
   cual, no los deduzcas de los KDA.
+- Si preguntan por la COMPOSICION de un equipo, nombra primero sus cinco
+  campeones con su linea; despues, si cabe, una valoracion corta.
 - Si la respuesta no esta en los datos -- por ejemplo, que build conviene en
   este parche --, dilo en una frase. No lo inventes.
 '@

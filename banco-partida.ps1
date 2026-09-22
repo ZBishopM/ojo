@@ -1,4 +1,4 @@
-<#
+﻿<#
 Banco de preguntas DE PARTIDA, con respuesta conocida, para elegir el prompt
 con el que Ojo contesta mientras juegas.
 
@@ -35,13 +35,20 @@ if ($Prompt -eq 'partida' -and -not $PARTIDA) { throw 'ojo.ps1 aun no tiene $SIS
 
 # (pregunta, patron que DEBE aparecer en `decir`, sin tildes y en minusculas)
 $CASOS = @(
-    @{ q = 'como es nuestra composicion?';          todos = @('annie', 'garen', 'lux', 'jinx', 'thresh') }
+    # Con tildes y el signo de apertura, que es como lo dice el usuario. Sin
+    # ellos el 4B enumeraba el equipo; con ellos lo VALORABA ("tu equipo es muy
+    # fragil") sin nombrarlo: 0 de 3.
+    @{ q = '¿Cómo es nuestra composición?';         todos = @('annie', 'garen', 'lux', 'jinx', 'thresh') }
     @{ q = 'contra quien juego en mid?';            todos = @('yasuo') }
     @{ q = 'quien del equipo rival esta muerto?';   todos = @('yasuo', '13') }
     @{ q = 'cuanto oro tengo?';                     todos = @('3500|3\.500|3 500') }
     @{ q = 'en que minuto vamos?';                  todos = @('12') }
     @{ q = 'quien va mas fuerte en el equipo rival?'; todos = @('leona') }
-    @{ q = 'que item termino con lo que llevo?';    todos = @('rabadon|zhonya') }
+    # Cualquiera de los cuatro que se terminan con la Vara que lleva. La primera
+    # version solo aceptaba Rabadon o Zhonya, y el 4B contesto el Velo del hada
+    # de la muerte -- que es el PRIMERO de la lista, el mas barato de terminar.
+    # El fallo era de la prueba.
+    @{ q = 'que item termino con lo que llevo?';    todos = @('velo del hada|llamasombria|zhonya|rabadon') }
     # "quien es SU jungla" era ambigua: "su" tambien es "de usted". El 8B
     # contesto con la del usuario, y no era un fallo suyo.
     @{ q = 'quien es la jungla del equipo rival?';  todos = @('darius') }
