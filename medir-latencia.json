@@ -1,0 +1,160 @@
+[
+  {
+    "nombre": "antes",
+    "n": 10,
+    "total": 3693,
+    "modelo": 2536,
+    "fuera": 927,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2482,
+        "modelo": 1304,
+        "etapas": 1543,
+        "fuera": 939
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 3744,
+        "modelo": 2561,
+        "etapas": 2809,
+        "fuera": 935
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3874,
+        "modelo": 2665,
+        "etapas": 2943,
+        "fuera": 931
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 2264,
+        "modelo": 1099,
+        "etapas": 1339,
+        "fuera": 925
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2398,
+        "modelo": 1241,
+        "etapas": 1481,
+        "fuera": 917
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2298,
+        "modelo": 1134,
+        "etapas": 1366,
+        "fuera": 932
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 3729,
+        "modelo": 2552,
+        "etapas": 2804,
+        "fuera": 925
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 4154,
+        "modelo": 2955,
+        "etapas": 3228,
+        "fuera": 926
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 3693,
+        "modelo": 2536,
+        "etapas": 2766,
+        "fuera": 927
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 2394,
+        "modelo": 1242,
+        "etapas": 1472,
+        "fuera": 922
+      }
+    ]
+  },
+  {
+    "nombre": "captura-antes-sin-sleep",
+    "n": 10,
+    "total": 3194,
+    "modelo": 2442,
+    "fuera": 523,
+    "filas": [
+      {
+        "q": "que aplicacion es esta?",
+        "total": 2202,
+        "modelo": 1430,
+        "etapas": 1660,
+        "fuera": 542
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 3217,
+        "modelo": 2451,
+        "etapas": 2682,
+        "fuera": 535
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3398,
+        "modelo": 2617,
+        "etapas": 2879,
+        "fuera": 519
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 3194,
+        "modelo": 2442,
+        "etapas": 2668,
+        "fuera": 526
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 1949,
+        "modelo": 1196,
+        "etapas": 1426,
+        "fuera": 523
+      },
+      {
+        "q": "que aplicacion es esta?",
+        "total": 1894,
+        "modelo": 1145,
+        "etapas": 1384,
+        "fuera": 510
+      },
+      {
+        "q": "que hora es segun la barra?",
+        "total": 3202,
+        "modelo": 2465,
+        "etapas": 2694,
+        "fuera": 508
+      },
+      {
+        "q": "cuanta RAM estoy usando?",
+        "total": 3484,
+        "modelo": 2697,
+        "etapas": 2954,
+        "fuera": 530
+      },
+      {
+        "q": "que archivo tengo abierto?",
+        "total": 3191,
+        "modelo": 2437,
+        "etapas": 2672,
+        "fuera": 519
+      },
+      {
+        "q": "que hay en la esquina inferior derecha?",
+        "total": 1942,
+        "modelo": 1191,
+        "etapas": 1423,
+        "fuera": 519
+      }
+    ]
+  }
+]

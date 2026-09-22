@@ -68,6 +68,16 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8
 
+# Marcas de tiempo de la fontaneria, que van en ultima-medida.json.
+#
+# POR QUE: en la tanda limpia del 2026-09-21 se iban entre 830 y 1.122 ms por
+# frase FUERA de todas las etapas medidas, y ninguna columna decia donde. Es el
+# segundo mayor coste despues del modelo. `arranque_ps` es lo que tardo
+# PowerShell desde que el proceso existe hasta esta linea.
+$RELOJ = [Diagnostics.Stopwatch]::StartNew()
+$MARCAS = [ordered]@{ arranque_ps = [int]((Get-Date) - (Get-Process -Id $PID).StartTime).TotalMilliseconds }
+function Marca($n) { $MARCAS[$n] = [int]$RELOJ.ElapsedMilliseconds }
+
 $captura = "$Raiz\captura\target\release\ojo-captura.exe"
 $overlay = "$Raiz\overlay\target\release\ojo-overlay.exe"
 $uia     = "$Raiz\uia\target\release\ojo-uia.exe"
@@ -457,7 +467,9 @@ function Extraer-Json($s) {
 }
 
 if ($Servidor) { Levantar-Servidor; return }
+Marca 'cargado'
 Levantar-Servidor
+Marca 'servidor'
 
 # El overlay se arranca ANTES de preguntar para poder enseñar "mirando..."
 # mientras el modelo piensa. Sin eso habria dos segundos de pantalla muerta.
@@ -467,12 +479,55 @@ Levantar-Servidor
 # `-Segundos 15` el anterior sigue en pantalla si preguntas otra cosa antes.
 # Resultado: dos overlays pintando a la vez y los subtitulos superpuestos --
 # "genera ruido y se ve sucio", dicho en la sesion del 2026-09-21.
-Get-Process 'ojo-overlay' -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
+#
+# Se ESPERA a que muera: la captura va justo despues y no debe salir en ella.
+$viejos = @(Get-Process 'ojo-overlay' -EA SilentlyContinue)
+$viejos | Stop-Process -Force -EA SilentlyContinue
+$viejos | ForEach-Object { $null = $_.WaitForExit(500) }
 
+# ---- Hay partida de League? -----------------------------------------------
+#
+# Si la hay, NO se mira la pantalla. El juego sirve sus propios datos en
+# https://127.0.0.1:2999 (ver `lol.ps1`): campeones, items, oro y las dos
+# composiciones, exactos y en milisegundos. Adivinarlos desde una captura es
+# mas lento, gasta el mmproj y da respuestas que parecen seguras sin serlo.
+#
+# Se mira el proceso primero: 9 ms, contra los ~2 s que tarda Windows en
+# rechazar una conexion a un puerto local cerrado.
+$partida = $null
+$hayPartida = $false
+if (Get-Process -Name 'League of Legends', 'LeagueClient' -EA SilentlyContinue) {
+    $partida = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\lol.ps1" 2>$null
+    $hayPartida = ($LASTEXITCODE -eq 0) -and $partida
+}
+
+# ---- Captura, ANTES de abrir el overlay ------------------------------------
+#
+# Antes iba despues, con un `Start-Sleep 400` en medio para que el overlay
+# estuviera listo. Resultado, visto en la captura que recibio el modelo el
+# 2026-09-22: la pildora "mirando" y el bocadillo "Dejame ver..." salian EN LA
+# IMAGEN, tapando el centro inferior de la pantalla -- donde Discord tiene la
+# caja de mensaje. El modelo se veia a si mismo en cada pregunta, y se pagaban
+# 400 ms por ello.
+#
+# `WDA_EXCLUDEFROMCAPTURE` no es la salida: esconde el overlay tambien de
+# shadowplay, y durante una partida es la firma de un tramposo para el
+# anti-cheat. Capturar primero no necesita ninguna de las dos cosas.
+$tmp = $null
+$tc = [Diagnostics.Stopwatch]::StartNew()
+if (-not $hayPartida) {
+    $tmp = Join-Path $env:TEMP 'ojo.jpg'
+    & $captura --salida $tmp | Out-Null
+}
+$tc.Stop()
+Marca 'captura'
+
+# Sin esperar a que el overlay este listo: la tuberia de stdin guarda la
+# primera escena hasta que el lector la recoja.
 $psi = [Diagnostics.ProcessStartInfo]::new($overlay, '--servir')
 $psi.RedirectStandardInput = $true; $psi.UseShellExecute = $false
 $ov = [Diagnostics.Process]::Start($psi)
-Start-Sleep -Milliseconds 400
+Marca 'overlay'
 
 # UTF-8 SIN BOM, con escritor propio sobre el flujo crudo.
 #
@@ -498,40 +553,6 @@ function Escena($o) {
 
 try {
     Escena @{ estado = 'mirando'; oido = $Pregunta; dice = 'Déjame ver…' }
-
-    # ---- Hay partida de League? -------------------------------------------
-    #
-    # Si la hay, NO se mira la pantalla. El juego sirve sus propios datos en
-    # https://127.0.0.1:2999 (ver `lol.ps1`): campeones, items, oro y las dos
-    # composiciones, exactos y en milisegundos. Adivinarlos desde una captura
-    # es mas lento, gasta el mmproj -- 1,08 GB que con un juego delante no
-    # sobran -- y da respuestas que parecen seguras sin serlo.
-    #
-    # SE MIRA EL PROCESO PRIMERO, y no es una optimizacion prematura: es la
-    # diferencia entre 6,9 ms y 2.437 ms EN CADA PREGUNTA.
-    #
-    # `lol.ps1` sale con codigo 1 cuando no hay partida, asi que llamarlo a
-    # secas ya contesta "estas jugando?". Pero llamarlo cuesta arrancar un
-    # PowerShell entero -- medido, 2.437 ms -- y se pagaria siempre, tambien
-    # las 999 veces de cada 1.000 en que no hay ningun juego abierto. En un
-    # sistema cuyo requisito es que no se note el retardo, eso es inaceptable.
-    #
-    # Get-Process cuesta 6,9 ms y descarta el caso comun. `lol.ps1` solo se
-    # lanza cuando el juego esta de verdad ahi.
-    $partida = $null
-    $hayPartida = $false
-    if (Get-Process -Name 'League of Legends', 'LeagueClient' -EA SilentlyContinue) {
-        $partida = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\lol.ps1" 2>$null
-        $hayPartida = ($LASTEXITCODE -eq 0) -and $partida
-    }
-
-    $tmp = $null
-    $tc = [Diagnostics.Stopwatch]::StartNew()
-    if (-not $hayPartida) {
-        $tmp = Join-Path $env:TEMP 'ojo.jpg'
-        & $captura --salida $tmp | Out-Null
-    }
-    $tc.Stop()
 
     $tu = [Diagnostics.Stopwatch]::StartNew()
     $controles = if ($SinLista -or $hayPartida) { @() } else { Leer-Controles }
@@ -559,8 +580,10 @@ try {
     if ($vramLibre -ge 0 -and $vramLibre -lt 300) {
         Write-Host "AVISO: solo $vramLibre MiB de VRAM libres. Algo mas esta usando la tarjeta; la respuesta va a ir lenta." -ForegroundColor Yellow
     }
+    Marca 'antes_modelo'
 
     $r = Preguntar-Modelo $tmp $Pregunta $controles $memoria
+    Marca 'despues_modelo'
     $json = Extraer-Json $r.texto
     if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }
     $d = $json | ConvertFrom-Json
@@ -632,6 +655,7 @@ try {
     # El instante en que el dibujo SALE hacia el overlay. Es lo ultimo que pasa
     # antes de que el usuario vea algo, asi que marca el final de la cadena.
     $tDibujo = Get-Date
+    Marca 'dibujo'
 
     # Linea legible por maquina, para que `hablar.ps1` pueda juntar estos
     # tiempos con los suyos (oido y STT) en una sola fila por frase. Sin esto
@@ -654,6 +678,7 @@ try {
         trazos      = @($e.trazos | Where-Object { $_ }).Count
         dijo        = $d.decir
         fin_epoch_ms = [int64]([DateTimeOffset]$tDibujo).ToUnixTimeMilliseconds()
+        marcas       = $MARCAS
     }
     # A UN ARCHIVO, no por la salida estandar.
     #
