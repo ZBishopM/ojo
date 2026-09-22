@@ -1,0 +1,14 @@
+[
+  {
+    "nombre": "antes (Fails=2, Battle.net en la lista)",
+    "ida_s": 57.1,
+    "vuelta_s": 154.5,
+    "hora": "17:58:48"
+  },
+  {
+    "nombre": "despues (cambio en el mismo latido, sin Grace)",
+    "ida_s": 7.1,
+    "vuelta_s": 32.6,
+    "hora": "18:00:51"
+  }
+]

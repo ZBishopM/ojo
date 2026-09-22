@@ -306,6 +306,8 @@ Reglas:
 - "dibujar" es opcional. Tipos validos: caja, flecha (x1,y1,x2,y2),
   subrayado (x,y,w), paso (x,y,n).
 - "decir" es obligatorio, en espanol, y como maximo dos frases.
+- En "decir" NUNCA pongas el numero de un control: di su nombre. El numero es
+  solo para el campo "control".
 '@
 
 # El de PARTIDA: sin pantalla, sin senalar, y diciendo que significa cada campo.
@@ -690,6 +692,10 @@ try {
     $json = Extraer-Json $r.texto
     if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }
     $d = $json | ConvertFrom-Json
+    # Nada de "el control numero 23" en la frase: se cambia por el nombre del
+    # control. Ver decir.ps1 (2 de cada 10 respuestas que senalaban lo hacian).
+    . "$Raiz\decir.ps1"
+    $d | Add-Member -NotePropertyName decir -NotePropertyValue (Limpiar-Decir $d.decir $controles) -Force
 
     # El numero de control gana sobre las coordenadas a ojo: son el mismo dato
     # que usa Windows para dibujar, no una estimacion.
