@@ -83,10 +83,23 @@ $MODELOS = @{
         mmproj = 'F:\ai\models\mmproj-F16.gguf'
         extra  = @('--n-cpu-moe', '24')
     }
+    # MARGEN, no solo "que quepa". Medido el 2026-09-22: con ~300 MiB libres,
+    # basta con que Firefox o Discord crezcan un poco para que Windows desaloje
+    # parte del modelo a RAM, y el 8B pasa de 43 a 4,4 tok/s -- reproducido
+    # robandole 1,4 GB con otro proceso. Se recupera solo, pero tarda.
+    #
+    #   -ctk/-ctv q8_0   KV de 1.152 a 612 MiB. Misma velocidad (50,8 tok/s)
+    #                    y mismo banco de vision (4/5 leer, 2/6 senalar).
+    #   --no-warmup      el calentamiento reserva la vision para una imagen de
+    #                    1472x1472; nuestras capturas son de 1280x720. Sin el,
+    #                    el bufer baja de 372 a 162 MiB. Mismo banco.
+    #
+    # `--image-max-tokens 1024` se probo y no cambia nada: el bufer lo fija el
+    # calentamiento, no el tope.
     '8b'  = @{
         gguf   = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q8_0.gguf'
         mmproj = 'F:\ai\models\qwen3-vl-8b\mmproj-F16.gguf'
-        extra  = @()
+        extra  = @('-ctk', 'q8_0', '-ctv', 'q8_0', '--no-warmup')
     }
     # Bonsai necesita OTRO binario: sus pesos ternarios usan una transformada
     # Walsh-Hadamard que no esta en upstream. Su propia ficha avisa de que

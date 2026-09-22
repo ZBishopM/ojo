@@ -1,0 +1,140 @@
+[
+  {
+    "nombre": "base",
+    "extra": "",
+    "carga_s": 4.8,
+    "libre_antes": 10990,
+    "libre_despues": 270,
+    "usa_mib": 10720,
+    "dedicada": 10777,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 625.0,
+    "tok_s": 48.8,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =  1152.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.02 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.02 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   372.08 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    24.93 MiB"
+    ]
+  },
+  {
+    "nombre": "kv8",
+    "extra": "-ctk q8_0 -ctv q8_0",
+    "carga_s": 8.6,
+    "libre_antes": 10281,
+    "libre_despues": 360,
+    "usa_mib": 9921,
+    "dedicada": 10237,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 642.0,
+    "tok_s": 50.1,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =   612.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.09 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.10 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   372.08 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    24.93 MiB"
+    ]
+  },
+  {
+    "nombre": "kv8",
+    "extra": "-ctk q8_0 -ctv q8_0",
+    "carga_s": 3.9,
+    "libre_antes": 10578,
+    "libre_despues": 396,
+    "usa_mib": 10182,
+    "dedicada": 10237,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 674.0,
+    "tok_s": 50.1,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =   612.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.09 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.10 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   372.08 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    24.93 MiB"
+    ]
+  },
+  {
+    "nombre": "kv8",
+    "extra": "-ctk q8_0 -ctv q8_0",
+    "carga_s": 3.8,
+    "libre_antes": 10648,
+    "libre_despues": 456,
+    "usa_mib": 10192,
+    "dedicada": 10237,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 617.0,
+    "tok_s": 50.8,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =   612.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.09 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.10 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   372.08 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    24.93 MiB"
+    ]
+  },
+  {
+    "nombre": "kv8+img1024",
+    "extra": "-ctk q8_0 -ctv q8_0 --image-max-tokens 1024",
+    "carga_s": 3.8,
+    "libre_antes": 10702,
+    "libre_despues": 482,
+    "usa_mib": 10220,
+    "dedicada": 10237,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 586.0,
+    "tok_s": 50.2,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =   612.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.09 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.10 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   372.08 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    24.93 MiB"
+    ]
+  },
+  {
+    "nombre": "kv8+nowarmup",
+    "extra": "-ctk q8_0 -ctv q8_0 --no-warmup",
+    "carga_s": 3.8,
+    "libre_antes": 10746,
+    "libre_despues": 685,
+    "usa_mib": 10061,
+    "dedicada": 10025,
+    "compartida": 760,
+    "imagen_fichas": 937,
+    "imagen_ms": 595.0,
+    "tok_s": 50.7,
+    "bufers": [
+      "load_tensors: CUDA0 model buffer size =  7669.77 MiB",
+      "load_tensors: CUDA_Host model buffer size =   630.59 MiB",
+      "llama_context: CUDA_Host  output buffer size =     0.58 MiB",
+      "llama_kv_cache: CUDA0 KV buffer size =   612.00 MiB",
+      "sched_reserve: CUDA0 compute buffer size =   128.09 MiB",
+      "sched_reserve: CUDA_Host compute buffer size =    48.10 MiB",
+      "reserve_compute_meta: CUDA0 compute buffer size =   161.77 MiB",
+      "reserve_compute_meta: CPU compute buffer size =    10.84 MiB"
+    ]
+  }
+]

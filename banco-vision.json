@@ -1,0 +1,204 @@
+[
+  {
+    "nombre": "base",
+    "modelo": "Qwen3-VL-8B-Instruct-Q8_0.gguf",
+    "mmproj": "mmproj-F16.gguf",
+    "extra": "",
+    "leer": "4/5",
+    "senalar": "2/6",
+    "px_mediana": 43.0,
+    "sin_punto": 0,
+    "ms_medio": 1552.0,
+    "filas": [
+      {
+        "tipo": "leer",
+        "q": "Que hora marca el reloj de la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "El reloj marca las 12:17.",
+        "ms": 2763.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Cuantos vatios marca la barra superior?",
+        "ok": false,
+        "px": null,
+        "dijo": "La barra superior marca 219W.",
+        "ms": 2078.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Que porcentaje de RAM indica la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "La barra superior indica que el 45% de la RAM está en uso.",
+        "ms": 2003.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Como se llama el archivo abierto en el editor de arriba a la izquierda?",
+        "ok": true,
+        "px": null,
+        "dijo": "El archivo abierto se llama test.py",
+        "ms": 516.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Que temperatura tiene la GPU segun la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "La GPU tiene 47 grados Celsius.",
+        "ms": 2106.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala el reloj de la barra superior.",
+        "ok": true,
+        "px": 14.0,
+        "dijo": "{\"decir\": \"Aquí está el reloj de la barra superior.\", \"senalar\": {\"x\": 0.51, \"y\": 0.01}}",
+        "ms": 925.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde la barra superior indica el consumo en vatios.",
+        "ok": false,
+        "px": 43.0,
+        "dijo": "{\"decir\": \"Está en la barra superior, cerca del centro.\", \"senalar\": {\"x\": 0.63, \"y\": 0.01}, \"dibujar\": [{\"tipo\": \"caja\", \"x\": 0.59, \"y\": 0.0, \"w\": 0.07, \"h\": 0.03}]}",
+        "ms": 1917.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde la barra superior indica el porcentaje de RAM.",
+        "ok": false,
+        "px": 800.0,
+        "dijo": "{\"decir\": \"Aquí está el porcentaje de RAM.\", \"senalar\": {\"x\": 0.18, \"y\": 0.57}, \"dibujar\": [{\"tipo\": \"caja\", \"x\": 0.16, \"y\": 0.55, \"w\": 0.12, \"h\": 0.03}]}",
+        "ms": 2020.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala el boton de cerrar (la X) de la ventana del editor de arriba a la izquierda.",
+        "ok": true,
+        "px": 8.0,
+        "dijo": "{\"decir\": \"Voy a señalar el botón de cerrar de esa ventana.\", \"senalar\": {\"x\": 487.0, \"y\": 63.0}}",
+        "ms": 973.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala la pestana del archivo test.py en el editor.",
+        "ok": false,
+        "px": 43.0,
+        "dijo": "{\"decir\": \"Aquí está la pestaña del archivo test.py.\", \"senalar\": {\"x\": 127.0, \"y\": 131.0}}",
+        "ms": 924.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde pone 'Dejame ver'.",
+        "ok": false,
+        "px": 40.0,
+        "dijo": "{\"decir\": \"Aquí dice 'Déjame ver'.\", \"senalar\": {\"x\": 0.51, \"y\": 0.87}}",
+        "ms": 852.0
+      }
+    ]
+  },
+  {
+    "nombre": "kv8+nowarmup",
+    "modelo": "Qwen3-VL-8B-Instruct-Q8_0.gguf",
+    "mmproj": "mmproj-F16.gguf",
+    "extra": "-ctk q8_0 -ctv q8_0 --no-warmup",
+    "leer": "4/5",
+    "senalar": "2/6",
+    "px_mediana": 54.0,
+    "sin_punto": 0,
+    "ms_medio": 1419.0,
+    "filas": [
+      {
+        "tipo": "leer",
+        "q": "Que hora marca el reloj de la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "El reloj marca las 12:17.",
+        "ms": 2403.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Cuantos vatios marca la barra superior?",
+        "ok": false,
+        "px": null,
+        "dijo": "La barra superior marca 219W.",
+        "ms": 1897.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Que porcentaje de RAM indica la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "La barra superior indica que el 45% de la RAM está en uso.",
+        "ms": 2065.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Como se llama el archivo abierto en el editor de arriba a la izquierda?",
+        "ok": true,
+        "px": null,
+        "dijo": "El archivo abierto se llama test.py",
+        "ms": 435.0
+      },
+      {
+        "tipo": "leer",
+        "q": "Que temperatura tiene la GPU segun la barra superior?",
+        "ok": true,
+        "px": null,
+        "dijo": "La GPU tiene 47 grados Celsius.",
+        "ms": 1913.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala el reloj de la barra superior.",
+        "ok": true,
+        "px": 14.0,
+        "dijo": "{\"decir\": \"Aquí está el reloj de la barra superior.\", \"senalar\": {\"x\": 0.51, \"y\": 0.01}}",
+        "ms": 844.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde la barra superior indica el consumo en vatios.",
+        "ok": false,
+        "px": 43.0,
+        "dijo": "{\"decir\": \"Está en la barra superior, cerca del centro.\", \"senalar\": {\"x\": 0.63, \"y\": 0.01}, \"dibujar\": [{\"tipo\": \"caja\", \"x\": 0.59, \"y\": 0.0, \"w\": 0.07, \"h\": 0.03}]}",
+        "ms": 1797.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde la barra superior indica el porcentaje de RAM.",
+        "ok": false,
+        "px": 129.0,
+        "dijo": "{\"decir\": \"Aquí está el porcentaje de RAM.\", \"senalar\": {\"x\": 0.67, \"y\": 0.17}, \"dibujar\": [{\"tipo\": \"caja\", \"x\": 0.67, \"y\": 0.17, \"w\": 0.05, \"h\": 0.03}]}",
+        "ms": 1793.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala el boton de cerrar (la X) de la ventana del editor de arriba a la izquierda.",
+        "ok": true,
+        "px": 8.0,
+        "dijo": "{\"decir\": \"Voy a señalar el botón de cerrar de esa ventana.\", \"senalar\": {\"x\": 487.0, \"y\": 63.0}}",
+        "ms": 901.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala la pestana del archivo test.py en el editor.",
+        "ok": false,
+        "px": 54.0,
+        "dijo": "{\"decir\": \"Aquí está la pestaña del archivo test.py.\", \"senalar\": {\"x\": 117, \"y\": 137}}",
+        "ms": 765.0
+      },
+      {
+        "tipo": "senalar",
+        "q": "Senala donde pone 'Dejame ver'.",
+        "ok": false,
+        "px": 54.0,
+        "dijo": "{\"decir\": \"Aquí dice 'Déjame ver'.\", \"senalar\": {\"x\": 0.53, \"y\": 0.87}}",
+        "ms": 791.0
+      }
+    ]
+  }
+]
