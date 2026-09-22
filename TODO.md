@@ -192,6 +192,32 @@ La pregunta que fallaba 0/8 sale **8/8**.
       `F:\ai\presets.ini`: `load-mode = none` en los seis, más `cache-ram = 1024`
       y un preset `[qwen3-vl-8b]`. El de `I:` se va con la carpeta.
 
+## Tras la auditoría del 2026-09-22 (tarde)
+
+Todo lo cerrado está en `MEDICIONES.md`, sección «auditoría», y en `git log`
+(un commit por cambio). Lo que queda, en orden de valor:
+
+- [ ] **Una muestra REAL del puerto 2999.** Todo lo de partida se ha probado con
+      `prueba-lol/` (API falsa por HTTPS + proceso inerte), no con el juego. En
+      una partida: `.\lol.ps1 -Crudo > prueba-lol\real.json`, y desde entonces
+      `.\prueba-lol\partida.ps1 -Empezar -Datos .\prueba-lol\real.json` prueba
+      contra datos de verdad. Es lo que confirmaría la identidad por Riot ID.
+- [ ] **VRAM real de Hearthstone.** El 8B ya aguanta ~2,3 GB de otra
+      aplicación. Si Hearthstone pide menos, sale de la lista del supervisor y
+      Ojo **conserva la visión** en Hearthstone — que es lo útil ahí, porque no
+      hay API de datos y ver las cartas sí importa.
+- [ ] **~340 ms de cargar lol.ps1 + Data Dragon en cada pregunta de partida**
+      (marcas: servidor → captura). Casi todo es parsear el JSON del catálogo.
+      Solo se arregla bien con un proceso que viva entre preguntas.
+- [ ] **Un proceso residente en vez de uno por pregunta.** Queda ~380 ms de
+      arrancar PowerShell y leer los scripts en cada pregunta (marcas
+      `arranque_ps` + `cargado`). Es lo siguiente más grande después del modelo.
+      Cambio de arquitectura: medir antes de decidir.
+- [ ] **Subir los cambios del rice al repositorio `dotfiles`.**
+      `rice-supervisor.ps1` y el nuevo `rice-lanzar-limpio.ps1` viven en
+      `~\.config` y el repositorio no los tiene aún. `sync.ps1` los trae; el
+      `push` a GitHub es tuyo.
+
 ## Pendiente de la noche del 2026-09-22 — copiloto de partida
 
 Lo que se hizo funciona y está medido (ver `MEDICIONES.md`). Esto es lo que
@@ -261,10 +287,11 @@ quedó a medias, en orden de valor.
 
 ### Cerrado
 
-- [x] ~~**El 8B da 32,0 tok/s y el banco daba 50,16**~~ — tras el reinicio da
-      **50,66**, con mmproj puesto y con menos VRAM libre que anoche. Mi
-      sospecha del mmproj era falsa. Era estado degradado de sesión larga; no
-      es reproducible y no hay causa identificada, pero no es una regresión.
+- [x] ~~**El 8B da 32,0 tok/s y el banco daba 50,16**~~ — **tenía causa**: el
+      escritorio crecía y Windows desalojaba parte del modelo (reproducido: 43 →
+      4,4 tok/s robándole 1,4 GB). Arreglado con Q6_K + KV q8_0 + sin
+      calentamiento: 8.279 MiB, 62 tok/s, y aguanta el mismo robo sin frenarse.
+      Lo de «transitorio, sin causa» que escribí por la mañana era falso.
 
 - [x] ~~**Comprobar que el arranque automático funciona sin tocar nada**~~ —
       reinicio real: las cinco piezas corriendo a los 7 minutos y el supervisor

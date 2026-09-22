@@ -1,0 +1,24 @@
+[
+  {
+    "nombre": "q6 kv8 sin calentamiento",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "capas_ladron": 12,
+    "solo": 60.9,
+    "libre_solo": 2623,
+    "con_ladron": 63.7,
+    "libre_con_ladron": 870,
+    "con_ladron_20s": 62.0,
+    "sin_ladron": 63.2
+  },
+  {
+    "nombre": "q6, ladron grande",
+    "modelo": "Qwen3-VL-8B-Instruct-Q6_K",
+    "capas_ladron": 22,
+    "solo": 63.4,
+    "libre_solo": 2623,
+    "con_ladron": 63.2,
+    "libre_con_ladron": 297,
+    "con_ladron_20s": 57.1,
+    "sin_ladron": 63.5
+  }
+]

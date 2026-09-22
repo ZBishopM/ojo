@@ -18,7 +18,9 @@ param(
     [string[]]$Modelos = @('35b', '8b'),
     [int]$Vueltas = 1,
     [int]$Puerto = 8099,
-    [int]$Ctx = 16384,
+    # 24.576 y no 16.384: el corpus congelado ya pide 22.153 fichas, y con
+    # 16.384 la tanda moria a medias con "exceeds the available context size".
+    [int]$Ctx = 24576,
     # Solo estas pruebas. Sirve para repetir las dudosas muchas veces sin pagar
     # las que ya estan claras: una sola vuelta no decide nada.
     #

@@ -1352,10 +1352,15 @@ Escribí que sospechaba del mmproj —que el banco corría sin él y por eso iba
 rápido—. **Falso**: hoy el 8B corre *con* mmproj y da 50,66, y además con menos
 VRAM libre que anoche (328 MiB contra 411). No era la memoria.
 
-Lo que fuera se limpió con el reinicio y ya no es reproducible. Queda como
-estado degradado de sesión larga, sin causa identificada, y no como regresión.
-Y confirma que el arreglo de la fuga de overlays funcionó: la referencia eran
-47,8.
+~~Lo que fuera se limpió con el reinicio y ya no es reproducible. Queda como
+estado degradado de sesión larga, sin causa identificada, y no como regresión.~~
+
+**CORRECCIÓN (misma tarde): tenía causa, y era reproducible.** Veinticinco
+minutos después de escribir lo de arriba, el 8B iba a **12,4 tok/s** sin ningún
+juego. Firefox, dwm y Discord habían crecido, y con ~300 MiB libres Windows
+desalojó parte del modelo a RAM. Reproducido quitándole 1,4 GB con otro
+proceso: de 43 a **4,4** tok/s. El reinicio no «limpió» nada: colocó el modelo
+de nuevo antes de que el escritorio creciera. Ver la auditoría, abajo.
 
 ## Data Dragon: el catálogo sí, la build no
 
@@ -1409,3 +1414,161 @@ Ninguna se habría visto leyendo el código.
 **Y un cuarto, de método:** el `catch` original era mudo. Convertía «no hay
 red» y «la caché está rota» en el mismo silencio. Ahora guarda el porqué en
 `catalogo_fallo`, y por eso las tres de arriba se encontraron en minutos.
+
+---
+
+# 2026-09-22 (tarde) — auditoría de todo lo cambiado, con A/B
+
+Pedido: revisar cada cambio sin fiarse de la documentación, y quedarse con la
+versión que gane en una prueba. Cada cambio es un commit en `git` (el proyecto
+no tenía control de versiones; ahora sí), para poder revertir el que pierda.
+
+## El fallo de fondo: el 8B se desalojaba sin juego ninguno
+
+| | tok/s | memoria |
+|---|---|---|
+| recién arrancado | 50,66 | ~300 MiB libres |
+| 25 min después, solo escritorio | **12,4** | parte del modelo en RAM |
+| otro proceso le quita 1,4 GB | **4,4** | reproducido a propósito |
+| se quita ese proceso, 30 s | 42,1 | se recupera solo |
+
+Windows no da error: desaloja al modelo y el modelo va diez veces más lento. El
+contador `SharedUsage` NO sirve para verlo: el 8B lleva 760 MiB en compartida
+desde que arranca (búferes de host a propósito). Lo que lo delata es `tok/s`.
+
+### Desglose real (llama-server con `-lv 4`)
+
+| pieza | MiB |
+|---|---|
+| pesos Q8_0 | 7.670 |
+| KV f16 a 8192 | 1.152 |
+| visión: cómputo (calentamiento a 1472×1472) | 372 |
+| LLM: cómputo | 128 |
+| mmproj + contexto CUDA | ~1.400 |
+
+### Palancas, una a una (banco de visión fijo + banco de texto)
+
+| config | VRAM | tok/s | leer | señalar | texto |
+|---|---|---|---|---|---|
+| Q8_0 (antes) | 10.720 | 48,8 | 4/5 | 2/6 | 12/18 |
+| + KV q8_0 | 10.192 | 50,8 | 4/5 | 2/6 | — |
+| + sin calentamiento | 10.061 | 50,7 | 4/5 | 2/6 | — |
+| Q8_0 + mmproj Q8_0 | 9.641 | 50,7 | 4/5 | 3/6 | — |
+| **Q6_K** + mmproj F16 | **8.279** | **62,5** | 4/5 | **3/6** | **12/18** |
+| Q6_K + mmproj Q8_0 | 7.912 | 62,6 | 4/5 | 3/6 | — |
+
+`--image-max-tokens 1024` no cambia nada (el búfer lo fija el calentamiento):
+descartado.
+
+**Elegido: Q6_K + mmproj F16 + KV q8_0 + sin calentamiento.** Q6_K genera más
+rápido porque hay menos bytes que mover por ficha; el único que pierde es el
+prefill de 22k fichas (6,8 → 7,5 s), que Ojo no usa. El mmproj se queda en F16:
+el margen ya sobra y es lo más sensible de la visión. Descargas verificadas
+contra el SHA-256 que publica Hugging Face.
+
+### La prueba que importa: repetir el robo de VRAM
+
+| ladrón | libres | 8B antes | 8B después (Q6_K) |
+|---|---|---|---|
+| ~1,4 GB | 870 | 43 → **4,4** | 61 → **62-64** |
+| ~2,3 GB | 297 | — | 63 → 57 (empieza a notarse) |
+
+**Margen: ~2,3 GB de crecimiento de otras aplicaciones**, contra ~300 MiB antes.
+
+## Latencia de cada pregunta: dónde se iban ~930 ms
+
+Marcas de tiempo nuevas en `ultima-medida.json` (`marcas`):
+
+| tramo | antes | ahora |
+|---|---|---|
+| arrancar PowerShell + leer el script | ~240 | ~240 |
+| cargar funciones + memoria.ps1 | ~143 | ~143 |
+| comprobar el servidor | ~44 | ~40 |
+| **overlay: matar, lanzar y `Sleep 400`** | **~430** | ~15 |
+| `nvidia-smi` en el camino | 49 | 0 (después de dibujar) |
+
+Y **el `Sleep 400` hacía que el modelo se viera a sí mismo**: la captura se
+tomaba con el overlay ya pintado. Comprobado con la imagen enviada: traía la
+píldora «mirando» y el bocadillo «Déjame ver…» tapando el centro inferior.
+Ahora se captura antes de abrir el overlay (comprobado con dos capturas).
+
+De soltar la tecla a dibujo, mediana de 10:
+
+| | total | fontanería |
+|---|---|---|
+| solo ojo.ps1, antes de la auditoría (Q8_0) | 3.693 | 927 |
+| captura antes del overlay | 3.194 | 523 |
+| + Q6_K, /props, etc. | 2.280 | 483 |
+| camino del atajo, dos procesos | 2.614 | 843 |
+| **camino del atajo, un proceso 5.1** | **2.091** | 506 |
+| camino del atajo, un proceso 7 | 2.312 | 548 |
+
+## Fallos encontrados por el camino (con su reproducción)
+
+1. **Cuelgue al levantar el servidor.** `Start-Process -RedirectStandardError`
+   hace heredar handles: `llama-server` se quedaba con la salida de `ojo.ps1`,
+   y `hablar.ps1` (que la lee con `Out-String`) esperaba para siempre.
+   Reproducido: colgado a 60 s con el servidor listo. Arreglado: 8,6 s.
+2. **Tres `llama-server` a la vez en el 8099.** Windows deja escuchar a varios
+   en el mismo puerto (cpp-httplib activa `SO_REUSEADDR`). 285 MiB libres.
+   Arreglado: si ya hay uno en el puerto, se le espera. Probado con dos
+   arranques simultáneos: queda uno.
+3. **`$SERVIDOR` contra el parámetro `-Servidor`**: PowerShell no distingue
+   mayúsculas. El script esperaba 400 s a un servidor ya levantado. **Quinta**
+   vez que esa trampa muerde aquí.
+4. **El `param()` de un archivo cargado con punto** pisa las variables de quien
+   lo carga: el `-ComoModulo` de `ddragon.ps1` apagaba `lol.ps1` entero, con
+   código 0. **Sexta.** Arreglo de fondo: los archivos que se cargan con punto
+   ya no tienen `param()`.
+5. **La prueba de `lol.ps1` no podía fallar**: apuntaba fallos en
+   `$script:fallos` y miraba un `$fallos` local vacío.
+6. **Un scriptblock como callback de certificados** rompe TODO el HTTPS nuevo
+   del proceso en 5.1 («No hay ningún espacio de ejecución disponible»): .NET
+   lo llama desde otro hilo. Mi primera prueba decía que funcionaba porque
+   reutilizaba una conexión ya abierta. Sustituido por `curl.exe -k` (22 ms,
+   contra 202 ms de compilar la clase C#).
+7. **Las etiquetas de ítem de Riot mienten**: Bandlemusa lleva `AttackSpeed` y
+   no da velocidad de ataque; el Elixir de cólera lleva `Damage` y es un
+   consumible. El filtro pasa a mirar las **estadísticas**. Y mi prueba de ese
+   filtro era **circular** (comprobaba con las mismas etiquetas): 59/59 mientras
+   a Jinx se le proponían un incensario de soporte y un elixir. Ahora compara
+   contra listas escritas a mano.
+8. **`@( @(a,b) @(c,d) )` aplana** los pares en una lista suelta. Hace falta
+   la coma unaria.
+
+## Partida de League
+
+- **Identidad**: sin `#tag`, probando `riotId`, `riotIdGameName` y
+  `summonerName` (fallo abierto de Riot #857). Si no hay exactamente una
+  coincidencia, lo dice y da los equipos por color.
+- **Puerta**: solo `League of Legends` (el cliente no abre el 2999 y costaba
+  ~2 s por pregunta en selección de campeón).
+- **Prompt propio de partida**, datos delante de la pregunta, y el más fuerte
+  de cada equipo **calculado** (el 8B no sacaba bien el máximo de cinco KDA):
+
+| | aciertos | ms |
+|---|---|---|
+| prompt de pantalla | 14/16 | 1.142 |
+| **prompt de partida** | **16/16** | **535** |
+
+- Propuestas de compra con 3.500 de oro, ahora:
+  - Lux: Rabadon, Zhonya, Llamasombría, Amanecer y anochecer, Creagrietas, Bastón del Vacío
+  - Jinx: Filo infinito, Fuerza de trinidad, Cortasendas, Lord Dominik, Rey arruinado, Navaja de asalto
+  - Garen: Filo infinito, Sanguinaria, Fuerza de trinidad, Baile de la muerte, Cortasendas, Hidra titánica
+
+## Cambio de perfil
+
+| | entrar en partida | volver a la visión |
+|---|---|---|
+| antes | 57 s | **154 s** |
+| después | 7 s (peor caso ~35) | 33 s |
+
+La vuelta tardaba dos minutos y medio porque `Grace = 120` impedía incluso mirar
+el perfil tras arrancar el de texto. Ahora el cambio se hace en el mismo latido
+y la espera por carga lenta se mide por la edad del proceso.
+
+## Números de control en la voz
+
+2 de las 10 respuestas grabadas que señalaban un control decían el número
+(«la lista de controles, número 23»). `decir.ps1` lo sustituye por el nombre;
+6 comprobaciones con frases reales.
