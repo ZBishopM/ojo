@@ -199,10 +199,22 @@ en 12,28 GB de VRAM. Paralo con `rice-llm.ps1 -Stop` y vuelve a intentarlo.
         # caliente contra 1.886 ms sin ella. Con 1.024 MiB caben cuatro entradas,
         # mas de lo que hace falta para la pantalla actual.
         '--cache-ram', "$CacheRam",
-        '--port', $Puerto, '--host', '127.0.0.1'
+        '--port', $Puerto, '--host', '127.0.0.1',
+        '--log-file', "$Raiz\llama.log"
     )
-    Start-Process $llama -ArgumentList $a -WindowStyle Hidden `
-        -RedirectStandardError "$Raiz\llama.log" -RedirectStandardOutput "$Raiz\llama.out" | Out-Null
+    # SIN -RedirectStandard*, y eso es el arreglo de un cuelgue reproducido.
+    #
+    # Con las redirecciones, Start-Process usa CreateProcess con herencia de
+    # handles, y llama-server se queda con una copia de NUESTRA salida
+    # estandar. Quien lea la salida de ojo.ps1 por una tuberia -- hablar.ps1,
+    # con `| Out-String` -- espera a que se cierre, y no se cierra nunca porque
+    # el servidor vive horas. Medido el 2026-09-22: colgado a los 60 s con el
+    # servidor ya listo. En uso real: el atajo muerto sin ningun error, la unica
+    # vez que a ojo.ps1 le tocara levantar el servidor.
+    #
+    # Sin redirecciones usa ShellExecute, que no hereda nada. El registro lo
+    # escribe el propio servidor con --log-file.
+    Start-Process $llama -ArgumentList $a -WindowStyle Hidden | Out-Null
     $sw = [Diagnostics.Stopwatch]::StartNew()
     while ($sw.Elapsed.TotalSeconds -lt 400) {
         Start-Sleep -Milliseconds 500
