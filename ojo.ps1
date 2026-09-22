@@ -186,12 +186,18 @@ foreach ($f in @($captura, $overlay, $uia, $llama, $rutaModelo, $mmproj | Where-
 # ojo.ps1 seguia creyendo que hablaba con el 8B: mandaba la captura a un
 # servidor sin mmproj (error) y anotaba `8b` en el CSV aunque contestara el 4B.
 # El servidor sabe lo que es; se le pregunta.
-$SERVIDOR = $null
+#
+# `$InfoServidor` y NO `$Servidor`: ese nombre ya es el parametro [switch]
+# -Servidor, y PowerShell no distingue mayusculas. La primera version lo llamo
+# `$SERVIDOR`: guardar las propiedades en un interruptor falla la conversion,
+# el catch devolvia falso, y ojo.ps1 esperaba 400 s a un servidor que ya
+# estaba arriba. QUINTA vez que esta trampa muerde aqui (ver $rutaModelo).
+$InfoServidor = $null
 function Servidor-Vivo {
     try {
-        $script:SERVIDOR = Invoke-RestMethod "http://127.0.0.1:$Puerto/props" -TimeoutSec 2
-        [bool]$script:SERVIDOR.model_path
-    } catch { $script:SERVIDOR = $null; $false }
+        $script:InfoServidor = Invoke-RestMethod "http://127.0.0.1:$Puerto/props" -TimeoutSec 2
+        [bool]$script:InfoServidor.model_path
+    } catch { $script:InfoServidor = $null; $false }
 }
 
 function Levantar-Servidor {
@@ -219,7 +225,31 @@ en 12,28 GB de VRAM. Paralo con `rice-llm.ps1 -Stop` y vuelve a intentarlo.
 '@
     }
 
-    Write-Host 'levantando llama-server (la primera vez tarda)...'
+    # ¿Ya hay uno ARRANCANDO en nuestro puerto? Entonces se le espera, no se
+    # lanza otro.
+    #
+    # Paso el 2026-09-22: tres llama-server a la vez en el 8099, 8,5 GB
+    # comprometidos cada uno y 285 MiB libres. Windows deja escuchar a varios en
+    # el mismo puerto (cpp-httplib activa SO_REUSEADDR), asi que ninguno da
+    # error. Bastan dos preguntas seguidas mientras el modelo carga -- el
+    # supervisor, el atajo -- o cualquier falso "no esta vivo".
+    $cargando = @(Get-CimInstance Win32_Process -Filter "Name='llama-server.exe'" -EA SilentlyContinue |
+                  Where-Object { $_.CommandLine -match "--port\s+$Puerto\b" })
+    if (-not $cargando.Count) {
+        Write-Host 'levantando llama-server (la primera vez tarda)...'
+        Arrancar-Llama
+    } else {
+        Write-Host "ya hay un llama-server en el $Puerto (pid $($cargando[0].ProcessId)); se le espera"
+    }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt 400) {
+        Start-Sleep -Milliseconds 500
+        if (Servidor-Vivo) { Write-Host ("listo en {0:N0} s" -f $sw.Elapsed.TotalSeconds); return }
+    }
+    throw 'el servidor no arranco'
+}
+
+function Arrancar-Llama {
     $a = @('--model', $rutaModelo) +
          @(if ($mmproj) { '--mmproj', $mmproj }) +
          @('--ctx-size', '8192', '--n-gpu-layers', '99'
@@ -251,12 +281,6 @@ en 12,28 GB de VRAM. Paralo con `rice-llm.ps1 -Stop` y vuelve a intentarlo.
     # Sin redirecciones usa ShellExecute, que no hereda nada. El registro lo
     # escribe el propio servidor con --log-file.
     Start-Process $llama -ArgumentList $a -WindowStyle Hidden | Out-Null
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while ($sw.Elapsed.TotalSeconds -lt 400) {
-        Start-Sleep -Milliseconds 500
-        if (Servidor-Vivo) { Write-Host ("listo en {0:N0} s" -f $sw.Elapsed.TotalSeconds); return }
-    }
-    throw 'el servidor no arranco'
 }
 
 # Se le pide JSON y nada mas. El esquema ES la separacion showman/funcionario:
@@ -548,7 +572,7 @@ $tmp = $null
 $tc = [Diagnostics.Stopwatch]::StartNew()
 # Sin vision no hay captura: mandarle una imagen a un servidor sin mmproj es un
 # error seguro, y adivinar la pantalla sin verla seria inventar.
-$conVision = [bool]$SERVIDOR.modalities.vision
+$conVision = [bool]$InfoServidor.modalities.vision
 if (-not $hayPartida -and $conVision) {
     $tmp = Join-Path $env:TEMP 'ojo.jpg'
     & $captura --salida $tmp | Out-Null
@@ -709,7 +733,7 @@ try {
     $medida = [ordered]@{
         pregunta    = $Pregunta
         # El que CONTESTO, leido del servidor, no el que se pidio.
-        modelo      = if ($SERVIDOR.model_path) { [IO.Path]::GetFileNameWithoutExtension($SERVIDOR.model_path) } else { $Modelo }
+        modelo      = if ($InfoServidor.model_path) { [IO.Path]::GetFileNameWithoutExtension($InfoServidor.model_path) } else { $Modelo }
         captura_ms  = [math]::Round($tc.Elapsed.TotalMilliseconds)
         uia_ms      = [math]::Round($tu.Elapsed.TotalMilliseconds)
         memoria_ms  = [math]::Round($tm.Elapsed.TotalMilliseconds)

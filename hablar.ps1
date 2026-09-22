@@ -13,7 +13,10 @@ param(
     [int]$Segundos = 12,
     # Que modelo usa `ojo.ps1`. Para la sesion con microfono se dicen las mismas
     # frases con los dos y se comparan en `sesion.csv`.
-    [ValidateSet('35b', '8b', 'bonsai')][string]$Modelo = '8b'
+    [ValidateSet('35b', '8b', 'bonsai', '4b-texto')][string]$Modelo = '8b',
+    # Para MEDIR sin microfono: se salta el oido y usa este texto como si lo
+    # hubieras dicho. Todo lo demas es el camino real.
+    [string]$Texto
 )
 $ErrorActionPreference = 'Stop'
 $log = "$Raiz\hablar.log"
@@ -22,16 +25,21 @@ function Apuntar($msg) {
     "{0:HH:mm:ss}  {1}" -f (Get-Date), $msg | Add-Content $log -Encoding utf8
 }
 
-try {
-    $t = [Diagnostics.Stopwatch]::StartNew()
-    $r = Invoke-RestMethod "http://127.0.0.1:$Puerto/parar" -TimeoutSec 60
-    $t.Stop()
-} catch {
-    Apuntar "el oido no respondio: $_"
-    exit 1
+if ($Texto) {
+    $r = [pscustomobject]@{ texto = $Texto; segundos = 0; ms = 0 }
+    $t = [Diagnostics.Stopwatch]::new()
+} else {
+    try {
+        $t = [Diagnostics.Stopwatch]::StartNew()
+        $r = Invoke-RestMethod "http://127.0.0.1:$Puerto/parar" -TimeoutSec 60
+        $t.Stop()
+    } catch {
+        Apuntar "el oido no respondio: $_"
+        exit 1
+    }
 }
 
-$texto = ($r.texto ?? '').Trim()
+$texto = "$($r.texto)".Trim()
 Apuntar ("oido {0:N0} ms, {1} s de audio, stt {2} ms: '{3}'" -f `
     $t.Elapsed.TotalMilliseconds, $r.segundos, $r.ms, $texto)
 
@@ -83,6 +91,9 @@ if ($crudo) {
             # tanda lenta lo fue por el modelo o porque habia un juego abierto
             # comiendose la tarjeta. Paso el 2026-09-22 y costo la sesion entera.
             vram_libre_mib  = $j.vram_libre_mib
+            # El sintoma directo del desalojo: ~50-60 normal, 4-7 desalojado.
+            tok_s           = $j.tok_s
+            prompt_n        = $j.prompt_n
             controles       = $j.controles
             memorias        = $j.memorias
             via             = $j.via

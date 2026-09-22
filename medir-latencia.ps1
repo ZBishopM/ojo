@@ -17,7 +17,10 @@ param(
     [Parameter(Mandatory)][string]$Nombre,
     [int]$Vueltas = 1,
     [string]$Raiz = 'D:\2026-projects\ojo',
-    [string]$Shell = 'powershell'
+    [string]$Shell = 'powershell',
+    # Mide el camino ENTERO del atajo: lanza hablar.ps1 (con -Texto, sin
+    # microfono) en vez de ojo.ps1. Asi entran los dos arranques de PowerShell.
+    [switch]$PorHablar
 )
 $ErrorActionPreference = 'Stop'
 $PREGUNTAS = @(
@@ -31,7 +34,11 @@ $filas = @()
 for ($v = 1; $v -le $Vueltas; $v++) {
     foreach ($q in $PREGUNTAS) {
         $t0 = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
-        & $Shell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\ojo.ps1" $q -Segundos 0 *> $null
+        if ($PorHablar) {
+            & $Shell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\hablar.ps1" -Texto $q -Segundos 0 *> $null
+        } else {
+            & $Shell -NoProfile -ExecutionPolicy Bypass -File "$Raiz\ojo.ps1" $q -Segundos 0 *> $null
+        }
         $j = [IO.File]::ReadAllText("$Raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
         if ($j.pregunta -ne $q) { Write-Warning "la medida no es de esta pregunta: '$($j.pregunta)'"; continue }
         $total = $j.fin_epoch_ms - $t0
