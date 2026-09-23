@@ -656,6 +656,25 @@ function Pregunta-De-Lectura([string]$q) {
     $q -match '(?i)\bmarca\b|\bdice\b|\bpone\b|muestra|aparece|se ve\b|\blee\b|l[eé]eme|leer|pantalla|barra|ventana|bot[oó]n|t[ií]tulo|pesta[nñ]a|c[oó]mo se llama'
 }
 
+# TODAS las decisiones de ruta que se toman antes de preguntar, en un solo
+# sitio: que se lee de la pantalla, si pide un sitio, si huele a actualidad
+# (busqueda adelantada), si es de SUS cosas (no se busca en internet), si pide
+# aumento, workspaces o metricas. Juntas para poder compararlas con otra forma
+# de decidir (banco-decidir.ps1: las "decisiones tipadas" a lo Jev).
+function Decidir-Con-Reglas([string]$q) {
+    [ordered]@{
+        lectura    = [bool](Pregunta-De-Lectura $q)
+        sitio      = [bool](Pregunta-De-Sitio $q)
+        web        = $q -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o'
+        personal   = $q -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
+        aumento    = $q -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|mejor|tomo|cojo|agarro)' -or
+                     $q -match '(?i)(cu[aá]l|elij|escoj|recomi).*aument' -or
+                     $q -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)'
+        workspaces = $q -match '(?i)workspace|escritorio|abiert|ventanas'
+        metricas   = $q -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consumo|memoria|procesador|gr[aá]fica'
+    }
+}
+
 # El OCR como bloque para el modelo, con cada linea numerada (para {"texto": N})
 # y su posicion. En cultura invariante: con la de es, "0,49,0,01" no se lee.
 function Texto-Pantalla($lineas) {
@@ -875,6 +894,9 @@ $viejos | ForEach-Object { $null = $_.WaitForExit(500) }
 #      aparte: ~240 ms de arranque en cada pregunta de la partida.
 #   3. Dentro, un sondeo TCP con tope de 200 ms antes de pedir nada, por si el
 #      juego existe pero aun no ha abierto el puerto (pantalla de carga).
+# Las decisiones de ruta, todas a la vez (Decidir-Con-Reglas).
+$dec = Decidir-Con-Reglas $Pregunta
+
 $partida = $null
 $hayPartida = $false
 $respuestaFija = $null
@@ -965,9 +987,7 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
             #
             # Se guarda la ultima captura (eleccion-ultima.bmp), y cada vez que
             # NO lee tres aumentos, una copia fechada: con esas se afina.
-            $pideAumento = $Pregunta -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|mejor|tomo|cojo|agarro)' -or
-                           $Pregunta -match '(?i)(cu[aá]l|elij|escoj|recomi).*aument' -or
-                           $Pregunta -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)'
+            $pideAumento = $dec.aumento
             if ($pideAumento) {
                 try {
                     Add-Type -AssemblyName System.Drawing, System.Windows.Forms
@@ -1116,10 +1136,10 @@ try {
         $memoria += "`n`nAHORA NO VES LA PANTALLA: no hay imagen. No describas lo que no ves; si la pregunta necesita verla, dilo en una frase."
     }
     # Detras de la imagen y de la pregunta: no toca el prefijo cacheado.
-    if (-not $hayPartida -and $Pregunta -match '(?i)workspace|escritorio|abiert|ventanas') {
+    if (-not $hayPartida -and $dec.workspaces) {
         try { $memoria += Leer-Workspaces } catch { Write-Warning "no pude leer los workspaces: $_" }
     }
-    $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:($Pregunta -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consumo|memoria|procesador|gr[aá]fica')
+    $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:$dec.metricas
 
     # El texto de la pantalla a tamano real, si la pregunta es de leer o de
     # ubicar algo. ~450 ms (OCR de Windows sobre la captura ampliada x2: a x1
@@ -1134,14 +1154,14 @@ try {
         $memoria += Texto-Pantalla $ocr
     }
     # (se llama con punto: escribe $ocr y $memoria de aqui)
-    if ($nativa -and ((Pregunta-De-Lectura $Pregunta) -or (Pregunta-De-Sitio $Pregunta))) { . $leerPantalla }
+    if ($nativa -and ($dec.lectura -or $dec.sitio)) { . $leerPantalla }
 
     # Busqueda ADELANTADA para lo que huele a actualidad: con la frase literal
     # del usuario, en otro runspace, mientras piensa el modelo. Si al final no
     # hace falta, se tira. Sin esto, preguntar el precio del dolar tardaba ~10,5
     # s: modelo, busqueda y otra vez modelo, uno detras de otro.
     $webAdelantada = $null
-    if (-not $respuestaFija -and $Pregunta -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o') {
+    if (-not $respuestaFija -and $dec.web) {
         $webAdelantada = [powershell]::Create()
         $null = $webAdelantada.AddScript({ param($raiz, $q) . "$raiz\buscar.ps1"; Buscar-Web @($q) }).AddArgument($Raiz).AddArgument($Pregunta)
         $webEnMarcha = $webAdelantada.BeginInvoke()
@@ -1196,7 +1216,7 @@ try {
         # Salvo si la pregunta es de SUS cosas (su correo, sus archivos, su
         # pantalla): ahi internet no sabe nada y "no tengo acceso" es la verdad.
         $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo)'
-        $esSuyo = $Pregunta -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
+        $esSuyo = $dec.personal
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
         # (Se probo a contestar SIEMPRE con la web en las preguntas de
@@ -1256,7 +1276,7 @@ try {
     # Durante la partida NUNCA se senala: no se ha mirado la pantalla, asi que
     # cualquier coordenada que proponga el modelo es inventada -- y pintarla
     # encima del juego seria ademas lo peor que se puede hacer alli.
-    $deSitio = (Pregunta-De-Sitio $Pregunta) -and -not $hayPartida
+    $deSitio = $dec.sitio -and -not $hayPartida
     if (-not $deSitio) {
         # La pregunta no pide un sitio, asi que lo que haya propuesto el modelo
         # se descarta entero. Medido: sin esto apuntaba en las CINCO preguntas
@@ -1288,6 +1308,18 @@ try {
         $c = [pscustomobject]@{ x = $t.x; y = $t.y; w = $t.w; h = $t.h; nombre = $t.texto }
         $punto = @($c.x, $c.y)
         $via = "texto $($d.texto) '$($t.texto)'"
+    } elseif ($deSitio -and $ocr.Count -and ($tDicho = @($ocr | Where-Object {
+                # Sin espacios: el OCR lee el reloj como "12 : 44".
+                $t = (Plano $_.texto) -replace '\s', ''
+                $t.Length -ge 3 -and ((Plano $d.decir) -replace '\s', '').Contains($t) } |
+                                                      Sort-Object { $_.texto.Length } -Descending | Select-Object -First 1)[0])) {
+        # Pide un sitio y lo que dice CONTIENE el texto de una linea del OCR
+        # ("el reloj marca 12:43"): se senala esa linea, con su rectangulo real.
+        # Medido: a "donde esta el reloj" dijo "superior izquierda" (esta en el
+        # centro) sin senalar nada, teniendo la hora en el OCR.
+        $c = [pscustomobject]@{ x = $tDicho.x; y = $tDicho.y; w = $tDicho.w; h = $tDicho.h; nombre = $tDicho.texto }
+        $punto = @($c.x, $c.y)
+        $via = "texto que dijo '$($tDicho.texto)'"
     } elseif ($d.senalar) {
         $punto = @($d.senalar.x, $d.senalar.y)
         $via = 'coordenadas del modelo'
