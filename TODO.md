@@ -3,27 +3,60 @@
 Plan completo en `~/.claude/plans/wobbly-marinating-bubble.md`.
 Números en `MEDICIONES.md`.
 
+## Cerrado el 2026-09-23
+
+- [x] Voz: Supertonic F2 en GPU, residente (`voz/servidor_voz.py`), elegida en
+      dos escuchas a ciegas; texto corregido para hablar (`voz/texto_voz.py`).
+- [x] Carácter GLaDOS en lo que dice, sin perder aciertos; el humor va en su
+      propio campo y se aprende de internet cada día (`humor.ps1`).
+- [x] **Internet con fuentes**: SearXNG local (DuckDuckGo, reserva
+      Brave/Mojeek/Qwant), `buscar.ps1`, verificador en código, cita del sitio.
+      `banco-verdad.ps1`: 5/8 → 8/8, 0 inventos.
+- [x] Hechos del sistema (hora, fecha, ventana, RAM/VRAM/CPU/GPU) y OCR a
+      tamaño real ×2 para preguntas de pantalla.
+- [x] Workspaces de GlazeWM.
+- [x] Recomendar aumento de la pantalla, con precarga de la build.
+- [x] VRAM de Hearthstone: 406 MiB → fuera de la lista; conserva la visión.
+- [x] `--oculto` imposible con una partida de LoL abierta.
+- [x] Estética del overlay: los siete puntos de abajo.
+- [x] Rice sincronizado a `dotfiles` (commit local; el `push` es tuyo).
+
+## Queda, y por qué no se hizo hoy
+
+- [ ] **Proceso residente + atajo fuera de AHK.** Ahorro medido: 370-490 ms
+      por pregunta (`arranque_ps`), de 2,5-5 s. Pide que el atajo hable con un
+      proceso vivo: se cambia el camino del atajo, y eso hay que probarlo con
+      las manos. Van juntos (el binario del atajo sería el cliente).
+- [ ] **Bonsai contra el 8B y `medir-hora.ps1`**: paran el modelo mucho rato;
+      correrlos con el PC libre.
+- [ ] **`{"control": null}`**: medir con Discord delante (probar-senalar).
+- [ ] **En una partida real**: VRAM de LoL con la voz (725 MiB) y el 4B,
+      overlay en pantalla completa, OCR de la elección de aumentos, y que
+      `--oculto` se rechace de verdad.
+- [ ] **DuckDuckGo pide CAPTCHA en ráfagas**: en uso normal no debería;
+      vigilar `sin respaldo` / "no pude buscarlo" en `sesion.csv`.
+
 ## Estética del overlay — a corregir después de que el bucle funcione
 
 Decisión del usuario: primero funcional, luego bonito. Estos salieron al mirar
-los PNG de `--prueba` y **no** están arreglados todavía.
+los PNG de `--prueba`. Todos hechos el 2026-09-23 (commit 268f437), comprobados con `--prueba`.
 
-- [ ] **Los números de paso son pequeños.** Círculo de radio 15 sobre 1920 px de
+- [x] **Los números de paso son pequeños.** Círculo de radio 15 sobre 1920 px de
       ancho. Se ven, pero no mandan. Probar 20-22 y comparar.
-- [ ] **Las flechas no tocan los círculos de paso.** Queda un hueco de unos
+- [x] **Las flechas no tocan los círculos de paso.** Queda un hueco de unos
       píxeles que se nota. La flecha debería arrancar del borde del círculo, no
       de un punto suelto cerca.
-- [ ] **La píldora de estado es discreta de más.** Texto a 14 px en la esquina;
+- [x] **La píldora de estado es discreta de más.** Texto a 14 px en la esquina;
       si el objetivo es saber siempre si te escuchó, tiene que verse sin
       buscarla. Subir tamaño o moverla junto a los subtítulos.
-- [ ] **El halo del cursor ensucia el anillo.** Los cuatro círculos concéntricos
+- [x] **El halo del cursor ensucia el anillo.** Los cuatro círculos concéntricos
       dejan un manchón marrón que resta contraste al anillo ámbar. Bajar alfa o
       recortarlo al radio del anillo.
-- [ ] **Sin animación de entrada ni de salida.** Los trazos aparecen y
+- [x] **Sin animación de entrada ni de salida.** Los trazos aparecen y
       desaparecen de golpe. Un fundido de 150 ms se notaría mucho.
-- [ ] **El panel de subtítulos no parte líneas largas.** Una frase larga se sale
+- [x] **El panel de subtítulos no parte líneas largas.** Una frase larga se sale
       del ancho de pantalla. Falta ajuste de línea.
-- [ ] **Sin modo claro.** Toda la paleta asume fondo oscuro. Sobre una ventana
+- [x] **Sin modo claro.** Toda la paleta asume fondo oscuro. Sobre una ventana
       blanca el texto crema pierde contraste.
 
 ## Precisión fina — hecho, y lo que quedó cojo
@@ -136,7 +169,7 @@ La pregunta que fallaba 0/8 sale **8/8**.
       niega por su guarda, y el log se llena. **No es peligroso, es ruido.**
       Arreglarlo bien pide que `Check` sepa mirar un puerto, y eso toca
       `lib/rice-proc.ps1`, que lo usa todo el rice.
-- [ ] TTS en español: Piper es_ES vs es_MX vs Kokoro, medidos (Fase D)
+- [x] TTS en español: medido y elegido (Supertonic F2, ver MEDICIONES.md)
 - [ ] Pre-calentamiento: mandar la imagen al pulsar, no al soltar (Fase E)
 - [ ] Banco de precisión con capturas suyas anotadas (Fase F)
 - [ ] Modo agente con confirmación (Fase G)
@@ -202,7 +235,7 @@ Todo lo cerrado está en `MEDICIONES.md`, sección «auditoría», y en `git log
       una partida: `.\lol.ps1 -Crudo > prueba-lol\real.json`, y desde entonces
       `.\prueba-lol\partida.ps1 -Empezar -Datos .\prueba-lol\real.json` prueba
       contra datos de verdad. Es lo que confirmaría la identidad por Riot ID.
-- [ ] **VRAM real de Hearthstone.** El 8B ya aguanta ~2,3 GB de otra
+- [x] **VRAM real de Hearthstone.** El 8B ya aguanta ~2,3 GB de otra
       aplicación. Si Hearthstone pide menos, sale de la lista del supervisor y
       Ojo **conserva la visión** en Hearthstone — que es lo útil ahí, porque no
       hay API de datos y ver las cartas sí importa.
@@ -265,7 +298,7 @@ quedó a medias, en orden de valor.
       viene **vacío** (comprobado con Lux en el 16.18.1). Riot dejó de
       publicarlo. Esto necesita web, no hay atajo.
 
-- [ ] **Internet con fuentes.** Su regla, literal: *«no quiero que invente, ni
+- [x] **Internet con fuentes.** Su regla, literal: *«no quiero que invente, ni
       que diga que no sabe, quiero que cuando no lo sepa o esté en duda lo
       BUSQUE automáticamente y cite sus fuentes»*. SearXNG propio y una
       herramienta `buscar(q)` por tool-calling (`llama-server` ya corre con
@@ -281,7 +314,7 @@ quedó a medias, en orden de valor.
       necesita el gancho (Win+1..9 las reserva el shell, error 1409). Ctrl+Win
       no está en ese caso.
 
-- [ ] **Impedir `WDA_EXCLUDEFROMCAPTURE` durante la partida.** Una ventana
+- [x] **Impedir `WDA_EXCLUDEFROMCAPTURE` durante la partida.** Una ventana
       escondida de las capturas del anti-cheat es la firma de un tramposo. Hoy
       `--oculto` no es el modo por defecto, pero tampoco está prohibido.
 
