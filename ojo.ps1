@@ -1347,8 +1347,10 @@ try {
     try { . "$Raiz\perfil.ps1"; $memoria += Perfil-Texto } catch { Write-Warning "sin perfil: $_" }
     # Las personas de su vida y la conversacion reciente (personas.ps1). Fuera
     # de partida: ahi se pregunta del juego y el prompt de partida es otro.
+    # Con -Imagen (bancos y pruebas) tampoco: no deben leer ni escribir la
+    # memoria real.
     $personas = $null; $pt = $null; $nombresDichos = @(); $plan = $null
-    if (-not $hayPartida) {
+    if (-not $hayPartida -and -not $Imagen) {
         try {
             . "$Raiz\personas.ps1"
             $personas = Leer-Personas

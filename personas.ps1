@@ -105,7 +105,13 @@ function Personas-Texto([string]$q, $personas) {
 # Lo que el modelo quiere recordar, guardado SOLO si sale de las palabras del
 # usuario: al menos dos palabras de 4+ letras del hecho (o el nombre propio)
 # tienen que estar en la pregunta. Si trae "se llama X", se apunta el nombre.
+#
+# Y SOLO si CONTO algo, no si pregunto: a "¿Quien gano el ultimo mundial de
+# League of Legends?" el 8B "recordo" el perfil del usuario ("juego League of
+# Legends, Hearthstone...") y paso el cotejo por compartir "league" y
+# "legends" (banco-verdad, 2026-09-23).
 function Guardar-Recuerdos([string]$q, $recordar, $personas) {
+    if (-not (Conto-Algo $q)) { return @() }
     $pq = Plano-P $q
     $guardados = @()
     foreach ($r in @($recordar)) {
