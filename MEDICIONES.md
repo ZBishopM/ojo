@@ -1572,3 +1572,14 @@ y la espera por carga lenta se mide por la edad del proceso.
 2 de las 10 respuestas grabadas que señalaban un control decían el número
 («la lista de controles, número 23»). `decir.ps1` lo sustituye por el nombre;
 6 comprobaciones con frases reales.
+
+## Una hora de uso normal (18:11-19:11)
+
+13 muestras, cada 5 minutos, con el escritorio de siempre: **63,0-63,7 tok/s**
+en 11 de 13, y **~2.900 MiB libres estables** toda la hora (2.877-2.939).
+
+Dos muestras más bajas, 53,2 y 54,5 (18:36 y 18:41), con la VRAM libre
+**igual** que en las demás. No es desalojo — ese da 4-12 tok/s y baja la VRAM
+libre —, es otra cosa usando la GPU a la vez (vídeo, la grabación continua).
+Volvió sola a 63 en la siguiente. Antes de la auditoría, la misma hora habría
+acabado en ~12 tok/s: fue lo que pasó esta mañana en 25 minutos.
