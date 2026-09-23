@@ -37,3 +37,6 @@ bin/
 # Busquedas web cacheadas (una por consulta y dia): son de lo que pregunta el
 # usuario.
 web-cache/
+
+# El humor aprendido cada dia (humor.ps1): se rehace solo.
+humor/

@@ -809,6 +809,21 @@ Marca 'cargado'
 Levantar-Servidor
 Marca 'servidor'
 
+# ---- El humor del dia: la PRIMERA pregunta de cada dia lo aprende -----------
+#
+# Un evento (la primera pregunta del dia), no un temporizador. En segundo plano
+# y sin redirecciones; un intento al dia aunque falle (humor\intento.txt), para
+# no lanzar uno en cada pregunta si el buscador esta caido. Fuera de partida:
+# sus cuatro llamadas al modelo harian esperar a las preguntas del juego.
+$hoyHumor = Get-Date -Format 'yyyy-MM-dd'
+$intentoHumor = "$Raiz\humor\intento.txt"
+if (-not (Get-Process -Name 'League of Legends' -EA SilentlyContinue) -and
+    -not ((Test-Path $intentoHumor) -and ((Get-Content $intentoHumor -Raw).Trim() -eq $hoyHumor))) {
+    New-Item -ItemType Directory -Force "$Raiz\humor" | Out-Null
+    Set-Content $intentoHumor $hoyHumor
+    Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$Raiz\humor.ps1", '-Aprender' -WindowStyle Hidden
+}
+
 # El overlay se arranca ANTES de preguntar para poder enseñar "mirando..."
 # mientras el modelo piensa. Sin eso habria dos segundos de pantalla muerta.
 # Matar el overlay de la pregunta ANTERIOR antes de abrir el nuestro.
@@ -1127,7 +1142,12 @@ try {
         if ("$($x.pulla)" -match '\d') { $x | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force }
         $x
     }
-    $preguntar = { Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida }) }
+    # El humor aprendido de internet (humor.ps1): va al modelo para la pulla,
+    # pero NO a la evidencia del verificador -- un dato sacado de un meme no
+    # cuenta como respaldo.
+    $humor = ''
+    if (-not $respuestaFija) { try { . "$Raiz\humor.ps1"; $humor = Referencias-Humor 8 } catch { } }
+    $preguntar = { Preguntar-Modelo $tmp $Pregunta $controles ($memoria + $humor) $(if ($hayPartida) { $partida }) }
 
     $r = if ($respuestaFija) {
         @{ ms = 0; texto = (@{ decir = $respuestaFija } | ConvertTo-Json -Compress); tok_s = 0; prompt_n = 0 }

@@ -68,16 +68,21 @@ function Buscar-Web([string[]]$consultas, [int]$paginas = 3) {
     for ($i = 0; $i -lt $consultas.Count; $i++) {
         $a += @('-o', (Join-Path $dirJ "$i.json"), "$BUSCAR_URL`?q=$([uri]::EscapeDataString($consultas[$i]))&format=json&language=es")
     }
-    # DuckDuckGo corta a ratos (visto en una rafaga de pruebas: cero resultados
-    # y al minuto, diez). Un reintento si no llega nada.
+    # DuckDuckGo corta a ratos, y tras una rafaga pide CAPTCHA (visto el
+    # 2026-09-23). Si no llega nada, se reintenta con motores de RESERVA
+    # (deshabilitados por defecto en settings.yml, se piden explicitamente):
+    # DuckDuckGo sigue siendo el unico en uso normal, decision del usuario.
     for ($intento = 1; $intento -le 2; $intento++) {
+        if ($intento -eq 2) { $a = @($a | ForEach-Object { if ($_ -like "$BUSCAR_URL*") { "$_&engines=brave,mojeek,qwant" } else { $_ } }) }
         & curl.exe @a 2>$null
-        $listas = for ($i = 0; $i -lt $consultas.Count; $i++) {
+        # Lista explicita de listas: con la coma unaria y UNA sola consulta,
+        # PowerShell deshacia el anidado y no salia ningun resultado.
+        $listas = [Collections.Generic.List[object]]::new()
+        for ($i = 0; $i -lt $consultas.Count; $i++) {
             $p = Join-Path $dirJ "$i.json"
-            , @(if (Test-Path $p) { try { ([IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).results } catch { } })
+            $listas.Add(@(if (Test-Path $p) { try { ([IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).results } catch { } }))
         }
         if (@($listas | ForEach-Object { $_ }).Count) { break }
-        Start-Sleep -Milliseconds 1500
     }
     $vistos = @{}
     $res = @(for ($k = 0; $k -lt 10; $k++) {
