@@ -34,12 +34,23 @@ use windows::Win32::UI::HiDpi::{
     SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, PeekMessageW, RegisterClassW,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, FindWindowW, GetCursorPos, PeekMessageW, RegisterClassW,
     SetWindowDisplayAffinity, SetWindowPos, ShowWindow, TranslateMessage, UpdateLayeredWindow,
     HWND_TOPMOST, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOWNOACTIVATE,
     ULW_ALPHA, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WNDCLASSW, WS_EX_LAYERED,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
+
+/// Hay una partida de League abierta: existe la ventana del juego
+/// (`RiotWindowClass`, la del proceso "League of Legends", no la del cliente).
+///
+/// Con ella, `WDA_EXCLUDEFROMCAPTURE` NUNCA: una ventana escondida de las
+/// capturas es justo la firma que persigue un anti-cheat (Vanguard). Se
+/// comprueba aqui y no solo en ojo.ps1 para que ninguna llamada se la salte.
+fn hay_partida_de_lol() -> bool {
+    let clase = wide("RiotWindowClass");
+    unsafe { FindWindowW(PCWSTR(clase.as_ptr()), PCWSTR::null()).map(|h| !h.is_invalid()).unwrap_or(false) }
+}
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -195,6 +206,7 @@ impl Ventana {
     /// BitBlt propio y se quita despues, para que shadowplay si lo grabe.
     #[allow(dead_code)]
     fn oculto_a_capturas(&self, si: bool) {
+        let si = si && !hay_partida_de_lol();
         unsafe {
             let _ = SetWindowDisplayAffinity(self.hwnd, if si { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE });
         }
@@ -421,6 +433,10 @@ fn main() -> Result<(), String> {
     }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let oculto = args.iter().any(|a| a == "--oculto");
+    if oculto && hay_partida_de_lol() {
+        eprintln!("--oculto rechazado: hay una partida de League abierta (anti-cheat)");
+    }
+    let oculto = oculto && !hay_partida_de_lol();
 
     if let Some(i) = args.iter().position(|a| a == "--escena") {
         let j = args.get(i + 1).cloned().unwrap_or_default();
