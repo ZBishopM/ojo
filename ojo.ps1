@@ -93,8 +93,19 @@ function Marca($n) { $MARCAS[$n] = [int]$RELOJ.ElapsedMilliseconds }
 # En otro runspace se hace mientras se captura y piensa el modelo, y lanzarlo
 # cuesta 25 ms. El sintetizador creado alli se usa desde aqui sin problema
 # (comprobado: SpeakAsync en 3-6 ms, voz correcta).
-$vozPreparando = $null
+#
+# Eso es la RESERVA. La voz normal es el servidor de voz (voz\servidor_voz.py,
+# Supertonic en la GPU, residente): si su mutex existe, SAPI ni se prepara.
+# Se mira el mutex y no el puerto: conectar a un puerto local cerrado tarda ~2 s
+# en fallar en Windows.
+$vozResidente = $false
 if ($Voz -and -not $Servidor) {
+    $m = $null
+    $vozResidente = [Threading.Mutex]::TryOpenExisting('Global\ojo-voz', [ref]$m)
+    if ($m) { $m.Dispose() }
+}
+$vozPreparando = $null
+if ($Voz -and -not $Servidor -and -not $vozResidente) {
     $vozPreparando = [powershell]::Create()
     $null = $vozPreparando.AddScript({
         param($v)
@@ -984,17 +995,25 @@ try {
 
     # ---- La voz ---------------------------------------------------------------
     #
-    # Las voces de Windows en espanol (SAPI / OneCore): ya estan instaladas, no
-    # gastan VRAM -- que en partida no sobra -- y sintetizan una frase de ~7 s
-    # de audio en 39-66 ms (medido con las cinco). No son neuronales: suenan
-    # algo roboticas. Es la voz de HOY; Piper, neuronal y tambien sin VRAM, es
-    # la siguiente comparacion.
+    # El servidor de voz (Supertonic F2, GPU): gano la escucha a ciegas del
+    # 2026-09-23 y la primera frase suena en ~260-300 ms. Vuelve en cuanto
+    # suena la primera frase; el resto se sintetiza mientras habla. Se le pasa
+    # nuestro PID: si el atajo nos mata (Ctrl+Win otra vez, Esc), se calla sola.
     #
-    # Asincrona: el subtitulo ya esta en pantalla y la voz arranca a la vez. El
-    # proceso espera a que termine antes de cerrarse (ver el finally). El
-    # sintetizador lleva preparandose en paralelo desde el principio.
+    # Si no esta, la reserva: SAPI Sabina (robotica, la peor de la escucha,
+    # pero siempre instalada), preparada en paralelo desde el principio.
     $vozSintetizador = $null
-    if ($vozPreparando -and $d.decir) {
+    $vozServidor = $false
+    if ($vozResidente -and $d.decir) {
+        try {
+            $cuerpoVoz = [Text.Encoding]::UTF8.GetBytes((@{ texto = "$($d.decir)"; pid = $PID } | ConvertTo-Json -Compress))
+            $null = Invoke-RestMethod 'http://127.0.0.1:8098/decir' -Method Post -Body $cuerpoVoz `
+                -ContentType 'application/json; charset=utf-8' -TimeoutSec 10
+            $vozServidor = $true
+            Marca 'voz'
+        } catch { Write-Warning "el servidor de voz no contesto: $_" }
+    }
+    if (-not $vozServidor -and $vozPreparando -and $d.decir) {
         try {
             $vozSintetizador = @($vozPreparando.EndInvoke($vozEnMarcha))[0]
             $null = $vozSintetizador.SpeakAsync($d.decir)
@@ -1077,6 +1096,9 @@ try {
 } finally {
     # Que termine de HABLAR antes de cerrar: si la frase dura mas que el
     # overlay, cerrarlo cortaria la voz a media palabra. Tope de 30 s.
+    if ($vozServidor) {
+        try { $null = Invoke-RestMethod 'http://127.0.0.1:8098/esperar' -TimeoutSec 65 } catch { }
+    }
     if ($vozSintetizador) {
         $t = [Diagnostics.Stopwatch]::StartNew()
         while ($vozSintetizador.State -eq 'Speaking' -and $t.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 100 }

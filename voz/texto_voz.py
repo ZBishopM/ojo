@@ -18,6 +18,8 @@ PRONUNCIACION = {
     "ARAM": "a ram", "Mayhem": "méijem", "op.gg": "o pe ge ge", "LoL": "lol",
     "WezTerm": "ues term", "Firefox": "fáyerfox", "Discord": "díscord",
     "GlazeWM": "gleis de eme", "Windows": "uíndous", "Yone": "yone",
+    # Supertonic decia "Syla" (ronda 2).
+    "Sylas": "Sáilas",
 }
 _NOMBRES = re.compile(r"(?<![\w.])(" + "|".join(re.escape(k) for k in sorted(PRONUNCIACION, key=len, reverse=True)) + r")(?![\w])", re.I)
 _CLAVES = {k.lower(): v for k, v in PRONUNCIACION.items()}
@@ -34,8 +36,9 @@ def _numero(m):
 
 def para_decir(texto: str) -> str:
     t = _NOMBRES.sub(lambda m: _CLAVES[m.group(0).lower()], texto)
-    # KDA "0/7/2": cero, siete, dos.
-    t = re.sub(r"\b(\d+)/(\d+)/(\d+)\b", lambda m: ", ".join(num2words(int(x), lang="es") for x in m.groups()), t)
+    # KDA "0/7/2": "cero, siete y dos". Con "cero, siete, dos" la voz
+    # tropezaba (ronda 2): la "y" le da el final de enumeracion.
+    t = re.sub(r"\b(\d+)/(\d+)/(\d+)\b", lambda m: "{}, {} y {}".format(*(num2words(int(x), lang="es") for x in m.groups())), t)
     t = re.sub(r"(\d)\s*%", r"\1 por ciento", t)
     # 4300, 4.300, 4 300, 2,5
     t = re.sub(r"\d{1,3}(?:[. ]\d{3})+(?:,\d+)?|\d+(?:,\d+)?", _numero, t)
@@ -45,7 +48,8 @@ def para_decir(texto: str) -> str:
 if __name__ == "__main__":
     casos = {
         "El más fuerte es Jax AP, con 4300 de oro.": "El más fuerte es Yax a pe, con cuatro mil trescientos de oro.",
-        "Vas 0/7/2 y haces el 31% del daño.": "Vas cero, siete, dos y haces el treinta y uno por ciento del daño.",
+        "Vas 0/7/2 y haces el 31% del daño.": "Vas cero, siete y dos y haces el treinta y uno por ciento del daño.",
+        "contra Yone y Sylas": "contra yone y Sáilas",
         "Según op.gg, 4.300 o 2,5.": "Según o pe ge ge, cuatro mil trescientos o dos coma cinco.",
         "Tienes WezTerm y Discord.": "Tienes ues term y díscord.",
         "jax ad": "Yax a de",
