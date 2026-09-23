@@ -105,11 +105,22 @@ pub fn punto_arco(p0: (f32, f32), c: (f32, f32), p1: (f32, f32), t: f32) -> (f32
 /// tiny-skia no tiene desenfoque, y meter uno de verdad costaria un filtro
 /// separable sobre todo el buffer en cada cuadro. Cuatro circulos dan el mismo
 /// efecto a esta escala por una fraccion del coste.
+///
+/// Mas corto y mas tenue que antes (x0,9 y no x1,6; sin el +0,02 fijo): cada
+/// circulo sumaba su 0,02 y los cuatro juntos dejaban un manchon marron que le
+/// quitaba contraste al anillo ambar (TODO de estetica).
 pub fn halo(px: &mut Pixmap, cx: f32, cy: f32, r: f32, c: [u8; 3], a: f32) {
     for i in (1..=4).rev() {
         let k = i as f32 / 4.0;
-        circulo(px, cx, cy, r * (1.0 + k * 1.6), col(c, a * 0.10 * (1.0 - k) + 0.02));
+        circulo(px, cx, cy, r * (1.0 + k * 0.9), col(c, a * 0.07 * (1.0 - k)));
     }
+}
+
+/// Una linea con un contorno oscuro debajo: el ambar solo, sobre una ventana
+/// blanca, pierde casi todo el contraste (TODO de estetica, "sin modo claro").
+pub fn linea_con_borde(px: &mut Pixmap, x1: f32, y1: f32, x2: f32, y2: f32, ancho: f32, c: Color) {
+    linea(px, x1, y1, x2, y2, ancho + 2.5, col(FONDO, 0.55));
+    linea(px, x1, y1, x2, y2, ancho, c);
 }
 
 /// El cursor del agente: una flecha propia, nunca la del sistema.
@@ -169,6 +180,26 @@ impl Fuente {
 
     pub fn ancho(&mut self, texto: &str, tam: f32) -> f32 {
         texto.chars().map(|c| self.glifo(c, tam).0.advance_width).sum()
+    }
+
+    /// Parte el texto en lineas que quepan en `max` px, por palabras. Una frase
+    /// larga se salia del ancho de la pantalla (TODO de estetica).
+    pub fn partir(&mut self, texto: &str, tam: f32, max: f32) -> Vec<String> {
+        let mut lineas = Vec::new();
+        let mut actual = String::new();
+        for palabra in texto.split_whitespace() {
+            let prueba = if actual.is_empty() { palabra.to_string() } else { format!("{actual} {palabra}") };
+            if !actual.is_empty() && self.ancho(&prueba, tam) > max {
+                lineas.push(std::mem::take(&mut actual));
+                actual = palabra.to_string();
+            } else {
+                actual = prueba;
+            }
+        }
+        if !actual.is_empty() {
+            lineas.push(actual);
+        }
+        lineas
     }
 
     /// Dibuja el texto y devuelve el ancho pintado.

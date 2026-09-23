@@ -9,6 +9,9 @@ use tiny_skia::Pixmap;
 
 use crate::pintura::*;
 
+/// Radio del circulo de un paso numerado.
+const RADIO_PASO: f32 = 21.0;
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Estado {
@@ -87,8 +90,15 @@ impl Lienzo {
     pub fn pintar(&mut self, px: &mut Pixmap, e: &Escena, fase: f32) {
         px.fill(tiny_skia::Color::TRANSPARENT);
 
+        // Los centros de los pasos, para que las flechas arranquen y acaben en
+        // el BORDE de su circulo y no en un punto suelto cerca (TODO de estetica).
+        let pasos: Vec<(f32, f32)> = e
+            .trazos
+            .iter()
+            .filter_map(|t| if let Trazo::Paso { x, y, .. } = *t { Some((self.ax(x), self.ay(y))) } else { None })
+            .collect();
         for t in &e.trazos {
-            self.trazo(px, t);
+            self.trazo(px, t, &pasos);
         }
         if let Some((p0, c, p1)) = e.vuelo {
             arco(
@@ -109,11 +119,14 @@ impl Lienzo {
         if let Some((x, y)) = e.cursor {
             cursor_agente(px, self.ax(x), self.ay(y), 1.6, 1.0);
         }
-        if e.oido.is_some() || e.dice.is_some() {
-            self.subtitulos(px, e.oido.as_deref(), e.dice.as_deref());
-        }
+        // La pildora va JUSTO ENCIMA de los subtitulos: ahi estan ya los ojos.
+        let arriba_sub = if e.oido.is_some() || e.dice.is_some() {
+            self.subtitulos(px, e.oido.as_deref(), e.dice.as_deref())
+        } else {
+            self.alto as f32 - 64.0
+        };
         if let Some(s) = e.estado {
-            self.pildora(px, s, fase);
+            self.pildora(px, s, fase, arriba_sub);
         }
     }
 
@@ -145,13 +158,18 @@ impl Lienzo {
     }
 
     /// Panel fijo abajo al centro: lo que oyo arriba en gris, lo que dice abajo.
-    fn subtitulos(&mut self, px: &mut Pixmap, oido: Option<&str>, dice: Option<&str>) {
+    /// Lo que dice se parte en lineas (como mucho el 70% del ancho): una frase
+    /// larga se salia de la pantalla. Devuelve la y de su borde de arriba.
+    fn subtitulos(&mut self, px: &mut Pixmap, oido: Option<&str>, dice: Option<&str>) -> f32 {
         let tam_d = 22.0;
         let tam_o = 14.0;
-        let w_d = dice.map(|s| self.fuente.ancho(s, tam_d)).unwrap_or(0.0);
-        let w_o = oido.map(|s| self.fuente.ancho(s, tam_o)).unwrap_or(0.0);
+        let paso_d = 30.0;
+        let max = self.ancho as f32 * 0.70;
+        let lineas = dice.map(|s| self.fuente.partir(s, tam_d, max)).unwrap_or_default();
+        let w_d = lineas.iter().map(|l| self.fuente.ancho(l, tam_d)).fold(0.0, f32::max);
+        let w_o = oido.map(|s| self.fuente.ancho(s, tam_o).min(max)).unwrap_or(0.0);
         let w = w_d.max(w_o) + 40.0;
-        let h = if oido.is_some() && dice.is_some() { 74.0 } else { 50.0 };
+        let h = 20.0 + if oido.is_some() { 30.0 } else { 0.0 } + lineas.len() as f32 * paso_d;
         let x = (self.ancho as f32 - w) / 2.0;
         let y = self.alto as f32 - h - 64.0;
 
@@ -163,27 +181,35 @@ impl Lienzo {
             self.fuente.dibujar(px, o, x + (w - w_o) / 2.0, cy, tam_o, SUBTEXTO, 0.95);
             cy += 30.0;
         }
-        if let Some(d) = dice {
-            self.fuente.dibujar(px, d, x + (w - w_d) / 2.0, cy + 6.0, tam_d, TEXTO, 1.0);
+        for l in &lineas {
+            let wl = self.fuente.ancho(l, tam_d);
+            self.fuente.dibujar(px, l, x + (w - wl) / 2.0, cy + 6.0, tam_d, TEXTO, 1.0);
+            cy += paso_d;
         }
+        y
     }
 
-    fn pildora(&mut self, px: &mut Pixmap, s: Estado, fase: f32) {
-        let tam = 14.0;
+    /// Mas grande que antes (18 px y no 14) y encima de los subtitulos, no en
+    /// la esquina: "si el objetivo es saber siempre si te escucho, tiene que
+    /// verse sin buscarla" (TODO de estetica).
+    fn pildora(&mut self, px: &mut Pixmap, s: Estado, fase: f32, arriba_sub: f32) {
+        let tam = 18.0;
         let t = s.texto();
-        let w = self.fuente.ancho(t, tam) + 40.0;
-        let (x, y, h) = (24.0, 24.0, 28.0);
-        rect_redondo(px, x, y, w, h, 14.0, col(SUPERFICIE, 0.92));
+        let h = 36.0;
+        let w = self.fuente.ancho(t, tam) + 52.0;
+        let x = (self.ancho as f32 - w) / 2.0;
+        let y = arriba_sub - h - 10.0;
+        rect_redondo(px, x, y, w, h, 18.0, col(SUPERFICIE, 0.94));
         // El punto late solo mientras trabaja; parado significa que espera.
         let a = match s {
             Estado::Esperando => 1.0,
             _ => 0.55 + 0.45 * (fase * std::f32::consts::TAU).sin().abs(),
         };
-        circulo(px, x + 16.0, y + h / 2.0, 5.0, col(s.color(), a));
-        self.fuente.dibujar(px, t, x + 28.0, y + 19.0, tam, TEXTO, 0.95);
+        circulo(px, x + 20.0, y + h / 2.0, 6.5, col(s.color(), a));
+        self.fuente.dibujar(px, t, x + 34.0, y + 24.0, tam, TEXTO, 0.95);
     }
 
-    fn trazo(&mut self, px: &mut Pixmap, t: &Trazo) {
+    fn trazo(&mut self, px: &mut Pixmap, t: &Trazo, pasos: &[(f32, f32)]) {
         match *t {
             Trazo::Caja { x, y, w, h } => {
                 // 2,0 y no 3,0: "el recuadro naranja me parecio muy grueso",
@@ -191,34 +217,51 @@ impl Lienzo {
                 // trazo que rodea contenido que hay que poder LEER, asi que un
                 // borde gordo tapa justo lo que senala. El halo exterior baja
                 // a 0,8 para que los dos sigan leyendose como un solo borde.
+                // Contorno oscuro por fuera: sobre blanco el ambar solo se pierde.
+                caja(px, self.ax(x) - 1.5, self.ay(y) - 1.5, self.ax(w) + 3.0, self.ay(h) + 3.0, 1.2, col(FONDO, 0.5));
                 caja(px, self.ax(x), self.ay(y), self.ax(w), self.ay(h), 2.0, col(ACENTO, 0.95));
                 caja(px, self.ax(x) - 2.0, self.ay(y) - 2.0, self.ax(w) + 4.0, self.ay(h) + 4.0, 0.8, col(ACENTO, 0.28));
             }
             Trazo::Flecha { x1, y1, x2, y2 } => {
-                let (ax1, ay1, ax2, ay2) = (self.ax(x1), self.ay(y1), self.ax(x2), self.ay(y2));
-                linea(px, ax1, ay1, ax2, ay2, 3.0, col(ACENTO, 0.95));
+                let (mut ax1, mut ay1, mut ax2, mut ay2) = (self.ax(x1), self.ay(y1), self.ax(x2), self.ay(y2));
                 let (dx, dy) = (ax2 - ax1, ay2 - ay1);
                 let n = (dx * dx + dy * dy).sqrt().max(1.0);
                 let (ux, uy) = (dx / n, dy / n);
+                // Si un extremo cae cerca de un paso (a menos de 3,5 radios de
+                // su centro: el modelo apunta "junto al 1", no al pixel), se
+                // lleva al borde del circulo. Antes quedaba un hueco que se notaba.
+                let borde = RADIO_PASO + 3.0;
+                let cerca = 3.5 * RADIO_PASO;
+                if let Some(&(px0, py0)) = pasos.iter().find(|&&(px0, py0)| (px0 - ax1).hypot(py0 - ay1) < cerca) {
+                    ax1 = px0 + ux * borde;
+                    ay1 = py0 + uy * borde;
+                }
+                if let Some(&(px1, py1)) = pasos.iter().find(|&&(px1, py1)| (px1 - ax2).hypot(py1 - ay2) < cerca) {
+                    ax2 = px1 - ux * borde;
+                    ay2 = py1 - uy * borde;
+                }
+                let c = col(ACENTO, 0.95);
+                linea_con_borde(px, ax1, ay1, ax2, ay2, 3.0, c);
                 let p = 15.0;
-                linea(px, ax2, ay2, ax2 - p * (ux * 0.87 - uy * 0.5), ay2 - p * (uy * 0.87 + ux * 0.5), 3.0, col(ACENTO, 0.95));
-                linea(px, ax2, ay2, ax2 - p * (ux * 0.87 + uy * 0.5), ay2 - p * (uy * 0.87 - ux * 0.5), 3.0, col(ACENTO, 0.95));
+                linea_con_borde(px, ax2, ay2, ax2 - p * (ux * 0.87 - uy * 0.5), ay2 - p * (uy * 0.87 + ux * 0.5), 3.0, c);
+                linea_con_borde(px, ax2, ay2, ax2 - p * (ux * 0.87 + uy * 0.5), ay2 - p * (uy * 0.87 - ux * 0.5), 3.0, c);
             }
             Trazo::Linea { ref puntos } => {
                 for par in puntos.windows(2) {
-                    linea(px, self.ax(par[0].0), self.ay(par[0].1), self.ax(par[1].0), self.ay(par[1].1), 3.0, col(ACENTO, 0.9));
+                    linea_con_borde(px, self.ax(par[0].0), self.ay(par[0].1), self.ax(par[1].0), self.ay(par[1].1), 3.0, col(ACENTO, 0.9));
                 }
             }
             Trazo::Subrayado { x, y, w } => {
-                linea(px, self.ax(x), self.ay(y), self.ax(x + w), self.ay(y), 3.5, col(ACENTO_OK, 0.95));
+                linea_con_borde(px, self.ax(x), self.ay(y), self.ax(x + w), self.ay(y), 3.5, col(ACENTO_OK, 0.95));
             }
             Trazo::Paso { x, y, n } => {
+                // Radio 21 y no 15: se veian pero no mandaban (TODO de estetica).
                 let (cx, cy) = (self.ax(x), self.ay(y));
-                circulo(px, cx, cy, 15.0, col(ACENTO, 0.95));
-                circulo(px, cx, cy, 15.0, col(ACENTO, 0.95));
+                circulo(px, cx, cy, RADIO_PASO + 2.0, col(FONDO, 0.6));
+                circulo(px, cx, cy, RADIO_PASO, col(ACENTO, 0.97));
                 let s = n.to_string();
-                let w = self.fuente.ancho(&s, 17.0);
-                self.fuente.dibujar(px, &s, cx - w / 2.0, cy + 6.0, 17.0, FONDO, 1.0);
+                let w = self.fuente.ancho(&s, 23.0);
+                self.fuente.dibujar(px, &s, cx - w / 2.0, cy + 8.0, 23.0, FONDO, 1.0);
             }
         }
     }

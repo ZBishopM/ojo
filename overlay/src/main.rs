@@ -145,7 +145,11 @@ impl Ventana {
     }
 
     /// Sube el pixmap a la pantalla. Devuelve los ms que costo.
-    fn presentar(&self, px: &Pixmap) -> f64 {
+    ///
+    /// `alfa` es la opacidad de TODA la capa (0-255), para los fundidos de
+    /// entrada y salida: la hace el compositor con SourceConstantAlpha, sin
+    /// tocar ni un pixel del pixmap.
+    fn presentar(&self, px: &Pixmap, alfa: u8) -> f64 {
         // Aqui y no en cada bucle: los tres modos (--demo, --servir, --escena)
         // pasan por presentar, asi que uno solo lo cubre todo.
         self.reafirmar_encima();
@@ -183,7 +187,7 @@ impl Ventana {
                 let mezcla = BLENDFUNCTION {
                     BlendOp: AC_SRC_OVER as u8,
                     BlendFlags: 0,
-                    SourceConstantAlpha: 255,
+                    SourceConstantAlpha: alfa,
                     AlphaFormat: AC_SRC_ALPHA as u8,
                 };
                 let pos = POINT { x: self.x, y: self.y };
@@ -281,6 +285,13 @@ fn guion(t: f32) -> Escena {
                 Trazo::Subrayado { x: 0.20, y: 0.72, w: 0.24 },
             ];
         }
+        t if t < 11.0 => {
+            // Una respuesta larga: tiene que partirse en lineas y no salirse
+            // de la pantalla.
+            e.estado = Some(Estado::Hablando);
+            e.oido = Some("¿a cuánto está el dólar hoy en Perú?".into());
+            e.dice = Some("El dólar en Perú hoy está a 3.362 soles según elperu, y a 3.44 compra y 3.46 venta en las casas de cambio digitales según dolargpt. Cambia a lo largo del día, así que tómalo como referencia.".into());
+        }
         _ => {
             e.estado = Some(Estado::Esperando);
             e.dice = Some("¿Le doy?".into());
@@ -300,7 +311,7 @@ fn prueba(dir: &str) -> Result<(), String> {
     let mut lienzo = Lienzo { ancho, alto, fuente: pintura::Fuente::cargar()? };
     let mut px = Pixmap::new(ancho, alto).ok_or("sin memoria para el pixmap")?;
 
-    for (i, t) in [0.5f32, 2.0, 3.0, 4.0, 5.5, 8.0, 11.0].iter().enumerate() {
+    for (i, t) in [0.5f32, 2.0, 3.0, 4.0, 5.5, 8.0, 10.5, 11.5].iter().enumerate() {
         let e = guion(*t);
         lienzo.pintar(&mut px, &e, *t);
         let destino = format!("{dir}/escena{i}_t{:.0}.png", t * 10.0);
@@ -311,7 +322,7 @@ fn prueba(dir: &str) -> Result<(), String> {
         assert!(vivos > 500, "la escena de t={t} salio practicamente vacia ({vivos} pixeles)");
         println!("{destino}  {vivos} pixeles pintados");
     }
-    println!("ok  {} escenas en {dir}", 7);
+    println!("ok  {} escenas en {dir}", 8);
     Ok(())
 }
 
@@ -373,11 +384,32 @@ fn servir(oculto: bool) -> Result<(), String> {
     while !fin.load(std::sync::atomic::Ordering::Relaxed) {
         bombear_mensajes();
         let e = actual.lock().unwrap().clone().unwrap_or_default();
+        let t = arranque.elapsed().as_secs_f32();
+        lienzo.pintar(&mut px, &e, t);
+        v.presentar(&px, entrada(t));
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+    // Salida con fundido: antes desaparecia de golpe. El que la cierra
+    // ("salir" en la tuberia) espera hasta 3 s, asi que 150 ms caben.
+    let e = actual.lock().unwrap().clone().unwrap_or_default();
+    let fuera = Instant::now();
+    while fuera.elapsed().as_secs_f32() < FUNDIDO {
+        bombear_mensajes();
+        let k = 1.0 - fuera.elapsed().as_secs_f32() / FUNDIDO;
         lienzo.pintar(&mut px, &e, arranque.elapsed().as_secs_f32());
-        v.presentar(&px);
+        v.presentar(&px, (k.clamp(0.0, 1.0) * 255.0) as u8);
         std::thread::sleep(std::time::Duration::from_millis(16));
     }
     Ok(())
+}
+
+/// Fundido de entrada y salida (TODO de estetica: "los trazos aparecen y
+/// desaparecen de golpe; un fundido de 150 ms se notaria mucho").
+const FUNDIDO: f32 = 0.15;
+
+/// La opacidad de la capa a los `t` segundos de abrirla.
+fn entrada(t: f32) -> u8 {
+    ((t / FUNDIDO).clamp(0.0, 1.0) * 255.0) as u8
 }
 
 /// Una sola escena, en pantalla hasta que alguien mate el proceso.
@@ -422,7 +454,7 @@ fn una_escena(json: &str, oculto: bool, segundos: f32) -> Result<(), String> {
             return Ok(());
         }
         lienzo.pintar(&mut px, &e, t);
-        v.presentar(&px);
+        v.presentar(&px, entrada(t));
         std::thread::sleep(std::time::Duration::from_millis(16));
     }
 }
@@ -488,7 +520,7 @@ fn main() -> Result<(), String> {
         let tp = Instant::now();
         lienzo.pintar(&mut px, &e, t);
         pintar_ms.push(tp.elapsed().as_secs_f64() * 1000.0);
-        presentar_ms.push(v.presentar(&px));
+        presentar_ms.push(v.presentar(&px, 255));
         cuadros += 1;
 
         std::thread::sleep(std::time::Duration::from_millis(12));
