@@ -349,6 +349,14 @@ Reglas:
 - "decir" es obligatorio, en espanol, y como maximo dos frases.
 - En "decir" NUNCA pongas el numero de un control: di su nombre. El numero es
   solo para el campo "control".
+
+Caracter de "decir": una IA de laboratorio sarcastica, al estilo de GLaDOS.
+Seca e ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
+Primero la respuesta completa, igual que sin caracter (si piden una lista,
+TODOS los nombres). Despues, como mucho, UNA pulla corta de ocho palabras o
+menos al final. Si no cabe, sin pulla. Nunca insulta ni inventa nada.
+Ejemplo de tono: {"decir": "El boton Guardar esta arriba a la derecha, junto
+a Compartir. Donde estuvo siempre, por cierto."}
 '@
 
 # El de PARTIDA: sin pantalla, sin senalar, y diciendo que significa cada campo.
@@ -399,6 +407,14 @@ Reglas:
   "el_usuario_dice" (por ejemplo "Jax va AP") ya esta tenido en cuenta ahi.
 - Si la respuesta no esta en los datos -- por ejemplo, que build conviene en
   este parche --, dilo en una frase. No lo inventes.
+
+Caracter de "decir": una IA de laboratorio sarcastica, al estilo de GLaDOS.
+Seca e ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
+Primero la respuesta completa, igual que sin caracter (si piden una lista,
+TODOS los nombres). Despues, como mucho, UNA pulla corta de ocho palabras o
+menos al final. Si no cabe, sin pulla. Nunca insulta ni inventa nada.
+Ejemplo de tono: {"decir": "Tu equipo: Garen top, Lee Sin jungla, Lux mid,
+Jinx tirador y Thresh soporte. Equilibrado, para variar."}
 '@
 
 # Los controles REALES de la ventana activa. Esto es lo que arregla la precision
@@ -722,7 +738,10 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                 $notas.aumentos = @(@($notas.aumentos) + $nuevos | Where-Object { $_ } | Select-Object -Unique)
                 [IO.File]::WriteAllText($notasArchivo, ($notas | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
                 # Respuesta FIJA, sin modelo: es una confirmacion, y asi sale ya.
-                $respuestaFija = "Anotado: $($nuevos -join ' y '). Llevas $(@($notas.aumentos).Count): $(@($notas.aumentos) -join ', ')."
+                # Con el mismo caracter que el modelo (ver $SISTEMA): el dato, y
+                # una pulla corta al final, distinta cada vez.
+                $respuestaFija = "Anotado: $($nuevos -join ' y '). Llevas $(@($notas.aumentos).Count): $(@($notas.aumentos) -join ', '). " +
+                    ('Alguien tiene que llevar la cuenta.', 'Queda registrado, para la posteridad.', 'Tomo nota, como siempre.' | Get-Random)
             }
             if (@($notas.aumentos).Count) { $hp['mis_aumentos'] = @($notas.aumentos) }
 
@@ -793,10 +812,11 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                             $nom, $que = $mejor.texto -split ':\s*', 2
                             $otros = @($ofrecidos | ForEach-Object { ($_ -split ':')[0] } | Where-Object { $_ -ne $nom })
                             $respuestaFija = "Elige $nom" + $(if ($que) { ": $($que.Trim().TrimEnd('.'))." } else { '.' }) +
-                                $(if ($otros.Count) { " Frente a $($otros -join ' y '), es el que mejor clasifica op.gg para $($hp.mi_campeon)." } else { " Es el que mejor clasifica op.gg para $($hp.mi_campeon)." })
+                                $(if ($otros.Count) { " Frente a $($otros -join ' y '), es el que mejor clasifica op.gg para $($hp.mi_campeon)." } else { " Es el que mejor clasifica op.gg para $($hp.mi_campeon)." }) +
+                                ' ' + ('De nada.', 'Tu intuición puede descansar.', 'Decisión tomada, por ti.' | Get-Random)
                         }
                     } else {
-                        $respuestaFija = 'No veo la elección de aumentos en pantalla. Pregúntame con las tres cartas a la vista.'
+                        $respuestaFija = 'No veo la elección de aumentos en pantalla. Pregúntame con las tres cartas a la vista; adivinar no es lo mío.'
                     }
                 } catch { Write-Warning "no pude leer la pantalla: $_" }
             }

@@ -1628,6 +1628,30 @@ motor.
 | Piper es_MX-claude-high | 399 ms | 0,048 | justo |
 | Piper es_AR-daniela-high | 1.127 ms | 0,227 | no |
 
+**Escucha a ciegas, ronda 2** (naturalidad / personalidad / pronunciación):
+**Supertonic F2 GPU 5/3/5** (elegida), F4 GPU 3/4/3, Piper Daniela 4/2/4,
+Piper Claude 2/1/3. En producción: servidor residente, voz a ~300 ms del
+subtítulo, 725 MiB de VRAM.
+
+## Personalidad (GLaDOS) y aciertos, 8B Q6_K
+
+| prompt | partida inventada | frases reales | ms |
+|---|---|---|---|
+| sin carácter | 16/16 | 6/8 | 587 / 900 |
+| v1: «pulla si cabe» | 14/16 | 7/8 | 965 / 1.099 |
+| v2: latino, pulla ≤ 8 palabras al final | 15/16 | 6/8 | 746 / 962 |
+| **v3: v2 + un ejemplo** | **16/16** | **6/8** | 754 / 956 |
+
+- v1 se comía campeones en la composición para hacer el chiste, y hablaba
+  de «vosotros». El ejemplo de v3 es lo que lo arregla.
+- Los 2 fallos de las frases reales son los mismos sin carácter: a «¿qué
+  daño hace el equipo rival?» contesta «2 de daño mágico y 3 de daño
+  físico» (cuenta campeones, no concluye). Estaba 8/8 cuando se midió: es
+  una regresión previa, pendiente.
+- Visión con v3: leer 8/10 (las dos «falladas» dicen «las doce y
+  diecisiete» en palabras, correcto; el banco busca «12:17»), señalar 8/12;
+  antes 4/5 y 3/6. Sin pérdida.
+
 En GPU hace falta `onnxruntime-gpu[cuda,cudnn]` (CUDA 13) y
 `onnxruntime.preload_dlls()` antes de crear la sesión; sin eso, «LoadLibrary
 failed for cudnn64_9.dll».
