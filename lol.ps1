@@ -264,7 +264,15 @@ if ($args -contains '-Prueba') { exit (Probar) }
 # arriba), pero no hace falta dejar la trampa puesta.
 $lolCrudo = Get-LolDatos
 if (-not $lolCrudo) { exit 1 }
-if ($args -contains '-Crudo') { $lolCrudo | ConvertTo-Json -Depth 12; exit 0 }
+# -Crudo GUARDA la muestra el mismo, en UTF-8, en prueba-lol\. Redirigirla
+# desde la terminal (`> real.json`) la escribiria en la pagina de codigos de la
+# consola y romperia los acentos de los nombres.
+if ($args -contains '-Crudo') {
+    $destino = Join-Path $PSScriptRoot ("prueba-lol\real-{0:yyyyMMdd-HHmmss}.json" -f (Get-Date))
+    [IO.File]::WriteAllText($destino, ($lolCrudo | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
+    "muestra guardada: $destino"
+    exit 0
+}
 $cat = try { Get-DDragon } catch { $null }
 $h = Resumir-Partida $lolCrudo $cat
 if ($args -contains '-Legible') { $h | ConvertTo-Json -Depth 6 } else { $h | ConvertTo-Json -Depth 6 -Compress }
