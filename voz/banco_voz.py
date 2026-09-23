@@ -17,17 +17,32 @@ import soundfile as sf
 AQUI = Path(__file__).parent
 MODELOS = Path(r"F:\ai\voz")
 FRASES = [l.strip() for l in (AQUI / "frases.txt").read_text(encoding="utf-8").splitlines() if l.strip()]
+# Tal como se dicen (texto_voz.py): numeros en palabras, nombres en ingles
+# reescritos. Asi entran a TODOS los motores.
+from texto_voz import para_decir
+FRASES = [para_decir(f) for f in FRASES]
 
 
-def motor_supertonic(voz="F1"):
+def motor_supertonic(voz="F1", gpu=False):
+    import supertonic.loader
     from supertonic import TTS
+    # El SDK lee los providers de esta constante: CUDA si se pide, con la CPU
+    # detras por si falta.
+    supertonic.loader.DEFAULT_ONNX_PROVIDERS = (["CUDAExecutionProvider"] if gpu else []) + ["CPUExecutionProvider"]
+    if gpu:
+        # CUDA y cuDNN vienen en paquetes de pip (onnxruntime-gpu[cuda,cudnn]),
+        # fuera del PATH: sin esto, "LoadLibrary failed for cudnn64_9.dll".
+        import onnxruntime
+        onnxruntime.preload_dlls()
     t = TTS(model_dir=MODELOS / "supertonic-3")
     estilo = t.get_voice_style(voice_name=voz)
 
-    # 4 pasos y no los 8 de fabrica: medido aqui, 8 = 1.906 ms, 4 = 1.086,
-    # 2 = 731 para la misma frase de 6 s.
+    # En CPU, 4 pasos y no los 8 de fabrica: medido aqui, 8 = 1.906 ms, 4 =
+    # 1.086, 2 = 731 para la misma frase de 6 s. En GPU, los 8 (calidad).
+    pasos = 8 if gpu else 4
+
     def decir(texto):
-        wav, _ = t.synthesize(texto, voice_style=estilo, lang="es", total_steps=4)
+        wav, _ = t.synthesize(texto, voice_style=estilo, lang="es", total_steps=pasos)
         return np.asarray(wav, dtype=np.float32).reshape(-1), t.sample_rate
     return decir
 
@@ -42,7 +57,7 @@ def motor_piper(voz="es_MX-claude-high"):
     return decir
 
 
-MOTORES = {"supertonic": motor_supertonic, "piper": motor_piper}
+MOTORES = {"supertonic": motor_supertonic, "supertonic_gpu": lambda v="F4": motor_supertonic(v, gpu=True), "piper": motor_piper}
 
 
 def medir(nombre, fabrica, *args):

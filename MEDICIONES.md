@@ -1609,4 +1609,25 @@ gana la mejor puntuada a ciegas entre las que empiezan en **< 400 ms**.
   administrador y la voz que funciona con él solo está en un espejo de
   terceros.
 
-Escucha a ciegas de las 8 (clave en `voz/salida/escucha-clave.json`): pendiente.
+**Escucha a ciegas, ronda 1** (naturalidad / personalidad, 1-5): Supertonic
+F4 **4/4**, F2 3/3, F1 3/2, Piper claude 2/1, Chatterbox 1/2, Supertonic F3
+1/1, F5 1/1, SAPI Sabina 1/1. Fallos que marcó el usuario en casi todas:
+«Jax» leído en inglés, «AP» como palabra, «4300» mal dicho, y acento de España
+en las Supertonic.
+
+Los fallos de pronunciación son del TEXTO: `voz/texto_voz.py` pasa números a
+palabras y reescribe nombres en inglés («Yax», «a pe»). Vale para cualquier
+motor.
+
+**Ronda 2, medida** (texto ya corregido, 7 frases):
+
+| motor | primera (peor) | RTF | ¿cumple? |
+|---|---|---|---|
+| **Supertonic 3 F4, GPU**, 8 pasos | **295 ms** | 0,044 | sí |
+| **Supertonic 3 F2, GPU**, 8 pasos | **297 ms** | 0,040 | sí |
+| Piper es_MX-claude-high | 399 ms | 0,048 | justo |
+| Piper es_AR-daniela-high | 1.127 ms | 0,227 | no |
+
+En GPU hace falta `onnxruntime-gpu[cuda,cudnn]` (CUDA 13) y
+`onnxruntime.preload_dlls()` antes de crear la sesión; sin eso, «LoadLibrary
+failed for cudnn64_9.dll».
