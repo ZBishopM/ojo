@@ -1733,3 +1733,44 @@ A «¿dónde está el reloj?» decía «superior izquierda» (está en el centro
 señalar nada. Si pide un sitio y lo dicho contiene una línea del OCR
 (comparando sin espacios: el OCR lee «12 : 44»), se señala esa línea:
 (0,49; 0,01), el reloj.
+
+## Tras los retos del usuario (2026-09-23, tarde)
+
+| reto | antes | ahora |
+|---|---|---|
+| «¿Cuánto virra me estoy usando?» | «23% de la batería de tu portátil» | 10,5 de 12 GB en tu RTX 4070 SUPER |
+| «¿cuánta batería me queda?» | — | PC de escritorio, sin batería |
+| último mensaje de Irene (chat inventado) | leía uno del usuario | «Perfecto, trae el postre», 3 de 3 |
+| botón de enviar que no existe | «abajo a la derecha» | «No lo veo en tu pantalla…» |
+| buscador | «no contesta» en 3 retos | 6 motores a la vez; si falla, dice cuál |
+| capital de Australia | «nada confirmado» | Canberra, citando |
+| último mundial de LoL | «nada confirmado» | T1, Worlds 2025, según strafe |
+
+Causas:
+- **Buscador**: DuckDuckGo y Qwant con CAPTCHA, Brave «too many requests»,
+  Bing 0 resultados sin avisar en consultas largas; los provocó nuestro
+  volumen (~40 búsquedas en minutos). Ahora DuckDuckGo, Bing, Mojeek,
+  Startpage, Yep y Wikipedia a la vez, reserva Google/Yahoo/Presearch/Brave/
+  Qwant, y 6 consultas por minuto como tope. Sin proxies ni sigilo.
+- **Nunca se buscaba sin la búsqueda adelantada**: `@($null).Count` es 1, y
+  «¿hay fuentes?» salía que sí sin haber buscado.
+- **Verificador**: «T1» en mayúsculas contra evidencia en minúsculas; y
+  «Canberra» contra «Camberra» (una letra en nombres largos vale).
+- **El oído**: «virra» → VRAM, «Yoyos» → JoJo (`vocabulario.txt`).
+- **El 8B no razona el lado del chat** ni con la regla en el prompt: el
+  último mensaje de cada lado se calcula en código.
+
+Extractor de texto, mismas 17 páginas (`ab-extractor.ps1`):
+
+| | páginas con el dato | ms |
+|---|---|---|
+| **regex propio** | **4** | 60-420 |
+| Trafilatura | 2 | 1.000-2.800 |
+
+Memoria de personas (`prueba-personas.ps1`, sobre una copia): 7/7 tras
+arreglar lo que el 8B hacía mal con nombres («Me llamo Bishop» lo decía como
+suyo) y con fichas vacías (a Melly le atribuía el perfil del usuario).
+
+Pullas: 0 en 12 preguntas seguidas (antes, en todas). Partida 16/16,
+frases reales 8/8, verdad 7/8 con 0 inventos (el 8.º, el mundial,
+arreglado después).
