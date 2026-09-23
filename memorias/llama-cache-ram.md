@@ -1,4 +1,4 @@
----
+﻿---
 titular: La caché de prompts de llama-server y la RAM que se come
 claves: cache-ram, cram, cache, prompt, ram, memoria, reserva, defecto, precalentamiento
 ---

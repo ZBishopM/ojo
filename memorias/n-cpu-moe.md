@@ -1,4 +1,4 @@
----
+﻿---
 titular: El reparto GPU/CPU de un modelo MoE que no cabe en VRAM
 claves: n-cpu-moe, ncpu, mue, moe, reparto, cpu, gpu, capas, expertos, offload, ancho, banda, llama-bench
 ---

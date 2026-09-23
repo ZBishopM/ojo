@@ -1,4 +1,4 @@
----
+﻿---
 titular: En qué disco viven los modelos y quién usa cada uno
 claves: disco, ssd, nvme, hdd, ruta, carpeta, donde, guardado, velocidad, lectura, mover
 ---

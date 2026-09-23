@@ -1,4 +1,4 @@
----
+﻿---
 titular: El puente para mandarle órdenes a DaVinci Resolve
 claves: davinci, resolve, fusion, puente, ordenes, comp, nodo, timeline, render, script
 ---

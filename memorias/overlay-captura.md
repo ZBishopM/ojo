@@ -1,4 +1,4 @@
----
+﻿---
 titular: El overlay que dibuja encima y por qué no sale en la captura
 claves: overlay, dibujar, captura, flecha, cursor, pantalla, bitblt, shadowplay, grabar, capa
 ---

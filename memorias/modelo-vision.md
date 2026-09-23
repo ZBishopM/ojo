@@ -1,4 +1,4 @@
----
+﻿---
 titular: Qué modelo de visión usa Ojo y por qué cabe entero en la VRAM
 claves: vision, modelo, vram, qwen, 8b, 35b, gguf, cuantizacion, q8, denso, moe, cabe
 ---

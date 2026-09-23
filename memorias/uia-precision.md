@@ -1,4 +1,4 @@
----
+﻿---
 titular: Cómo Ojo saca las coordenadas exactas de un control
 claves: uia, automation, coordenadas, boton, control, rectangulo, precision, senalar, clic, grounding
 ---

@@ -1,4 +1,4 @@
----
+﻿---
 titular: Voz — escuchar y hablar, y qué está medido de cada cosa
 claves: voz, whisper, stt, tts, hablar, escuchar, microfono, audio, transcribir, piper, kokoro, supertonic, atajo, personalidad, glados
 ---
