@@ -20,6 +20,10 @@ param(
     [string]$Ventana,
     # Apaga UIA entero -- ni lista ni enganche. Para medir el punto de partida.
     [switch]$SinUia,
+    # PRUEBAS: usa esta imagen en vez de capturar la pantalla (tambien para el
+    # OCR), y sin controles de UIA (son de la ventana real, no de la imagen).
+    # Para probar chats y demas sin tocar los del usuario.
+    [string]$Imagen,
     # Apaga las memorias temporales, para medir cuanto aportan.
     [switch]$SinMemoria,
     # Carga esa memoria a la fuerza, sin puntuar. Para cuando el selector duda
@@ -364,6 +368,14 @@ Reglas:
   no lo son. Si no esta ahi pero SI en TEXTO EN PANTALLA, responde
   {"texto": N} con el numero de esa linea. Usa "senalar" solo para lo que no
   este en ninguna de las dos.
+- Si lo que piden NO esta en la LISTA DE CONTROLES, ni en TEXTO EN PANTALLA, ni
+  lo ves claro en la imagen, dilo ("No veo ningun boton de enviar") y, si lo
+  sabes, como se hace sin el (en muchas apps se envia con Enter). NUNCA
+  describas donde estaria.
+- CHATS (WhatsApp, Discord, Telegram...): en TEXTO EN PANTALLA, las lineas
+  [der] las escribio el USUARIO; las [izq], la otra persona. "Lo ultimo que me
+  envio Irene" es la linea [izq] de mensaje mas abajo (la y mas grande), NUNCA
+  una [der]. Citala tal cual, entre comillas.
 - Las coordenadas van NORMALIZADAS de 0 a 1, donde 0,0 es arriba a la izquierda
   y 1,1 abajo a la derecha. Nunca en pixeles.
 - "senalar" es opcional: omitelo si la respuesta no apunta a ningun sitio.
@@ -660,7 +672,9 @@ function Hechos-Sistema([switch]$SinVentana, [switch]$Metricas) {
 # Con palabras DE PANTALLA, no con "cuanto" a secas: "a cuanto esta el dolar"
 # disparaba el OCR (~1 s) para una pregunta que es de internet.
 function Pregunta-De-Lectura([string]$q) {
-    $q -match '(?i)\bmarca\b|\bdice\b|\bpone\b|muestra|aparece|se ve\b|\blee\b|l[eé]eme|leer|pantalla|barra|ventana|bot[oó]n|t[ií]tulo|pesta[nñ]a|c[oó]mo se llama'
+    # (y de CHATS: "cual fue el ultimo mensaje que me envio Irene" no leia la
+    # pantalla y el modelo confundia quien habia escrito que)
+    $q -match '(?i)\bmarca\b|\bdice\b|\bpone\b|muestra|aparece|se ve\b|\blee\b|l[eé]eme|leer|pantalla|barra|ventana|bot[oó]n|t[ií]tulo|pesta[nñ]a|c[oó]mo se llama|mensaje|\bchat\b|escribi[oó]|envi[oó]|me dijo|contest[oó]'
 }
 
 # TODAS las decisiones de ruta que se toman antes de preguntar, en un solo
@@ -697,8 +711,13 @@ function Texto-Pantalla($lineas) {
     if (-not @($lineas).Count) { return '' }
     $inv = [Globalization.CultureInfo]::InvariantCulture
     $i = 0
-    "`n`nTEXTO EN PANTALLA (OCR de la imagen a tamano real, exacto; N. texto @ x,y de 0 a 1):`n" +
-        ((@($lineas) | ForEach-Object { $i++; [string]::Format($inv, '{0}. {1} @ {2:0.00},{3:0.00}', $i, $_.texto, $_.x, $_.y) }) -join "`n")
+    # El LADO va escrito: en los chats, a la derecha escribe el usuario y a la
+    # izquierda la otra persona, y comparar numeros de x se le daba mal al 8B.
+    "`n`nTEXTO EN PANTALLA (OCR de la imagen a tamano real, exacto; N. [lado] texto @ x,y de 0 a 1):`n" +
+        ((@($lineas) | ForEach-Object {
+            $i++
+            $lado = if ($_.x -lt 0.45) { 'izq' } elseif ($_.x -gt 0.55) { 'der' } else { 'centro' }
+            [string]::Format($inv, '{0}. [{1}] {2} @ {3:0.00},{4:0.00}', $i, $lado, $_.texto, $_.x, $_.y) }) -join "`n")
 }
 
 # Una frase con caracter para un momento (mirando, buscando, sin_resultado):
@@ -771,6 +790,24 @@ function Motivo-Sin-Web($web, [string]$consulta) {
     })
     if ($lista.Count) { "Ningún buscador me dio nada sobre «$consulta»: $($lista -join ', '). Prueba en un rato." }
     else { "Busqué «$consulta» y ningún buscador encontró nada." }
+}
+
+# El chat de la pantalla, ya masticado: el ultimo mensaje de cada lado.
+#
+# Con el OCR bien leido y la regla en el prompt, el 8B seguia contestando "lo
+# ultimo que me envio Irene" con el ultimo mensaje del USUARIO (el mas abajo,
+# pero a la derecha). En codigo: se quitan la cabecera, la caja de escribir y
+# las horas sueltas ("13:05", "1 3:06"), y se toma el ultimo de cada lado.
+function Resumen-Chat($ocr) {
+    $msgs = @($ocr | Where-Object {
+        $_.y -gt 0.08 -and $_.y -lt 0.93 -and $_.texto.Length -ge 3 -and
+        $_.texto -notmatch '^\s*\d{1,2}\s?:\s?\d{2}\s*(a\.?\s?m\.?|p\.?\s?m\.?)?\s*$' } | Sort-Object y)
+    $suyo = @($msgs | Where-Object { $_.x -gt 0.55 }) | Select-Object -Last 1
+    $otro = @($msgs | Where-Object { $_.x -lt 0.45 }) | Select-Object -Last 1
+    if (-not $suyo -and -not $otro) { return '' }
+    "`n`nCHAT EN PANTALLA (del OCR, por lados; exacto):" +
+        $(if ($otro) { "`nultimo mensaje de la OTRA persona (izquierda): «$($otro.texto)»" }) +
+        $(if ($suyo) { "`nultimo mensaje del USUARIO (derecha): «$($suyo.texto)»" })
 }
 
 # Minusculas y sin tildes, para cotejar.
@@ -1150,7 +1187,8 @@ if (-not $hayPartida -and $conVision) {
     # viejas se borran; la que siga abierta, se queda para la proxima.
     Get-ChildItem $env:TEMP -Filter 'ojo-nativa-*.bmp' -EA SilentlyContinue | Remove-Item -EA SilentlyContinue
     $nativa = Join-Path $env:TEMP "ojo-nativa-$PID-$([Environment]::TickCount).bmp"
-    & $captura --salida $tmp --nativa $nativa | Out-Null
+    if ($Imagen) { $tmp = (Resolve-Path $Imagen).Path; $nativa = $tmp }
+    else { & $captura --salida $tmp --nativa $nativa | Out-Null }
 }
 $tc.Stop()
 Marca 'captura'
@@ -1188,7 +1226,7 @@ try {
     Escena @{ estado = 'mirando'; oido = $Pregunta; dice = (Frase 'mirando' 'Déjame ver…') }
 
     $tu = [Diagnostics.Stopwatch]::StartNew()
-    $controles = if ($SinLista -or $hayPartida) { @() } else { Leer-Controles }
+    $controles = if ($SinLista -or $hayPartida -or $Imagen) { @() } else { Leer-Controles }
     $tu.Stop()
 
     # En partida no se buscan notas del proyecto: nadie pregunta por el
@@ -1235,6 +1273,7 @@ try {
         catch { Write-Warning "no pude leer la pantalla: $_" }
         $to.Stop()
         $memoria += Texto-Pantalla $ocr
+        if ($Pregunta -match '(?i)mensaje|\bchat\b|escribi[oó]|envi[oó]|me dijo|contest[oó]') { $memoria += Resumen-Chat $ocr }
     }
     # (se llama con punto: escribe $ocr y $memoria de aqui)
     if ($nativa -and ($dec.lectura -or $dec.sitio)) { . $leerPantalla }
@@ -1452,6 +1491,14 @@ try {
             $punto = @($c.x, $c.y)
             $via = "enganchado a '$($c.nombre)'"
         }
+    }
+
+    # Pedia un SITIO, no hay nada que senalar y aun asi describe un lugar: se
+    # lo esta inventando. En los retos del 2026-09-23: "el boton de enviar esta
+    # abajo a la derecha" en un Discord que no tiene boton de enviar.
+    if ($deSitio -and -not $punto -and (Plano $d.decir) -match '\b(derecha|izquierda|arriba|abajo|esquina|superior|inferior|centro|lateral)\b') {
+        $dicho = Frase 'no_encontrado' 'No lo veo en tu pantalla.'
+        $via = 'nada: describia un sitio sin poder senalarlo'
     }
 
     # El overlay INFORMA de que memoria uso, no pregunta -- no puede recibir la

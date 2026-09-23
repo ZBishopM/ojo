@@ -1,0 +1,7 @@
+﻿# Cuando piden un sitio y no hay nada que señalar: en vez de describir dónde
+# "estaría" (en los retos: "el botón de enviar está abajo a la derecha", en un
+# Discord que no tiene botón de enviar).
+No lo veo en tu pantalla. Si está escondido, ábrelo y vuelvo a mirar.
+Aquí no hay nada así. Prefiero decírtelo a señalar al vacío.
+No lo encuentro en pantalla. Y no, no voy a inventarme dónde está.
+Eso no está a la vista. Enséñamelo y lo señalo.
