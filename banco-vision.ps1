@@ -26,12 +26,16 @@ param(
     [string]$Modelo = 'F:\ai\models\qwen3-vl-8b\Qwen3-VL-8B-Instruct-Q8_0.gguf',
     [string]$Mmproj = 'F:\ai\models\qwen3-vl-8b\mmproj-F16.gguf',
     [string[]]$Extra = @(),
+    # Bonsai necesita el fork de PrismML: sus pesos ternarios usan una
+    # transformada que el llama.cpp normal no tiene ("carga Q2_0 sin avisar y
+    # produce basura", dice su ficha).
+    [string]$Exe = 'F:\ai\llama.cpp\llama-server.exe',
     [int]$Vueltas = 1,
     [string]$Imagen = 'D:\2026-projects\ojo\escenas\captura-referencia.jpg',
     [string]$Raiz = 'D:\2026-projects\ojo'
 )
 $ErrorActionPreference = 'Stop'
-$llama = 'F:\ai\llama.cpp\llama-server.exe'
+$llama = $Exe
 $W = 1280; $H = 720
 $MARGEN = 20
 
