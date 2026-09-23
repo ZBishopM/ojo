@@ -1774,3 +1774,45 @@ suyo) y con fichas vacías (a Melly le atribuía el perfil del usuario).
 Pullas: 0 en 12 preguntas seguidas (antes, en todas). Partida 16/16,
 frases reales 8/8, verdad 7/8 con 0 inventos (el 8.º, el mundial,
 arreglado después).
+
+## Pantalla, conocer personas y pruebas a la vista (2026-09-23, noche)
+
+Leer la pantalla: el «8/10» de `banco-vision` mandaba la captura de 1280x720
+SOLA al modelo, sin el OCR ni el verificador que usa Ojo de verdad.
+`banco-pantalla.ps1` mide el camino real (`ojo.ps1 -Imagen`) sobre 27
+imágenes trampa dibujadas con la verdad conocida, a 1080p, 1440p y 900p,
+más los 10 casos de la captura de referencia:
+
+| | trampas | referencia | total |
+|---|---|---|---|
+| imagen sola al modelo | 21/27 | 7/10 | 28/37 |
+| **camino real** | **27/27** | 5/10 | **32/37** |
+
+Los 5 que fallan son de la referencia de 1280x720: el OCR lee «22:27» por
+12:17 y «219w» por 218 W. En uso real la captura es nativa. Lo que se
+arregló está en el commit 2c8d653 (señalar por palabras de la pregunta, a
+nivel de palabra; segunda lectura con contraste; no truncar el OCR; «marca»
+no es señalar; nada de internet para preguntas de pantalla).
+
+Conocer personas (`conocer.ps1`, `prueba-conocer.ps1` sobre una copia): 12
+comprobaciones sin modelo y 6 turnos con él, todo OK. Salió:
+
+- A «Luis juega vóley los sábados» el 8B dejó `recordar` vacío en 2 de 2
+  pasadas: si contó algo y no se apuntó, se guarda su frase tal cual.
+- `Historial-Texto` reventaba en cuanto había historial (PowerShell 5.1:
+  `ConvertFrom-Json` da el array como UN objeto) y se llevaba la memoria de
+  personas entera: las respuestas fijas dejaban de salir.
+- La pregunta de seguimiento a veces es sobre el usuario («¿cuál es TU
+  equipo favorito?») en vez de sobre Luis. Sin arreglar.
+
+Chat: con el mensaje de la otra persona ya etiquetado en el prompt, el 8B
+contestó el del usuario (2 de 2, también con el código de antes: no lo
+causó el cambio). «¿Qué me envió X?» se contesta ahora con el OCR, sin
+modelo.
+
+Memorias: sin BOM, PowerShell 5.1 las pasaba al modelo en mojibake
+(«cachÃ©»).
+
+Regresión tras todo: verdad 8/8 con 0 inventos, partida 16/16, frases
+reales 8/8, personas 7/7, verificador 17/17, chat 2/2. Todas las pruebas,
+con sus fallos, en `pruebas-resumen.json` (`resumen-pruebas.ps1 -Correr`).

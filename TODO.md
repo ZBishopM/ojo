@@ -1,7 +1,30 @@
 # Ojo — pendientes
 
 Plan completo en `~/.claude/plans/wobbly-marinating-bubble.md`.
-Números en `MEDICIONES.md`.
+Números en `MEDICIONES.md`. Todas las pruebas: `.\resumen-pruebas.ps1 -Correr`.
+
+## Noche del 2026-09-23: pantalla, conocer personas, pruebas a la vista
+
+- [x] `banco-pantalla.ps1`: camino real 32/37 (trampas 27/27) contra 28/37
+      de la imagen sola.
+- [x] `conocer.ps1`: capas, seguimiento, buenas y malas noticias,
+      pendientes con fecha, reflexión cada 5 hechos, acercarle a su gente.
+      `prueba-conocer.ps1` en verde.
+- [x] «¿Qué me envió X?» se contesta con el OCR, sin modelo.
+- [x] Página MVP con la sección «Pruebas» (de `pruebas-resumen.json`).
+- [ ] **La pregunta de seguimiento a veces va al usuario** («¿cuál es TU
+      equipo favorito?» tras «Luis juega vóley»). La instrucción ya pide que
+      sea sobre Luis; comprobarlo en código (sin «tu/te/tienes» salvo «tú y»).
+- [ ] **Al preguntar por un pendiente, repite lo que ya sabe** («Luis juega
+      vóley… y tiene un partido el viernes. La otra vez me contaste…»).
+- [ ] **`personas\yo.json` tiene un hecho raro**: «Me llamo X y juego League
+      of Legends…, Hearthstone y uso Discord…». Parece sacado del perfil, no
+      de algo que dijera. Preguntarle si se borra.
+- [ ] **`sesion.csv`**: borré sin querer las filas desde el 2026-09-22 18:10
+      (un `git checkout` para limpiar pruebas). Las frases siguen en
+      `hablar.log`, sin respuestas ni tiempos.
+- [ ] **`ojo-contraste-*.bmp` se quedan en `%TEMP%`** (la segunda lectura
+      de OCR): el OCR de WinRT deja el archivo mapeado y no se borra.
 
 ## Cerrado el 2026-09-23
 

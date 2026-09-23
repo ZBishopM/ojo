@@ -878,10 +878,13 @@ function Resumen-Chat($ocr) {
         $_.texto -notmatch '^\s*\d{1,2}\s?:\s?\d{2}\s*(a\.?\s?m\.?|p\.?\s?m\.?)?\s*$' } | Sort-Object y)
     $suyo = @($msgs | Where-Object { $_.x -gt 0.55 }) | Select-Object -Last 1
     $otro = @($msgs | Where-Object { $_.x -lt 0.45 }) | Select-Object -Last 1
-    if (-not $suyo -and -not $otro) { return '' }
-    "`n`nCHAT EN PANTALLA (del OCR, por lados; exacto):" +
-        $(if ($otro) { "`nultimo mensaje de la OTRA persona (izquierda): «$($otro.texto)»" }) +
-        $(if ($suyo) { "`nultimo mensaje del USUARIO (derecha): «$($suyo.texto)»" })
+    if (-not $suyo -and -not $otro) { return [pscustomobject]@{ texto = ''; otro = $null } }
+    [pscustomobject]@{
+        otro  = $otro.texto
+        texto = "`n`nCHAT EN PANTALLA (del OCR, por lados; exacto):" +
+            $(if ($otro) { "`nultimo mensaje de la OTRA persona (izquierda): «$($otro.texto)»" }) +
+            $(if ($suyo) { "`nultimo mensaje del USUARIO (derecha): «$($suyo.texto)»" })
+    }
 }
 
 # Minusculas y sin tildes, para cotejar.
@@ -1400,7 +1403,17 @@ try {
         catch { Write-Warning "no pude leer la pantalla: $_" }
         $to.Stop()
         $memoria += Texto-Pantalla $ocr
-        if ($Pregunta -match '(?i)mensaje|\bchat\b|escribi[oó]|envi[oó]|me dijo|contest[oó]') { $memoria += Resumen-Chat $ocr }
+        if ($Pregunta -match '(?i)mensaje|\bchat\b|escribi[oó]|envi[oó]|me dijo|contest[oó]') {
+            $chat = Resumen-Chat $ocr
+            $memoria += $chat.texto
+            # "¿Que me envio X?": se contesta con el OCR, sin modelo. Con el
+            # mensaje de la otra persona ya etiquetado en el prompt, el 8B
+            # respondio el del usuario (prueba-chat, 2026-09-23).
+            if (-not $respuestaFija -and $chat.otro -and $Pregunta -match '(?i)\bme (envi[oó]|escribi[oó]|mand[oó]|dijo|contest[oó])') {
+                $quien = if ($Pregunta -cmatch '(?:envi[oó]|escribi[oó]|mand[oó]|dijo|contest[oó])\s+(\p{Lu}[\p{L}]+)') { $Matches[1] } else { '' }
+                $respuestaFija = "Lo último que te escribió$(if ($quien) { " $quien" }): «$($chat.otro)»."
+            }
+        }
     }
     # (se llama con punto: escribe $ocr y $memoria de aqui)
     if ($nativa -and ($dec.lectura -or $dec.sitio)) { . $leerPantalla }
