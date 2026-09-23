@@ -5,7 +5,10 @@ enganche al texto, verificador), contra la imagen sola al modelo (lo que media
 banco-vision). Para encontrar donde falla leer y senalar, y probar arreglos.
 
 Casos:
-  - la captura de referencia y los 11 casos de banco-vision;
+  - PANTALLAS REALES congeladas con congelar-escena.ps1 (los dos monitores a
+    tamano nativo), con la verdad del sistema y de UIA: leer la barra
+    (hora, RAM, VRAM, temperatura) y senalar controles, con la lista de
+    controles congelada (-Controles), como en uso real;
   - imagenes ADVERSARIALES dibujadas aqui con la verdad conocida: cifras
     confundibles (218/219, 138/183/813, 0/8, 1/7) en letra de 11-13 px, tema
     oscuro y claro, bajo contraste, una tabla densa, el mismo boton dos veces;
@@ -107,21 +110,44 @@ foreach ($res in @(@(1920, 1080, '1080p'), @(2560, 1440, '1440p'), @(1920, 1080,
         @{ res = $r; img = $ruta; cat = 'ambiguo'; tipo = 'senalar'; q = 'Señala el botón Guardar del panel derecho'; caja = $cajas['Guardar derecho'] }
     )
 }
-# La captura de referencia y sus casos de banco-vision (cajas en px de 1280x720).
-$ref = Join-Path $raiz 'escenas\captura-referencia.jpg'
-$n = { param($c) @(($c[0] / 1280.0), ($c[1] / 720.0), ($c[2] / 1280.0), ($c[3] / 720.0)) }
-$CASOS += @(
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'leer'; q = 'Que hora marca el reloj de la barra superior?'; esp = '12[:.]17' }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'leer'; q = 'Cuantos vatios marca la barra superior?'; esp = '\b218(?!\d)' }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'leer'; q = 'Que porcentaje de RAM indica la barra superior?'; esp = '45' }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'leer'; q = 'Como se llama el archivo abierto en el editor de arriba a la izquierda?'; esp = 'test\.py' }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'leer'; q = 'Que temperatura tiene la GPU segun la barra superior?'; esp = '47' }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'senalar'; q = 'Senala el reloj de la barra superior.'; caja = (& $n @(622, 3, 656, 20)) }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'senalar'; q = 'Senala donde la barra superior indica el consumo en vatios.'; caja = (& $n @(752, 3, 775, 20)) }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'senalar'; q = 'Senala donde la barra superior indica el porcentaje de RAM.'; caja = (& $n @(905, 3, 943, 20)) }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'senalar'; q = 'Senala la pestana del archivo test.py en el editor.'; caja = (& $n @(159, 51, 218, 70)) }
-    @{ res = 'ref'; img = $ref; cat = 'referencia'; tipo = 'senalar'; q = "Senala donde pone 'Dejame ver'."; caja = (& $n @(588, 654, 692, 674)) }
-)
+# ---- Pantallas REALES congeladas (congelar-escena.ps1) ----------------------------
+# La verdad sale del sistema y de UI Automation en el mismo instante de la
+# captura, no del OCR. Tolerancias: lo que tarda la barra en refrescarse.
+. "$raiz\ocr.ps1"
+$NO_SENALAR ='^(Sistema|Minimizar|Maximizar|Cerrar|Restaurar|More|Close tab|Go back|Go forward|Close|Minimize|Maximize)$'
+foreach ($vf in @(Get-ChildItem (Join-Path $raiz 'escenas\reales') -Filter verdad.json -Recurse -EA SilentlyContinue)) {
+    $v = [IO.File]::ReadAllText($vf.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    $h = $v.hechos
+    $t = [datetime]::ParseExact($h.hora, 'HH:mm', $null)
+    $horas = @($t.AddMinutes(-1), $t, $t.AddMinutes(1) | ForEach-Object { $_.ToString('H:mm'); $_.ToString('HH:mm') } | Select-Object -Unique)
+    $vram = @(-1, 0, 1 | ForEach-Object { '{0:0.0}' -f ([double]$h.vram_gb + $_ / 10) } | ForEach-Object { [regex]::Escape($_); [regex]::Escape($_.Replace('.', ',')) })
+    foreach ($m in $v.monitores) {
+        $img = Join-Path $vf.DirectoryName $m.imagen
+        $r = "$($m.alto)p real"
+        $CASOS += @(
+            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué hora marca el reloj de la barra de arriba?'; esp = "\b($($horas -join '|'))\b"; tocaba = "$($h.hora) (±1 min)" }
+            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué porcentaje de RAM marca la barra de arriba?'; esp = "\b($(($h.ram_pct - 1)..($h.ram_pct + 1) -join '|'))\s?%"; tocaba = "$($h.ram_pct)% (±1)" }
+            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Cuánta VRAM marca la barra de arriba?'; esp = "($($vram -join '|'))"; tocaba = "$($h.vram_gb) de $($h.vram_tot) GB (±0,1)" }
+            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué temperatura marca la GPU en la barra de arriba?'; esp = "\b($(($h.gpu_temp - 2)..($h.gpu_temp + 2) -join '|'))\b"; tocaba = "$($h.gpu_temp)° (±2)" }
+        )
+        # Señalar: nombres únicos en todo el monitor, hasta 5, repartidos entre ventanas.
+        $todos = @($m.ventanas | ForEach-Object { $w = $_; @($_.controles) | ForEach-Object { [pscustomobject]@{ c = $_; w = $w } } })
+        $cuenta = @{}; foreach ($x in @($m.ventanas | ForEach-Object { @($_.lista) })) { $cuenta[$x.nombre] = 1 + [int]$cuenta[$x.nombre] }
+        # Solo controles cuyo nombre SE VE en la imagen: UIA tambien da botones
+        # que solo aparecen al pasar el raton (Discord: "Create Message", "Jump
+        # To Reply"), y ahi lo correcto es decir que no esta. El OCR solo decide
+        # que casos son justos; la caja que se exige sigue siendo la de UIA.
+        $visible = " " + ((@(Leer-Palabras $img 'es-MX' 2 | ForEach-Object { $_.texto }) -join ' ').ToLowerInvariant() -replace '\s+', ' ') + " "
+        $elegibles = @($todos | Where-Object { $cuenta[$_.c.nombre] -eq 1 -and $_.c.nombre -notmatch $NO_SENALAR -and $_.c.nombre -notmatch '^\d+$|slide' -and
+                                               $visible.Contains($_.c.nombre.ToLowerInvariant()) })
+        $elegidos = @($elegibles | Group-Object { $_.w.titulo } | ForEach-Object { $_.Group | Select-Object -First 2 }) | Select-Object -First 5
+        foreach ($e in $elegidos) {
+            $lista = Join-Path $vf.DirectoryName ("controles-{0}.json" -f ([Math]::Abs($e.w.titulo.GetHashCode())))
+            [IO.File]::WriteAllText($lista, (ConvertTo-Json @($e.w.lista) -Depth 3), [Text.UTF8Encoding]::new($false))
+            $CASOS += @{ res = $r; img = $img; cat = 'real: señalar'; tipo = 'senalar'; q = "Señala «$($e.c.nombre)»"; caja = @($e.c.caja); controles = $lista; tocaba = "$($e.c.nombre) ($($e.c.tipo), en $($e.w.proceso))" }
+        }
+    }
+}
 
 # ---- Imagen sola: lo que media banco-vision ---------------------------------------
 $fuenteOjo = [IO.File]::ReadAllText("$raiz\ojo.ps1")
@@ -155,7 +181,8 @@ function Dentro($p, $c, $img) {
 
 $filas = foreach ($c in $CASOS) {
     $ErrorActionPreference = 'Continue'
-    $null = & "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 *>&1
+    $extra = @{}; if ($c.controles) { $extra.ListaControles = $c.controles }
+    $null = & "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 @extra *>&1
     $ErrorActionPreference = 'Stop'
     $m = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
     $pReal = if ($m.senalo) { @($m.senalo -split ',' | ForEach-Object { [double]$_ }) }
@@ -167,7 +194,10 @@ $filas = foreach ($c in $CASOS) {
         $dijoSola = $s.dijo
     }
     [pscustomobject]@{ res = $c.res; cat = $c.cat; tipo = $c.tipo; q = $c.q; real = $okReal; sola = $okSola
-                       dijo = "$($m.dijo)"; via = "$($m.via)"; busco = "$($m.busco)"; dijo_sola = $dijoSola }
+                       dijo = "$($m.dijo)"; via = "$($m.via)"; busco = "$($m.busco)"; dijo_sola = $dijoSola
+                       # Para ensenar el fallo: que tocaba, que vio, donde senalo, sobre que imagen.
+                       tocaba = if ($c.tocaba) { $c.tocaba } elseif ($c.esp) { "que diga: $($c.esp)" } else { 'señalar dentro de la caja verde' }
+                       vio = @($m.ocr_vio); senalo = "$($m.senalo)"; img = $c.img; caja = $c.caja }
 }
 
 $res = [ordered]@{ nombre = $Nombre; fecha = Get-Date -Format 'yyyy-MM-dd HH:mm'

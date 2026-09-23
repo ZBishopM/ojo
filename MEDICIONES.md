@@ -1816,3 +1816,34 @@ Memorias: sin BOM, PowerShell 5.1 las pasaba al modelo en mojibake
 Regresión tras todo: verdad 8/8 con 0 inventos, partida 16/16, frases
 reales 8/8, personas 7/7, verificador 17/17, chat 2/2. Todas las pruebas,
 con sus fallos, en `pruebas-resumen.json` (`resumen-pruebas.ps1 -Correr`).
+
+## Pantallas reales, VRAM por proceso y voces ligeras (2026-09-23, noche)
+
+`banco-pantalla` sobre los dos monitores congelados (`congelar-escena.ps1`),
+con la verdad del sistema y de UI Automation, más las 27 trampas dibujadas:
+
+| | trampas | pantallas reales | total |
+|---|---|---|---|
+| imagen sola | 21/27 | 8/13 | 29/40 |
+| **camino real** | **27/27** | **13/13** | **40/40** |
+
+Primera vuelta con pantallas reales: señalar 0/6. El control nombrado en
+la pregunta se perdía (`[string]$Controles` pisaba `$controles`), ganaba
+una línea del OCR con una sola palabra en común, y Discord da por UIA
+botones que no se ven. Arreglado en `ojo.ps1`; el banco solo pide controles
+cuyo nombre se ve. «GPU 52°» leído «520»: corregido por plausibilidad.
+
+VRAM por proceso sin juego (`vram.ps1`): 8B 8.540 MiB, voz 811, DaVinci
+728, Firefox 556, dwm 507, Discord 152, otros 497. Usada: 11.473 de 12.282
+(nvidia-smi).
+
+Voces (`voz/probar_ligera.py`, sin nada más corriendo):
+
+| | primer audio | RTF | dónde |
+|---|---|---|---|
+| F2 actual | 271-546 ms (frase entera) | 0,03-0,07 | GPU, ~811 MiB |
+| Pocket TTS spanish_24l, lola | 195-276 ms | ~0,78 (1,25 núcleos) | CPU, 1,7 GB RAM |
+| Pocket TTS spanish, lola | 82-102 ms | ~0,26 | CPU; silencios largos |
+| Pocket TTS spanish_24l, eve | 190-233 ms | ~0,69 | CPU |
+
+Escucha a ciegas 3 en la página MVP.

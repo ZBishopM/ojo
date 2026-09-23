@@ -68,3 +68,7 @@ prueba-lol/real-*.json
 ultima-medida.json
 memorias/estado.json
 vram-*.json
+# Resultados con texto de tus pantallas reales: solo en disco.
+banco-pantalla.json
+banco-verdad.json
+pruebas-resumen.json

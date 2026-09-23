@@ -24,6 +24,9 @@ param(
     # OCR), y sin controles de UIA (son de la ventana real, no de la imagen).
     # Para probar chats y demas sin tocar los del usuario.
     [string]$Imagen,
+    # PRUEBAS, con -Imagen: los controles de UIA congelados junto a la imagen
+    # (congelar-escena.ps1), en JSON: el camino real de senalar, sin la ventana.
+    [string]$ListaControles,
     # Apaga las memorias temporales, para medir cuanto aportan.
     [switch]$SinMemoria,
     # Carga esa memoria a la fuerza, sin puntuar. Para cuando el selector duda
@@ -848,6 +851,10 @@ function Linea-Por-Pregunta([string]$q, $ocr) {
             $lineaNombra = @(((Plano $l.texto) -split '[^a-z0-9]+') | Where-Object { $_ -and (& $casaTok $_) }).Count
             if ($unidad -and $w -match $unidad) { $casa += 1 + [int][bool]$lineaNombra * 2 }
             if (-not $casa) { continue }
+            # La linea que casa con MAS palabras de la pregunta gana: a "senala
+            # Mejorar plan" se iba a "plan mode on" de la terminal (banco con
+            # pantallas reales, 2026-09-23).
+            $casa += [math]::Max(0, $lineaNombra - 1)
             $obj = $pal[$i]
             if ($pideValor -and -not $unidad -and $i + 1 -lt $pal.Count -and $pal[$i + 1].texto -match '\d') { $obj = $pal[$i + 1] }
             # Una linea que solo casa por el lado ("Panel derecho") no vale.
@@ -1318,7 +1325,9 @@ try {
     Escena @{ estado = 'mirando'; oido = $Pregunta; dice = (Frase 'mirando' 'Déjame ver…') }
 
     $tu = [Diagnostics.Stopwatch]::StartNew()
-    $controles = if ($SinLista -or $hayPartida -or $Imagen) { @() } else { Leer-Controles }
+    $controles = if ($Imagen -and $ListaControles -and -not $SinLista) {
+        @([IO.File]::ReadAllText((Resolve-Path $ListaControles).Path, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json | ForEach-Object { $_ })
+    } elseif ($SinLista -or $hayPartida -or $Imagen) { @() } else { Leer-Controles }
     $tu.Stop()
 
     # En partida no se buscan notas del proyecto: nadie pregunta por el
@@ -1404,6 +1413,14 @@ try {
         try { . "$Raiz\ocr.ps1"; $ocr = @(Leer-Palabras $nativa 'es-MX' 2) }
         catch { Write-Warning "no pude leer la pantalla: $_" }
         $to.Stop()
+        # La barra pinta "GPU 52° 0%" y el OCR lee el grado como un cero:
+        # "GPU 520". Mas de 110 grados es imposible, asi que es el grado.
+        # (Ajuste para el formato de esta barra: pantallas reales, 2026-09-23.)
+        foreach ($l in $ocr) {
+            if ($l.texto -match '(?i)\b(GPU|CPU)\s+(\d{2})0\b' -and [int]"$($Matches[2])0" -gt 110) {
+                $l.texto = $l.texto -replace '(?i)\b(GPU|CPU)\s+(\d{2})0\b', '$1 $2°'
+            }
+        }
         $memoria += Texto-Pantalla $ocr
         if ($Pregunta -match '(?i)mensaje|\bchat\b|escribi[oó]|envi[oó]|me dijo|contest[oó]') {
             $chat = Resumen-Chat $ocr
@@ -1678,7 +1695,21 @@ try {
         }
         $via = 'nada (la pregunta no pide un sitio)'
     }
-    if ($d.control -and $d.control -ge 1 -and $d.control -le $controles.Count) {
+    # La pregunta NOMBRA un control de la lista ("senala «Mejorar plan»"): ese,
+    # sin preguntarle al modelo. El mas largo si hay varios. Con el nombre
+    # exacto delante, el 8B no lo elegia y se iba al OCR (0/6 en pantallas
+    # reales, 2026-09-23).
+    $pqPl = " $((Plano $Pregunta) -replace '[^a-z0-9]+', ' ') "
+    $cNombrado = if ($deSitio) { @($controles | Where-Object { $n = ((Plano $_.nombre) -replace '[^a-z0-9]+', ' ').Trim(); $n.Length -ge 3 -and $pqPl.Contains(" $n ") } |
+                                  # El que aparece TAL CUAL gana: "Perluis" y "@Perluis"
+                                  # se aplanan igual y son dos sitios distintos.
+                                  Sort-Object @{ e = { $Pregunta.IndexOf($_.nombre, [StringComparison]::OrdinalIgnoreCase) -ge 0 }; Descending = $true },
+                                              @{ e = { $_.nombre.Length }; Descending = $true } | Select-Object -First 1)[0] }
+    if ($cNombrado) {
+        $c = $cNombrado
+        $punto = @($c.x, $c.y)
+        $via = "control nombrado '$($c.nombre)'"
+    } elseif ($d.control -and $d.control -ge 1 -and $d.control -le $controles.Count) {
         $c = $controles[$d.control - 1]
         $punto = @($c.x, $c.y)
         $via = "control $($d.control) '$($c.nombre)'"
@@ -1708,7 +1739,8 @@ try {
         $c = [pscustomobject]@{ x = $tDicho.x; y = $tDicho.y; w = $tDicho.w; h = $tDicho.h; nombre = $tDicho.texto }
         $punto = @($c.x, $c.y)
         $via = "texto que dijo '$($tDicho.texto)'"
-    } elseif ($d.senalar) {
+    } elseif ($d.senalar -and $null -ne $d.senalar.x -and $null -ne $d.senalar.y) {
+        # (sin coordenadas no vale: {"x": null} rompia la escena del overlay)
         $punto = @($d.senalar.x, $d.senalar.y)
         $via = 'coordenadas del modelo'
         # Enganche. El modelo acierta la ZONA y falla el pixel -- eso es lo que
@@ -1793,6 +1825,16 @@ try {
     if ($r.tok_s -gt 0 -and $r.tok_s -lt 25) {
         Write-Host "AVISO: el modelo genero a $($r.tok_s) tok/s (normal: ~50-60). Algo esta usando la tarjeta y Windows lo ha desalojado de la VRAM; libres ahora: $vramLibre MiB." -ForegroundColor Yellow
     }
+    # Foto de la VRAM por proceso (vram.ps1, para el diagrama de la pagina),
+    # como mucho cada 6 h por estado. Se saca al preguntar: en partida, con el
+    # juego ya estable y no en la pantalla de carga. En segundo plano.
+    if (-not $Imagen) {
+        $estadoVram = if ($hayPartida) { 'con-lol' } else { 'sin-juego' }
+        $fv = "$Raiz\vram-$estadoVram.json"
+        if (-not (Test-Path $fv) -or (Get-Item $fv).LastWriteTime -lt (Get-Date).AddHours(-6)) {
+            Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$Raiz\vram.ps1", '-Estado', $estadoVram -WindowStyle Hidden
+        }
+    }
 
     # Linea legible por maquina, para que `hablar.ps1` pueda juntar estos
     # tiempos con los suyos (oido y STT) en una sola fila por frase. Sin esto
@@ -1821,6 +1863,14 @@ try {
         # de donde salio.
         ocr_ms      = [math]::Round($to.Elapsed.TotalMilliseconds)
         ocr_lineas  = $ocr.Count
+        # QUE VIO: las lineas del OCR que tienen que ver con la pregunta o con
+        # lo que dijo (sus palabras de 3+ letras y sus cifras). Para ensenar
+        # cada fallo con lo que le llego al modelo, no solo con lo que dijo.
+        ocr_vio     = @(if ($ocr.Count) {
+            $claves = @((Plano "$Pregunta $dicho") -split '[^a-z0-9]+' | Where-Object { $_.Length -ge 3 -and $_ -notmatch '^(que|cual|cuanto|cuantos|donde|esta|pone|marca|barra|arriba|senala|dime|como|los|las|del|por|para|con|una|uno)$' } | Select-Object -Unique)
+            @($ocr | Where-Object { $l = Plano $_.texto; @($claves | Where-Object { $l -match "\b$([regex]::Escape($_))" }).Count } |
+              Select-Object -First 8 | ForEach-Object { [string]::Format([Globalization.CultureInfo]::InvariantCulture, '{0} @ {1:0.00},{2:0.00}', $_.texto, $_.x, $_.y) })
+        })
         sin_respaldo = $faltan -join ' | '
         busco       = "$consulta"
         fuentes_web = if ($web) { (@($web.fuentes) | ForEach-Object { $_.sitio }) -join ', ' } else { '' }
