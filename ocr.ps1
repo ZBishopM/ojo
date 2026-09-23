@@ -46,6 +46,37 @@ function Leer-Texto([string]$ruta, [string]$idioma = 'es-MX') {
     } finally { $s.Dispose() }
 }
 
+# Como Leer-Texto, pero cada linea con su rectangulo NORMALIZADO (0-1 sobre la
+# imagen), para poder decir donde esta cada texto y senalarlo con exactitud.
+# El rectangulo de la linea es la union de los de sus palabras.
+function Leer-Palabras([string]$ruta, [string]$idioma = 'es-MX', [double]$escala = 1) {
+    $f = Esperar-WinRT ([Windows.Storage.StorageFile]::GetFileFromPathAsync((Resolve-Path $ruta).Path)) ([Windows.Storage.StorageFile])
+    $s = Esperar-WinRT ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+    try {
+        $dec = Esperar-WinRT ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($s)) ([Windows.Graphics.Imaging.BitmapDecoder])
+        $bmp = if ($escala -ne 1) {
+            $tr = New-Object Windows.Graphics.Imaging.BitmapTransform
+            $tr.ScaledWidth = [uint32]($dec.PixelWidth * $escala); $tr.ScaledHeight = [uint32]($dec.PixelHeight * $escala)
+            $tr.InterpolationMode = [Windows.Graphics.Imaging.BitmapInterpolationMode]::Fant
+            Esperar-WinRT ($dec.GetSoftwareBitmapAsync([Windows.Graphics.Imaging.BitmapPixelFormat]::Bgra8,
+                [Windows.Graphics.Imaging.BitmapAlphaMode]::Premultiplied, $tr,
+                [Windows.Graphics.Imaging.ExifOrientationMode]::IgnoreExifOrientation,
+                [Windows.Graphics.Imaging.ColorManagementMode]::DoNotColorManage)) ([Windows.Graphics.Imaging.SoftwareBitmap])
+        } else { Esperar-WinRT ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]) }
+        $W = [double]$bmp.PixelWidth; $H = [double]$bmp.PixelHeight
+        $motor = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new($idioma))
+        $r = Esperar-WinRT ($motor.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult])
+        @($r.Lines | ForEach-Object {
+            $rs = @($_.Words | ForEach-Object { $_.BoundingRect })
+            $x1 = ($rs | Measure-Object X -Minimum).Minimum; $y1 = ($rs | Measure-Object Y -Minimum).Minimum
+            $x2 = ($rs | ForEach-Object { $_.X + $_.Width } | Measure-Object -Maximum).Maximum
+            $y2 = ($rs | ForEach-Object { $_.Y + $_.Height } | Measure-Object -Maximum).Maximum
+            [pscustomobject]@{ texto = $_.Text; x = ($x1 + $x2) / 2 / $W; y = ($y1 + $y2) / 2 / $H
+                               w = ($x2 - $x1) / $W; h = ($y2 - $y1) / $H }
+        })
+    } finally { $s.Dispose() }
+}
+
 if ($MyInvocation.InvocationName -eq '.') { return }
 $img = $args | Select-Object -First 1
 $sw = [Diagnostics.Stopwatch]::StartNew()

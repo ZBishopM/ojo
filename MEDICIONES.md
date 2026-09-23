@@ -1655,3 +1655,56 @@ subtítulo, 725 MiB de VRAM.
 En GPU hace falta `onnxruntime-gpu[cuda,cudnn]` (CUDA 13) y
 `onnxruntime.preload_dlls()` antes de crear la sesión; sin eso, «LoadLibrary
 failed for cudnn64_9.dll».
+
+## Verdad: comprobar lo que dice y buscar lo que falta (2026-09-23)
+
+Punto de partida, medido: a «¿qué día es hoy?» contestaba «un día de trabajo,
+como siempre»; a «¿a cuánto está el dólar?», «no puedo darte el tipo de
+cambio». Sin herramientas: la captura reducida a 1280, la lista de controles y
+notas.
+
+Lo que se añadió (`ojo.ps1`, `buscar.ps1`, `buscador.py`, `ocr.ps1`, captura):
+
+- **Hechos del sistema** en cada pregunta: hora, fecha, ventana activa; y RAM,
+  VRAM, CPU y GPU si se pregunta por ellas (el OCR de la barra lee «16 .5/126»
+  por «10.5/12G»: su letra es diminuta).
+- **OCR a tamaño real, ampliado ×2**, solo si la pregunta es de pantalla: a ×1
+  leía «B.94kWh», a ×2 «6.94kWh». ~450 ms. Sus líneas se pueden señalar
+  (`{"texto": N}`) como los controles.
+- **`decir` / `pulla` / `buscar`**: el humor va aparte y no puede llevar cifras.
+- **Verificador en código** (`Verificar-Decir`, 11 comprobaciones en
+  `prueba-verificar.ps1`): cifras y nombres propios de `decir` contra todas las
+  fuentes. Lo que falta → OCR → internet con una segunda pasada. Si ni así,
+  «busqué X, pero no lo encontré confirmado».
+- **SearXNG local** (solo DuckDuckGo, 127.0.0.1:8888, ~700 ms por consulta),
+  la consulta del modelo y la frase literal a la vez, 3 páginas leídas en
+  paralelo. Búsqueda adelantada para lo que huele a actualidad. Cita del sitio
+  añadida en código si el modelo no la da.
+
+`banco-verdad.ps1` (8 preguntas: hora, fecha, dólar, último mundial, reloj y
+VRAM de la barra, un correo que no está, workspaces):
+
+| versión | aciertos | inventos | ms medio |
+|---|---|---|---|
+| antes | 5/8 | — | 3.075 |
+| primera | 5/8 | 0 | 5.230 |
+| **final** | **8/8** | **0** | 5.476 |
+
+Lo que costó llegar ahí, por si vuelve:
+- El modelo metía **años de su entrenamiento** en la consulta («último mundial
+  2024» → contestó el de 2024). Regla: sin años que el usuario no dijo; si las
+  fuentes discrepan en fecha, gana la más reciente respecto a HECHOS.
+- **«A cuánto» disparaba el OCR** (~1 s) en una pregunta de internet: el OCR
+  va ahora solo con palabras de pantalla.
+- **Rendirse** («no puedo darte…») también busca, salvo en preguntas de sus
+  cosas (correo, archivos): ahí internet no sabe nada.
+- **DuckDuckGo corta a ratos** en ráfagas (0 resultados y al minuto 10): un
+  reintento.
+
+Sin pérdida en los demás bancos (8B Q6_K, con Hearthstone abierto, así que
+los ms no se comparan): partida 16/16, frases reales **8/8** (antes 6/8: la
+regla de nombrar QUIÉN hace cada daño arregla «¿qué daño hace el equipo
+rival?»), visión leer 8/10 y señalar 8/12.
+
+**Hearthstone: 406 MiB de VRAM** (medido con el juego abierto). Sale de la
+lista del supervisor: Ojo conserva la visión ahí.

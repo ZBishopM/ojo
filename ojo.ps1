@@ -331,32 +331,54 @@ $SISTEMA = @'
 Eres un asistente que mira la pantalla del usuario y le ayuda. Respondes SIEMPRE
 con un unico objeto JSON, sin texto alrededor y sin bloques de codigo.
 
-{"decir": "<una frase corta en espanol, lo que dirias en voz alta>",
+{"decir": "<la respuesta en espanol, solo hechos, lo que dirias en voz alta>",
+ "pulla": "<opcional: el comentario sarcastico, sin datos>",
+ "buscar": "<opcional: consulta para internet si te falta un dato>",
  "control": 0,
+ "texto": 0,
  "senalar": {"x": 0.0, "y": 0.0},
  "dibujar": [{"tipo":"caja","x":0.0,"y":0.0,"w":0.0,"h":0.0}]}
+
+De donde sale lo que dices, de mas fiable a menos:
+1. HECHOS VERIFICADOS (hora, fecha, ventana activa): exactos, del sistema.
+2. TEXTO EN PANTALLA (OCR a tamano real) y LISTA DE CONTROLES: exactos.
+3. RESULTADOS WEB: actuales; si los usas, di la fuente ("segun ...").
+4. Lo que ves en la imagen (reducida: las cifras pequenas pueden enganarte;
+   si esta en TEXTO EN PANTALLA, usa ese).
+5. Lo que sabes de tu entrenamiento: SOLO para cosas generales que no cambian.
+   Nunca contra un dato de arriba, y nunca para algo actual.
+Si te falta un dato que cambia con el tiempo (noticias, precios, resultados,
+clima, versiones, parches, "lo ultimo"), NO lo inventes ni digas que no sabes:
+pon en "buscar" una consulta corta y en "decir" "Dejame buscarlo."
+En "buscar" NO pongas anos que el usuario no haya dicho: lo que tu crees que es
+"el ultimo" esta desfasado. Si los RESULTADOS WEB hablan de fechas distintas,
+lo "ultimo" es lo mas reciente respecto a la fecha de HECHOS VERIFICADOS.
 
 Reglas:
 - Si el mensaje trae una LISTA DE CONTROLES, y el sitio al que quieres apuntar
   esta en ella, responde {"control": N} con su numero EN VEZ de "senalar". Esos
   rectangulos los da el sistema operativo y son exactos; tus coordenadas a ojo
-  no lo son. Usa "senalar" solo para lo que NO este en la lista.
+  no lo son. Si no esta ahi pero SI en TEXTO EN PANTALLA, responde
+  {"texto": N} con el numero de esa linea. Usa "senalar" solo para lo que no
+  este en ninguna de las dos.
 - Las coordenadas van NORMALIZADAS de 0 a 1, donde 0,0 es arriba a la izquierda
   y 1,1 abajo a la derecha. Nunca en pixeles.
 - "senalar" es opcional: omitelo si la respuesta no apunta a ningun sitio.
 - "dibujar" es opcional. Tipos validos: caja, flecha (x1,y1,x2,y2),
   subrayado (x,y,w), paso (x,y,n).
-- "decir" es obligatorio, en espanol, y como maximo dos frases.
-- En "decir" NUNCA pongas el numero de un control: di su nombre. El numero es
-  solo para el campo "control".
+- "decir" es obligatorio, en espanol, y como maximo dos frases. Horas, fechas y
+  cantidades en CIFRAS ("12:09", "23 de septiembre", "3.362"), no en letra.
+- En "decir" NUNCA pongas el numero de un control ni de una linea de texto: di
+  su nombre. Los numeros son solo para "control" y "texto".
 
-Caracter de "decir": una IA de laboratorio sarcastica, al estilo de GLaDOS.
-Seca e ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
-Primero la respuesta completa, igual que sin caracter (si piden una lista,
-TODOS los nombres). Despues, como mucho, UNA pulla corta de ocho palabras o
-menos al final. Si no cabe, sin pulla. Nunca insulta ni inventa nada.
-Ejemplo de tono: {"decir": "El boton Guardar esta arriba a la derecha, junto
-a Compartir. Donde estuvo siempre, por cierto."}
+Caracter: una IA de laboratorio sarcastica, al estilo de GLaDOS. Seca e
+ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
+"decir" lleva la respuesta completa y solo hechos (si piden una lista, TODOS
+los nombres). El humor va aparte, en "pulla": una frase de ocho palabras o
+menos, que no afirma ningun dato (ni horas, ni cifras, ni nombres nuevos).
+Si no se te ocurre nada bueno, sin pulla. Nunca insulta.
+Ejemplo: {"decir": "El boton Guardar esta arriba a la derecha, junto a
+Compartir.", "pulla": "Donde estuvo siempre, por cierto."}
 '@
 
 # El de PARTIDA: sin pantalla, sin senalar, y diciendo que significa cada campo.
@@ -371,9 +393,16 @@ trae los DATOS DE LA PARTIDA, sacados del propio juego: son exactos. Contestas
 solo con ellos.
 
 Respondes SIEMPRE con un unico objeto JSON, sin texto alrededor:
-{"decir": "<la respuesta, en espanol, como maximo dos frases>"}
+{"decir": "<la respuesta, en espanol, como maximo dos frases, solo hechos>",
+ "pulla": "<opcional: el comentario sarcastico, sin datos>",
+ "buscar": "<opcional: consulta para internet si el dato no esta>"}
 
 Reglas:
+- Lo que no este en los datos ni en RESULTADOS WEB y cambie con el tiempo (el
+  meta, el parche, noticias), NO lo inventes ni digas que no sabes: pon en
+  "buscar" una consulta corta (sin anos que el usuario no dijo) y en "decir"
+  "Dejame buscarlo." Si hay RESULTADOS WEB, usalos y di la fuente ("segun
+  ..."); si hablan de fechas distintas, gana lo mas reciente.
 - Nombra campeones e items por su nombre, tal como vienen en los datos.
 - "mi_equipo" es el equipo del usuario y "equipo_rival" el contrario; "soy_yo"
   marca al usuario. "puesto" es la linea: TOP, JUNGLE (jungla), MIDDLE (mid),
@@ -401,20 +430,23 @@ Reglas:
 - Si los datos dicen "PARTIDA YA TERMINADA", son de la ultima partida: habla
   en pasado y usa resultado, KDA, dano, items y aumentos de ahi.
 - "campeones_mencionados" son los campeones de la partida que nombro el
-  usuario, ya reconocidos; usa ESE nombre ("Jax"), no el que escribio la voz.
+  usuario, ya reconocidos; usa ESE nombre ("Jax"). NUNCA repitas el nombre
+  como lo escribio la voz ("Jacksa P", "Jaxa").
+- "dano_rival": di QUIENES hacen dano magico y quienes fisico, por su nombre.
 - Para "que me hago / que saco contra X": di la "defensa_que_conviene" y
   nombra items de la lista "..._que_te_llega" de ese tipo, con su precio.
   "el_usuario_dice" (por ejemplo "Jax va AP") ya esta tenido en cuenta ahi.
-- Si la respuesta no esta en los datos -- por ejemplo, que build conviene en
-  este parche --, dilo en una frase. No lo inventes.
+- "hora" y "fecha" de HECHOS VERIFICADOS son las del sistema: exactas.
+- Horas, fechas y cantidades en CIFRAS ("12:09", "3500"), no en letra.
 
-Caracter de "decir": una IA de laboratorio sarcastica, al estilo de GLaDOS.
-Seca e ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
-Primero la respuesta completa, igual que sin caracter (si piden una lista,
-TODOS los nombres). Despues, como mucho, UNA pulla corta de ocho palabras o
-menos al final. Si no cabe, sin pulla. Nunca insulta ni inventa nada.
-Ejemplo de tono: {"decir": "Tu equipo: Garen top, Lee Sin jungla, Lux mid,
-Jinx tirador y Thresh soporte. Equilibrado, para variar."}
+Caracter: una IA de laboratorio sarcastica, al estilo de GLaDOS. Seca e
+ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
+"decir" lleva la respuesta completa y solo hechos (si piden una lista, TODOS
+los nombres). El humor va aparte, en "pulla": una frase de ocho palabras o
+menos, que no afirma ningun dato (ni cifras, ni nombres nuevos). Si no se te
+ocurre nada bueno, sin pulla. Nunca insulta.
+Ejemplo: {"decir": "Tu equipo: Garen top, Lee Sin jungla, Lux mid, Jinx
+tirador y Thresh soporte.", "pulla": "Equilibrado, para variar."}
 '@
 
 # Los controles REALES de la ventana activa. Esto es lo que arregla la precision
@@ -582,6 +614,122 @@ function Leer-Workspaces {
     if ($lineas) { "`n`nWORKSPACES DE GLAZEWM (lo que hay abierto, aunque no se vea):`n" + ($lineas -join "`n") }
 }
 
+# ---- Lo que Ojo SABE sin adivinar -------------------------------------------
+#
+# Medido el 2026-09-23: a "que hora es" leyo el reloj de la barra en la captura
+# (acerto por suerte) y se invento "a la hora de la comida"; a "que dia es hoy"
+# dijo "un dia de trabajo, como siempre". El sistema lo sabe exacto.
+function Hechos-Sistema([switch]$SinVentana, [switch]$Metricas) {
+    $a = Get-Date
+    $es = [Globalization.CultureInfo]::GetCultureInfo('es-MX')
+    $l = @("hora: $($a.ToString('HH:mm'))", "fecha: $($a.ToString("dddd d 'de' MMMM 'de' yyyy", $es))")
+    # Lo que pinta la barra de arriba, pero del sistema: el OCR de la barra lee
+    # mal (su letra es diminuta: "16 .5/126" por "10.5/12G"). ~80 ms.
+    if ($Metricas) {
+        try {
+            $g = (& nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw --format=csv,noheader,nounits) -split ',\s*'
+            $l += "VRAM: {0:N1} de {1:N0} GB usados; GPU al {2} %, {3} °C, {4:N0} W" -f ([double]$g[0] / 1024), ([double]$g[1] / 1024), $g[2], $g[3], [double]$g[4]
+        } catch { }
+        try {
+            $os = Get-CimInstance Win32_OperatingSystem
+            $l += "RAM: {0:N1} de {1:N1} GB usados ({2:N0} %)" -f (($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1MB), ($os.TotalVisibleMemorySize / 1MB),
+                (100 * (1 - $os.FreePhysicalMemory / $os.TotalVisibleMemorySize))
+            $l += "CPU: {0} %" -f (Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'").PercentProcessorTime
+        } catch { }
+    }
+    if (-not $SinVentana) {
+        try {
+            $f = ((& glazewm query focused 2>$null) -join "`n" | ConvertFrom-Json).data.focused
+            if ($f.processName) { $l += "ventana activa: $($f.processName) «$($f.title)»" }
+        } catch { }
+    }
+    "`n`nHECHOS VERIFICADOS (del sistema, exactos):`n" + ($l -join "`n")
+}
+
+# Preguntas que piden LEER algo de la pantalla: para esas se pasa el OCR a
+# tamano real. La imagen del modelo va reducida a 1280 y en 1440p una letra de
+# 11 px queda en 5 (leyo 219 W por 218).
+#
+# Con palabras DE PANTALLA, no con "cuanto" a secas: "a cuanto esta el dolar"
+# disparaba el OCR (~1 s) para una pregunta que es de internet.
+function Pregunta-De-Lectura([string]$q) {
+    $q -match '(?i)\bmarca\b|\bdice\b|\bpone\b|muestra|aparece|se ve\b|\blee\b|l[eé]eme|leer|pantalla|barra|ventana|bot[oó]n|t[ií]tulo|pesta[nñ]a|c[oó]mo se llama'
+}
+
+# El OCR como bloque para el modelo, con cada linea numerada (para {"texto": N})
+# y su posicion. En cultura invariante: con la de es, "0,49,0,01" no se lee.
+function Texto-Pantalla($lineas) {
+    if (-not @($lineas).Count) { return '' }
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $i = 0
+    "`n`nTEXTO EN PANTALLA (OCR de la imagen a tamano real, exacto; N. texto @ x,y de 0 a 1):`n" +
+        ((@($lineas) | ForEach-Object { $i++; [string]::Format($inv, '{0}. {1} @ {2:0.00},{3:0.00}', $i, $_.texto, $_.x, $_.y) }) -join "`n")
+}
+
+# Una frase por la voz YA, sin esperar a la respuesta ("Dejame buscarlo"). La
+# respuesta de verdad, al llegar, la corta: el servidor de voz abre un turno
+# nuevo con cada /decir. Sin servidor de voz, nada (la reserva SAPI no se usa
+# para esto).
+function Decir-Ya([string]$t) {
+    if (-not $vozResidente) { return }
+    try {
+        $b = [Text.Encoding]::UTF8.GetBytes((@{ texto = $t; pid = $PID } | ConvertTo-Json -Compress))
+        $null = Invoke-RestMethod 'http://127.0.0.1:8098/decir' -Method Post -Body $b -ContentType 'application/json; charset=utf-8' -TimeoutSec 5
+    } catch { }
+}
+
+# Si la respuesta salio de la web y no dice de donde, se le anade la fuente: el
+# sitio cuyas paginas contienen mas de lo que afirma (cifras y nombres). Dicho
+# como se dice en voz alta: "Wikipedia", no "es.wikipedia.org".
+function Citar([string]$decir, $web) {
+    # Vale solo si nombra un sitio de los resultados: "segun la ultima
+    # cotizacion disponible" no es una fuente.
+    $p = Plano $decir
+    foreach ($s in @($web.fuentes)) { $n = ("$($s.sitio)" -split '\.')[-2]; if ($n -and $p.Contains((Plano $n))) { return $decir } }
+    $claves = @([regex]::Matches($decir, '\d+(?:[.,:]\d+)*|\b\p{Lu}[\p{L}\p{N}''-]{2,}') | ForEach-Object { Plano $_.Value })
+    $mejor = @($web.fuentes) | Sort-Object {
+        $t = Plano "$($_.titulo) $($_.fragmento) $($_.texto)"
+        - @($claves | Where-Object { $t.Contains($_) }).Count
+    } | Select-Object -First 1
+    if (-not $mejor) { return $decir }
+    $partes = "$($mejor.sitio)" -split '\.'
+    $nombre = if ($partes.Count -ge 2) { $partes[-2] } else { $mejor.sitio }
+    "$($decir.TrimEnd()) Según $nombre."
+}
+
+# Minusculas y sin tildes, para cotejar.
+function Plano([string]$s) {
+    ($s.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD) -replace '\p{Mn}', '')
+}
+
+# Lo que "decir" afirma sin respaldo en NINGUNA de las fuentes de esta pregunta.
+#
+# En codigo y no en el modelo: pedirle que se revise a si mismo es pedirle que
+# vuelva a creerse. Se cotejan las CIFRAS y los NOMBRES PROPIOS (palabra con
+# mayuscula que no abre frase): es lo que se inventa y lo que se puede buscar
+# tal cual en el texto de las fuentes. El humor va en "pulla" y no se coteja.
+#
+# ponytail: las cifras escritas en letra ("las doce y diecisiete") no se
+# cotejan; si el modelo empieza a esquivar asi el control, pasarlas a numero.
+function Verificar-Decir([string]$decir, [string]$evidencia) {
+    $ev = Plano $evidencia
+    $sinSep = $ev -replace '(?<=\d)[.,](?=\d)', ''
+    $faltan = @()
+    foreach ($m in [regex]::Matches($decir, '\d+(?:[.,:]\d+)*')) {
+        $n = $m.Value
+        if (-not ($ev.Contains($n) -or $sinSep.Contains(($n -replace '[.,]', '')))) { $faltan += $n }
+    }
+    # Tras comillas tambien abre frase ('Llegue' citado no es un nombre propio).
+    # Las comillas de apertura tipograficas van como \p{Pi} y no literales:
+    # dentro de una cadena de PowerShell entre comillas simples, la comilla
+    # simple curva de apertura CIERRA la cadena.
+    foreach ($m in [regex]::Matches($decir, '(?<!(?:^|[.!?¡¿:"''\p{Pi}(]\s*))\b\p{Lu}[\p{L}\p{N}''-]{2,}')) {
+        $w = $m.Value.TrimEnd("'", '-')
+        if (-not $ev.Contains((Plano $w))) { $faltan += $w }
+    }
+    @($faltan | Select-Object -Unique)
+}
+
 function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $null) {
     $b64 = if ($imagen) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($imagen)) } else { $null }
     $lista = ''
@@ -601,7 +749,8 @@ function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $
     # el prompt de pantalla 14/16 en 1.142 ms; este, 16/16 en 535 ms.
     if ($partida) {
         $sistema = $SISTEMA_PARTIDA
-        $contenido = "DATOS DE LA PARTIDA:`n$partida`n`nPREGUNTA: $pregunta"
+        # $memoria en partida: los hechos del sistema y, si se busco, la web.
+        $contenido = "DATOS DE LA PARTIDA:`n$partida$memoria`n`nPREGUNTA: $pregunta"
     }
     $cuerpo = @{
         model = 'x'; stream = $false; max_tokens = 300; temperature = 0.1
@@ -867,9 +1016,17 @@ $tc = [Diagnostics.Stopwatch]::StartNew()
 # Sin vision no hay captura: mandarle una imagen a un servidor sin mmproj es un
 # error seguro, y adivinar la pantalla sin verla seria inventar.
 $conVision = [bool]$InfoServidor.modalities.vision
+$nativa = $null
 if (-not $hayPartida -and $conVision) {
     $tmp = Join-Path $env:TEMP 'ojo.jpg'
-    & $captura --salida $tmp | Out-Null
+    # Y a tamano real, para el OCR (Fase de verificacion): ~75 ms mas. Se lee
+    # solo si la pregunta lo pide o si hay que comprobar lo que dijo.
+    # Un nombre por ejecucion: el OCR de Windows deja el archivo mapeado
+    # mientras vive el proceso, y reescribirlo fallaba (os error 1224). Las
+    # viejas se borran; la que siga abierta, se queda para la proxima.
+    Get-ChildItem $env:TEMP -Filter 'ojo-nativa-*.bmp' -EA SilentlyContinue | Remove-Item -EA SilentlyContinue
+    $nativa = Join-Path $env:TEMP "ojo-nativa-$PID-$([Environment]::TickCount).bmp"
+    & $captura --salida $tmp --nativa $nativa | Out-Null
 }
 $tc.Stop()
 Marca 'captura'
@@ -927,22 +1084,121 @@ try {
     if (-not $hayPartida -and $Pregunta -match '(?i)workspace|escritorio|abiert|ventanas') {
         try { $memoria += Leer-Workspaces } catch { Write-Warning "no pude leer los workspaces: $_" }
     }
+    $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:($Pregunta -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consumo|memoria|procesador|gr[aá]fica')
+
+    # El texto de la pantalla a tamano real, si la pregunta es de leer o de
+    # ubicar algo. ~450 ms (OCR de Windows sobre la captura ampliada x2: a x1
+    # leia "B.94kWh" y "S.8/12G"; a x2, "6.94kWh" y "5.8/12G").
+    $ocr = @()
+    $to = [Diagnostics.Stopwatch]::new()
+    $leerPantalla = {
+        $to.Start()
+        try { . "$Raiz\ocr.ps1"; $ocr = @(Leer-Palabras $nativa 'es-MX' 2 | Select-Object -First 80) }
+        catch { Write-Warning "no pude leer la pantalla: $_" }
+        $to.Stop()
+        $memoria += Texto-Pantalla $ocr
+    }
+    # (se llama con punto: escribe $ocr y $memoria de aqui)
+    if ($nativa -and ((Pregunta-De-Lectura $Pregunta) -or (Pregunta-De-Sitio $Pregunta))) { . $leerPantalla }
+
+    # Busqueda ADELANTADA para lo que huele a actualidad: con la frase literal
+    # del usuario, en otro runspace, mientras piensa el modelo. Si al final no
+    # hace falta, se tira. Sin esto, preguntar el precio del dolar tardaba ~10,5
+    # s: modelo, busqueda y otra vez modelo, uno detras de otro.
+    $webAdelantada = $null
+    if (-not $respuestaFija -and $Pregunta -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o') {
+        $webAdelantada = [powershell]::Create()
+        $null = $webAdelantada.AddScript({ param($raiz, $q) . "$raiz\buscar.ps1"; Buscar-Web @($q) }).AddArgument($Raiz).AddArgument($Pregunta)
+        $webEnMarcha = $webAdelantada.BeginInvoke()
+    }
 
     Marca 'antes_modelo'
 
+    # La respuesta del modelo, lista para usar. Nada de "el control numero 23"
+    # en la frase: se cambia por el nombre del control (decir.ps1). Y la pulla
+    # no puede llevar cifras: el humor no afirma datos.
+    . "$Raiz\decir.ps1"
+    $leerRespuesta = {
+        param($r)
+        $json = Extraer-Json $r.texto
+        if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }
+        $x = $json | ConvertFrom-Json
+        $x | Add-Member -NotePropertyName decir -NotePropertyValue (Limpiar-Decir $x.decir $controles) -Force
+        if ("$($x.pulla)" -match '\d') { $x | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force }
+        $x
+    }
+    $preguntar = { Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida }) }
+
     $r = if ($respuestaFija) {
         @{ ms = 0; texto = (@{ decir = $respuestaFija } | ConvertTo-Json -Compress); tok_s = 0; prompt_n = 0 }
-    } else {
-        Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida })
-    }
+    } else { & $preguntar }
     Marca 'despues_modelo'
-    $json = Extraer-Json $r.texto
-    if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }
-    $d = $json | ConvertFrom-Json
-    # Nada de "el control numero 23" en la frase: se cambia por el nombre del
-    # control. Ver decir.ps1 (2 de cada 10 respuestas que senalaban lo hacian).
-    . "$Raiz\decir.ps1"
-    $d | Add-Member -NotePropertyName decir -NotePropertyValue (Limpiar-Decir $d.decir $controles) -Force
+    $d = & $leerRespuesta $r
+
+    # ---- Comprobar lo que dice, y buscar lo que falte ------------------------
+    #
+    # Regla del usuario: no inventar, y tampoco "no se": si falta, BUSCAR y
+    # citar. Orden: lo que dijo se coteja con todas las fuentes de esta
+    # pregunta; lo que no aparece se busca primero en la pantalla a tamano real
+    # (quiza lo leyo de ahi) y despues en internet, con una segunda pasada del
+    # modelo que ya tiene los resultados. Si ni asi, lo dice sin inventar.
+    $evidencia = { "$Pregunta`n$memoria`n$partida`n" + ((@($controles) | ForEach-Object { $_.nombre }) -join "`n") }
+    $faltan = @()
+    $consulta = $null
+    $web = $null
+    if (-not $respuestaFija) {
+        $faltan = @(Verificar-Decir $d.decir (& $evidencia))
+        if ($faltan.Count -and $nativa -and -not $ocr.Count) {
+            . $leerPantalla
+            $faltan = @(Verificar-Decir $d.decir (& $evidencia))
+        }
+        # Un "no puedo / no se" tambien se busca: la regla es buscar, no rendirse.
+        # Salvo si la pregunta es de SUS cosas (su correo, sus archivos, su
+        # pantalla): ahi internet no sabe nada y "no tengo acceso" es la verdad.
+        $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo)'
+        $esSuyo = $Pregunta -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
+        # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
+        # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
+        $consulta = if ($esSuyo) { $null }
+                    elseif ("$($d.buscar)".Trim()) { "$($d.buscar)".Trim() }
+                    elseif ($faltan.Count -or $seRinde) { $Pregunta } else { $null }
+        # Se deja la respuesta (puede ser una lectura buena de la imagen) y se
+        # avisa de lo que no se pudo comprobar, sin pulla.
+        if ($esSuyo -and $faltan.Count) {
+            $d | Add-Member -NotePropertyName decir -NotePropertyValue "$($d.decir.TrimEnd()) (No pude comprobar: $($faltan -join ', '))." -Force
+            $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force
+        }
+        if ($consulta) {
+            Escena @{ estado = 'mirando'; oido = $Pregunta; dice = 'Déjame buscarlo…' }
+            Decir-Ya 'Déjame buscarlo.'
+            Marca 'buscando'
+            if ($webAdelantada) {
+                try { $web = @($webAdelantada.EndInvoke($webEnMarcha))[0] } catch { }
+            }
+            if (-not $web) {
+                try { . "$Raiz\buscar.ps1"; $web = Buscar-Web @($consulta, $Pregunta) } catch { Write-Warning "no pude buscar: $_" }
+            }
+            Marca 'buscado'
+            if ($web) {
+                $memoria += "`n`n" + (Texto-Web $web)
+                $r = & $preguntar
+                $d = & $leerRespuesta $r
+                $faltan = @(Verificar-Decir $d.decir (& $evidencia))
+                Marca 'despues_web'
+            }
+            $sinRespaldo = if (-not $web) { 'No pude buscarlo: el buscador no contesta.' }
+                           elseif ($faltan.Count -or (Plano $d.decir) -match 'dejame buscar') { "Busqué «$consulta», pero no lo encontré confirmado en las fuentes." }
+            if ($sinRespaldo) {
+                $d | Add-Member -NotePropertyName decir -NotePropertyValue $sinRespaldo -Force
+                $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force
+            } elseif ($web) {
+                $d | Add-Member -NotePropertyName decir -NotePropertyValue (Citar $d.decir $web) -Force
+            }
+        }
+    }
+    # Lo que se dice en voz alta y se ve en los subtitulos: los hechos y, detras,
+    # la pulla.
+    $dicho = (@("$($d.decir)".Trim(), "$($d.pulla)".Trim()) | Where-Object { $_ }) -join ' '
 
     # El numero de control gana sobre las coordenadas a ojo: son el mismo dato
     # que usa Windows para dibujar, no una estimacion.
@@ -967,7 +1223,7 @@ try {
         # LEERLAS despues no da problema (PowerShell devuelve $null), solo
         # escribirlas. Por eso el fallo se escondia: aparecia unicamente cuando
         # el modelo era escueto.
-        'control', 'senalar', 'dibujar' | ForEach-Object {
+        'control', 'texto', 'senalar', 'dibujar' | ForEach-Object {
             $d | Add-Member -NotePropertyName $_ -NotePropertyValue $null -Force
         }
         $via = 'nada (la pregunta no pide un sitio)'
@@ -976,6 +1232,13 @@ try {
         $c = $controles[$d.control - 1]
         $punto = @($c.x, $c.y)
         $via = "control $($d.control) '$($c.nombre)'"
+    } elseif ($d.texto -and $d.texto -ge 1 -and $d.texto -le $ocr.Count) {
+        # Una linea del OCR: su rectangulo sale de la imagen a tamano real, tan
+        # exacto como el de un control. Mismo formato que un control para la caja.
+        $t = $ocr[$d.texto - 1]
+        $c = [pscustomobject]@{ x = $t.x; y = $t.y; w = $t.w; h = $t.h; nombre = $t.texto }
+        $punto = @($c.x, $c.y)
+        $via = "texto $($d.texto) '$($t.texto)'"
     } elseif ($d.senalar) {
         $punto = @($d.senalar.x, $d.senalar.y)
         $via = 'coordenadas del modelo'
@@ -999,7 +1262,7 @@ try {
     $oido = $Pregunta
     if ($mm.cargadas.Count) { $oido += "   ·   memoria: $($mm.cargadas -join ' + ')" }
 
-    $e = @{ estado = 'hablando'; oido = $oido; dice = $d.decir }
+    $e = @{ estado = 'hablando'; oido = $oido; dice = $dicho }
     if ($punto) {
         $e.cursor = $punto
         $e.objetivo = $punto
@@ -1024,19 +1287,19 @@ try {
     # pero siempre instalada), preparada en paralelo desde el principio.
     $vozSintetizador = $null
     $vozServidor = $false
-    if ($vozResidente -and $d.decir) {
+    if ($vozResidente -and $dicho) {
         try {
-            $cuerpoVoz = [Text.Encoding]::UTF8.GetBytes((@{ texto = "$($d.decir)"; pid = $PID } | ConvertTo-Json -Compress))
+            $cuerpoVoz = [Text.Encoding]::UTF8.GetBytes((@{ texto = $dicho; pid = $PID } | ConvertTo-Json -Compress))
             $null = Invoke-RestMethod 'http://127.0.0.1:8098/decir' -Method Post -Body $cuerpoVoz `
                 -ContentType 'application/json; charset=utf-8' -TimeoutSec 10
             $vozServidor = $true
             Marca 'voz'
         } catch { Write-Warning "el servidor de voz no contesto: $_" }
     }
-    if (-not $vozServidor -and $vozPreparando -and $d.decir) {
+    if (-not $vozServidor -and $vozPreparando -and $dicho) {
         try {
             $vozSintetizador = @($vozPreparando.EndInvoke($vozEnMarcha))[0]
-            $null = $vozSintetizador.SpeakAsync($d.decir)
+            $null = $vozSintetizador.SpeakAsync($dicho)
             Marca 'voz'
         } catch { Write-Warning "no pude hablar: $_" }
     }
@@ -1076,7 +1339,14 @@ try {
         via         = $via
         senalo      = if ($punto) { "$($punto[0]),$($punto[1])" } else { '' }
         trazos      = @($e.trazos | Where-Object { $_ }).Count
-        dijo        = $d.decir
+        dijo        = $dicho
+        # La comprobacion: que afirmaciones no tenian respaldo, que se busco y
+        # de donde salio.
+        ocr_ms      = [math]::Round($to.Elapsed.TotalMilliseconds)
+        ocr_lineas  = $ocr.Count
+        sin_respaldo = $faltan -join ' | '
+        busco       = "$consulta"
+        fuentes_web = if ($web) { (@($web.fuentes) | ForEach-Object { $_.sitio }) -join ', ' } else { '' }
         fin_epoch_ms = [int64]([DateTimeOffset]$tDibujo).ToUnixTimeMilliseconds()
         marcas       = $MARCAS
     }
@@ -1103,7 +1373,7 @@ try {
         memoria_tok  = [int]($memoria.Length / 4)
         memorias     = if ($mm.cargadas) { $mm.cargadas -join ' + ' } else { '(ninguna)' }
         modelo_ms    = $r.ms
-        dijo         = $d.decir
+        dijo         = $dicho
         senalo       = if ($punto) { "$($punto[0]), $($punto[1])" } else { '(nada)' }
         via          = $via
         # Con Where-Object: sin el, @($null).Count devuelve 1 y parecia que

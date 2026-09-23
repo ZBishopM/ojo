@@ -179,9 +179,37 @@ fn reducir(src: &[u8], w: u32, h: u32, lado_max: u32) -> (Vec<u8>, u32, u32) {
     (out, nw, nh)
 }
 
-fn una_pasada(salida: Option<&str>, todo: bool) -> Result<Tiempos, String> {
+/// La captura SIN reducir, como BMP de 32 bits de arriba abajo: para el OCR.
+///
+/// La imagen del modelo va a 1280 de lado mayor, y en un monitor de 1440p eso
+/// es la mitad: una letra de 11 px queda en 5 y se lee mal (219 W por 218).
+/// El OCR de Windows lee el texto exacto de la imagen entera. BMP porque no
+/// hay que comprimir nada: escribirlo es copiar el bufer.
+fn escribir_bmp(p: &str, bgra: &[u8], w: u32, h: u32) -> Result<(), String> {
+    let datos = bgra.len() as u32;
+    let mut f = Vec::with_capacity(54 + bgra.len());
+    f.extend_from_slice(b"BM");
+    f.extend_from_slice(&(54 + datos).to_le_bytes());
+    f.extend_from_slice(&0u32.to_le_bytes());
+    f.extend_from_slice(&54u32.to_le_bytes());
+    f.extend_from_slice(&40u32.to_le_bytes()); // BITMAPINFOHEADER
+    f.extend_from_slice(&(w as i32).to_le_bytes());
+    f.extend_from_slice(&(-(h as i32)).to_le_bytes()); // negativo = de arriba abajo
+    f.extend_from_slice(&1u16.to_le_bytes());
+    f.extend_from_slice(&32u16.to_le_bytes());
+    f.extend_from_slice(&0u32.to_le_bytes()); // BI_RGB
+    f.extend_from_slice(&datos.to_le_bytes());
+    f.extend_from_slice(&[0u8; 16]);
+    f.extend_from_slice(bgra);
+    std::fs::write(p, &f).map_err(|e| format!("no se pudo escribir {p}: {e}"))
+}
+
+fn una_pasada(salida: Option<&str>, todo: bool, nativa: Option<&str>) -> Result<Tiempos, String> {
     let t0 = Instant::now();
     let (bgra, w, h, blit_ms) = capturar(todo)?;
+    if let Some(p) = nativa {
+        escribir_bmp(p, &bgra, w, h)?;
+    }
 
     let t = Instant::now();
     let (rgb, nw, nh) = reducir(&bgra, w, h, LADO_MAX);
@@ -224,7 +252,7 @@ fn demo() -> Result<(), String> {
     // Lo que de verdad importa comprobar: que la captura devuelve la pantalla
     // entera, que la reduccion respeta la proporcion, y que el JPEG no sale
     // vacio ni absurdamente grande.
-    let t = una_pasada(None, false)?;
+    let t = una_pasada(None, false, None)?;
     assert!(t.ancho >= 640 && t.alto >= 480, "pantalla sospechosa: {}x{}", t.ancho, t.alto);
     assert!(
         t.ancho_reducido.max(t.alto_reducido) == LADO_MAX || t.ancho <= LADO_MAX,
@@ -277,13 +305,15 @@ fn main() {
 
     let todo = args.iter().any(|a| a == "--todo");
     let salida = arg("--salida");
+    let nativa = arg("--nativa");
     let repetir: usize = arg("--repetir").and_then(|v| v.parse().ok()).unwrap_or(1);
 
     let mut todos = Vec::new();
     for i in 0..repetir {
         // Solo la ultima pasada escribe el archivo: las demas son para el reloj.
-        let destino = if i + 1 == repetir { salida.as_deref() } else { None };
-        match una_pasada(destino, todo) {
+        let ultima = i + 1 == repetir;
+        let destino = if ultima { salida.as_deref() } else { None };
+        match una_pasada(destino, todo, if ultima { nativa.as_deref() } else { None }) {
             Ok(t) => todos.push(t),
             Err(e) => {
                 eprintln!("FALLA en la pasada {i}: {e}");

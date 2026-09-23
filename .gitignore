@@ -33,3 +33,7 @@ voz/salida/
 
 # La DLL de OjoTexto (ddragon.ps1): se compila sola la primera vez.
 bin/
+
+# Busquedas web cacheadas (una por consulta y dia): son de lo que pregunta el
+# usuario.
+web-cache/
