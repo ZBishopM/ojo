@@ -53,3 +53,18 @@ perfil.json
 personas/
 historial.json
 conocer/estado.json
+
+# Privado: fuera del repo publico (quitado tambien del historial el 2026-09-23).
+# Siguen en disco; las pruebas los usan en local.
+sesion.csv
+sesion-sucia.csv
+escenas/captura-referencia.jpg
+escenas/lo-que-vio.png
+escenas/precision-uia-vs-vlm.png
+escenas/reales/
+prueba-lol/muestra-*.json
+prueba-lol/muestra-*.html
+prueba-lol/real-*.json
+ultima-medida.json
+memorias/estado.json
+vram-*.json
