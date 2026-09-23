@@ -538,6 +538,23 @@ function Vram-Libre {
     } catch { -1 }
 }
 
+# Lo que hay abierto en cada workspace de GlazeWM, en texto para el modelo. La
+# captura solo ve el monitor activo; esto ve tambien lo escondido. ~80 ms.
+function Ventanas-De($n) {
+    if ($n.type -eq 'window') { $n } else { foreach ($h in @($n.children)) { Ventanas-De $h } }
+}
+function Leer-Workspaces {
+    $j = (& glazewm query workspaces 2>$null) -join "`n" | ConvertFrom-Json
+    $lineas = foreach ($w in @($j.data.workspaces)) {
+        $vs = @(Ventanas-De $w | ForEach-Object {
+            $t = "$($_.title)"; if ($t.Length -gt 60) { $t = $t.Substring(0, 60) + '…' }
+            "$($_.processName) «$t»" })
+        $marca = if ($w.hasFocus) { ' (activo, el que ves)' } elseif ($w.isDisplayed) { ' (en el otro monitor)' } else { '' }
+        "workspace $($w.name)$($marca): $(if ($vs.Count) { $vs -join '; ' } else { 'vacio' })"
+    }
+    if ($lineas) { "`n`nWORKSPACES DE GLAZEWM (lo que hay abierto, aunque no se vea):`n" + ($lineas -join "`n") }
+}
+
 function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $null) {
     $b64 = if ($imagen) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($imagen)) } else { $null }
     $lista = ''
@@ -874,6 +891,10 @@ try {
         # la partida). Sin esto, el prompt de sistema le dice que "mira la
         # pantalla" y el modelo la describe inventandosela.
         $memoria += "`n`nAHORA NO VES LA PANTALLA: no hay imagen. No describas lo que no ves; si la pregunta necesita verla, dilo en una frase."
+    }
+    # Detras de la imagen y de la pregunta: no toca el prefijo cacheado.
+    if (-not $hayPartida -and $Pregunta -match '(?i)workspace|escritorio|abiert|ventanas') {
+        try { $memoria += Leer-Workspaces } catch { Write-Warning "no pude leer los workspaces: $_" }
     }
 
     Marca 'antes_modelo'
