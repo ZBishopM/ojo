@@ -366,6 +366,17 @@ Reglas:
   cual, no los deduzcas de los KDA.
 - Si preguntan por la COMPOSICION de un equipo, nombra primero sus cinco
   campeones con su linea; despues, si cabe, una valoracion corta.
+- La PREGUNTA viene de reconocimiento de voz: los nombres de campeones y
+  aumentos pueden llegar mal escritos ("Jacksa P" es "Jax AP"). Interpretalos
+  por parecido con los campeones de la partida y los aumentos de los datos.
+- Nombra SOLO items y aumentos que aparezcan en los datos. No inventes nombres,
+  ni digas nada del meta o del parche que no venga en los datos.
+- "aumentos_mencionados" son aumentos (no items) y lo que hacen.
+- "campeones_mencionados" son los campeones de la partida que nombro el
+  usuario, ya reconocidos; usa ESE nombre ("Jax"), no el que escribio la voz.
+- Para "que me hago / que saco contra X": di la "defensa_que_conviene" y
+  nombra items de la lista "..._que_te_llega" de ese tipo, con su precio.
+  "el_usuario_dice" (por ejemplo "Jax va AP") ya esta tenido en cuenta ahi.
 - Si la respuesta no esta en los datos -- por ejemplo, que build conviene en
   este parche --, dilo en una frase. No lo inventes.
 '@
@@ -645,7 +656,8 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                 if (-not (Test-Path $delDia)) { [IO.File]::WriteAllText($delDia, $crudoJson, [Text.UTF8Encoding]::new($false)) }
             } catch { }
             $catLol = try { Get-DDragon } catch { $null }
-            $partida = Resumir-Partida $datosLol $catLol | ConvertTo-Json -Depth 6 -Compress
+            # Con la pregunta: asi se detectan los aumentos que menciona.
+            $partida = Resumir-Partida $datosLol $catLol $Pregunta | ConvertTo-Json -Depth 6 -Compress
             $hayPartida = $true
         }
     } catch {

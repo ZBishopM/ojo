@@ -105,14 +105,24 @@ function Resumir-Jugador($p, $yo) {
     }
 }
 
-function Resumir-Partida($d, $cat) {
+# Nombre legible del modo. La API da el interno: en la primera partida real
+# llego "KIWI", que es ARAM Mayhem (el de los aumentos).
+$LOL_MODOS = @{
+    CLASSIC = 'Grieta del Invocador'; ARAM = 'ARAM'; KIWI = 'ARAM Mayhem (con aumentos)'
+    CHERRY = 'Arena'; URF = 'URF'; ARURF = 'URF aleatorio'; ONEFORALL = 'Uno para todos'
+}
+
+function Resumir-Partida($d, $cat, $pregunta = $null) {
     $yo = Buscar-Yo $d
     # [math]::Floor Y NO [int]: el cast de PowerShell REDONDEA. 754 s salian
     # como el minuto 13:34, y 1543,7 de oro como 1544 -- el modelo diria que te
     # llega para algo que cuesta 1544 y no te llega.
     $seg = [int][math]::Floor([double]$d.gameData.gameTime)
+    $modo = "$($d.gameData.gameMode)"
+    # El mapa decide que items existen: el 11 es la Grieta, el 12 el Abismo.
+    $mapa = if ($d.gameData.mapNumber) { "$($d.gameData.mapNumber)" } else { '11' }
     $h = [ordered]@{
-        modo   = $d.gameData.gameMode
+        modo   = if ($LOL_MODOS[$modo]) { $LOL_MODOS[$modo] } else { $modo }
         minuto = "{0}:{1:00}" -f [math]::Floor($seg / 60), ($seg % 60)
         mi_oro = [int][math]::Floor([double]$d.activePlayer.currentGold)
     }
@@ -140,15 +150,60 @@ function Resumir-Partida($d, $cat) {
 
     # El catalogo es un extra: sin el, los hechos de la partida siguen valiendo.
     if ($cat) {
-        $perfil = Get-DDragonPerfil $cat $yo.rawChampionName
+        $perfil = Get-DDragonPerfil $cat $yo.rawChampionName $yo.championName
         $misIds = @($yo.items | ForEach-Object { [string]$_.itemID })
         $h['parche'] = $cat.parche
         $h['mi_perfil'] = if ($perfil) { "$($perfil.rol), dano $($perfil.dano)" } else { $null }
-        $h['puedo_completar'] = @(Get-DDragonCompletables $cat $misIds $h.mi_oro $perfil |
+        $h['puedo_completar'] = @(Get-DDragonCompletables $cat $misIds $h.mi_oro $perfil $mapa |
             Select-Object -First 4 |
             ForEach-Object { if ($_.me_llega) { "$($_.nombre) (te faltan $($_.falta), te llega)" } else { "$($_.nombre) (te faltan $($_.falta))" } })
-        $h['puedo_comprar'] = @(Get-DDragonAsequibles $cat $h.mi_oro $misIds $perfil |
+        $h['puedo_comprar'] = @(Get-DDragonAsequibles $cat $h.mi_oro $misIds $perfil 6 $mapa |
             ForEach-Object { "$($_.nombre) ($($_.precio))" })
+
+        # QUE DANO HACE EL RIVAL, campeon por campeon, y la defensa que te llega.
+        # Es la base de "que me hago contra X": dato, no opinion. El tipo de
+        # dano sale de las valoraciones de Riot (magia contra ataque), igual que
+        # el tuyo.
+        # LO QUE DICE EL USUARIO manda sobre las valoraciones de Riot: "veo un
+        # Jax AP" significa que ESE Jax pega magico, aunque Riot diga que Jax es
+        # de ataque. Se busca por como suena ("Jacksa P" -> jaksap = Jax AP), solo
+        # con los campeones de esta partida y nombres de 3 letras o mas.
+        $dicho = @{}
+        $mencionados = @()
+        if ($pregunta) {
+            $clave = Clave-Fonetica $pregunta
+            foreach ($p in @($d.allPlayers)) {
+                $k = Clave-Fonetica $p.championName
+                if ($k.Length -lt 3) { continue }
+                if ($clave -match "$([regex]::Escape($k))(ap|ad)") { $dicho[$p.championName] = $Matches[1].ToUpper() }
+                if ($k.Length -ge 4 -and $clave.Contains($k)) { $mencionados += $p.championName }
+            }
+        }
+        if ($dicho.Count) { $h['el_usuario_dice'] = @($dicho.Keys | ForEach-Object { "$_ va $($dicho[$_])" }) }
+        if ($mencionados.Count) { $h['campeones_mencionados'] = @($mencionados | Select-Object -Unique) }
+
+        $ap = @(); $ad = @()
+        foreach ($r in @($d.allPlayers | Where-Object team -ne $yo.team)) {
+            $pr = Get-DDragonPerfil $cat $r.rawChampionName $r.championName
+            $tipo = if ($dicho[$r.championName]) { $dicho[$r.championName] } else { $pr.dano }
+            if ($tipo -eq 'AP') { $ap += $r.championName } else { $ad += $r.championName }
+        }
+        $h['dano_rival'] = "magico: $($ap.Count) ($($ap -join ', ')); fisico: $($ad.Count) ($($ad -join ', '))"
+        $rm = @(Get-DDragonDefensa $cat $h.mi_oro 'rm' $misIds $mapa | ForEach-Object { "$($_.nombre) ($($_.precio))" })
+        $ar = @(Get-DDragonDefensa $cat $h.mi_oro 'armadura' $misIds $mapa | ForEach-Object { "$($_.nombre) ($($_.precio))" })
+        # Si la pregunta es por UN campeon concreto con su tipo de dano, la
+        # defensa que toca es la de ese tipo; si no, la de la mayoria rival.
+        $contra = if ($dicho.Count -eq 1) { @($dicho.Values)[0] } elseif ($ap.Count -gt $ad.Count) { 'AP' } else { 'AD' }
+        if ($contra -eq 'AP') { $h['defensa_que_conviene'] = 'resistencia magica'; $h['resistencia_magica_que_te_llega'] = $rm; $h['armadura_tambien'] = $ar }
+        else { $h['defensa_que_conviene'] = 'armadura'; $h['armadura_que_te_llega'] = $ar; $h['resistencia_magica_tambien'] = $rm }
+
+        # Los aumentos que menciona la pregunta, con lo que hacen. La API de la
+        # partida NO trae los aumentos: sin esto, "Locomotora" era para el
+        # modelo un item inventado.
+        if ($pregunta) {
+            $aum = @(Buscar-Aumentos $cat $pregunta)
+            if ($aum.Count) { $h['aumentos_mencionados'] = $aum }
+        }
     }
     $h
 }
@@ -239,6 +294,31 @@ function Probar {
             Comprobar ([int]($s -replace '.*\((\d+)\)$', '$1') -le $hc.mi_oro) "[$($caso.n)] propone '$s' por encima del oro"
         }
         Write-Host ("  {0,-6} {1}" -f $caso.n, ($nombres -join ' | '))
+    }
+
+    # ---- La partida REAL (ARAM Mayhem, 2026-09-22), congelada ----------------
+    # Expectativas escritas a mano mirando el JSON, no sacadas del codigo: el
+    # usuario es Sylas (CHAOS), su summonerName llega CON el tag, y los rivales
+    # son Elise, Sivir, Yone, Jax y Nautilus.
+    $muestra = Join-Path $PSScriptRoot 'prueba-lol\muestra-aram-mayhem.json'
+    if (Test-Path $muestra) {
+        $real = [IO.File]::ReadAllText($muestra, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+        $hr = Resumir-Partida $real $cat 'Veo un Jacksa P con locomotora. ¿Qué podría sacar?'
+        Comprobar ($hr.mi_campeon -eq 'Sylas') "[real] mi_campeon = '$($hr.mi_campeon)'"
+        Comprobar ($hr.modo -eq 'ARAM Mayhem (con aumentos)') "[real] modo = '$($hr.modo)'"
+        Comprobar ($hr.mi_perfil -match 'dano AP') "[real] perfil de Sylas = '$($hr.mi_perfil)' (rawChampionName trae prefijo)"
+        Comprobar (@($hr.equipo_rival).Count -eq 5) "[real] equipo_rival tiene $(@($hr.equipo_rival).Count)"
+        Comprobar ($hr.dano_rival -match 'magico: .*Elise' -and $hr.dano_rival -match 'fisico: .*Sivir') "[real] dano_rival = '$($hr.dano_rival)'"
+        Comprobar (@($hr.aumentos_mencionados | Where-Object { $_ -like 'Locomotora:*' }).Count -eq 1) "[real] no reconoce Locomotora: $($hr.aumentos_mencionados -join ' | ')"
+        Comprobar (@($hr.resistencia_magica_que_te_llega).Count -ge 1) '[real] ninguna resistencia magica que te llegue'
+        Comprobar ((Clave-Fonetica 'Jax AP') -eq (Clave-Fonetica 'Jacksa P')) "[real] clave fonetica: '$(Clave-Fonetica 'Jax AP')' contra '$(Clave-Fonetica 'Jacksa P')'"
+        Comprobar (@($hr.el_usuario_dice) -contains 'Jax va AP') "[real] el_usuario_dice = '$($hr.el_usuario_dice -join ' | ')'"
+        Comprobar ($hr.dano_rival -match 'magico: 3 \(.*Jax') "[real] con Jax AP, dano_rival = '$($hr.dano_rival)'"
+        Comprobar ($hr.defensa_que_conviene -eq 'resistencia magica') "[real] defensa_que_conviene = '$($hr.defensa_que_conviene)'"
+        $hn = Resumir-Partida $real $cat 'como va la partida'
+        Comprobar (-not $hn.aumentos_mencionados) "[real] ve aumentos donde no hay: $($hn.aumentos_mencionados -join ' | ')"
+        Comprobar (-not $hn.el_usuario_dice) "[real] ve un 'X va AP' donde no hay: $($hn.el_usuario_dice -join ' | ')"
+        Write-Host ("  real   {0} | {1} | defensa RM: {2}" -f $hr.mi_perfil, $hr.dano_rival, ($hr.resistencia_magica_que_te_llega -join ', '))
     }
 
     # Sin identidad: no se inventa el reparto.

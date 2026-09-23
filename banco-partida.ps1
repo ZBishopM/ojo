@@ -20,12 +20,19 @@ param(
     [ValidateSet('actual', 'partida')][string]$Prompt = 'partida',
     [int]$Vueltas = 2,
     [int]$Puerto = 8099,
+    # Usa la partida REAL congelada (ARAM Mayhem, 2026-09-22) y las preguntas
+    # que fallaron en ella, con la frase literal del usuario.
+    [switch]$Real,
     [string]$Raiz = 'D:\2026-projects\ojo'
 )
 $ErrorActionPreference = 'Stop'
 . "$Raiz\lol.ps1"
 $cat = Get-DDragon
-$hechos = Resumir-Partida (Partida-Inventada 'riotid' 3500 2) $cat | ConvertTo-Json -Depth 6 -Compress
+$partidaDatos = if ($Real) {
+    [IO.File]::ReadAllText("$Raiz\prueba-lol\muestra-aram-mayhem.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+} else { Partida-Inventada 'riotid' 3500 2 }
+# Por pregunta: los aumentos que se mencionan cambian los datos.
+function Hechos-De($q) { Resumir-Partida $partidaDatos $cat $q | ConvertTo-Json -Depth 6 -Compress }
 
 # El prompt de Ojo de hoy, leido de ojo.ps1 para no desincronizarse.
 $fuente = Get-Content "$Raiz\ojo.ps1" -Raw
@@ -48,11 +55,30 @@ $CASOS = @(
     # version solo aceptaba Rabadon o Zhonya, y el 4B contesto el Velo del hada
     # de la muerte -- que es el PRIMERO de la lista, el mas barato de terminar.
     # El fallo era de la prueba.
-    @{ q = 'que item termino con lo que llevo?';    todos = @('velo del hada|llamasombria|zhonya|rabadon') }
+    # (Con los nombres del cliente latino: Llamasombria pasa a ser Lumbria.)
+    @{ q = 'que item termino con lo que llevo?';    todos = @('velo|lumbria|llamasombria|zhonya|rabadon') }
     # "quien es SU jungla" era ambigua: "su" tambien es "de usted". El 8B
     # contesto con la del usuario, y no era un fallo suyo.
     @{ q = 'quien es la jungla del equipo rival?';  todos = @('darius') }
 )
+
+# La partida real: lo que fallo en la primera partida de verdad. `nunca` son
+# cosas que NO deben aparecer (lo que invento aquel dia).
+if ($Real) {
+    $CASOS = @(
+        # La frase literal, tal como la escribio el reconocimiento de voz. Debe
+        # entender Jax, no inventar "la Locomotora de Jaxa", y proponer algo de
+        # resistencia magica real (el usuario dice que Jax va AP).
+        @{ q = 'Veo un Jacksa P con locomotora.¿Qué podría sacar?'
+           todos = @('jax', 'caliz de la armonia|capa de negatrones|nucleo hex|anulamagia')
+           nunca = @('jaxa', 'jacksa', 'locomotora de') }
+        @{ q = '¿Qué hace Locomotora?';          todos = @('derribo|tamano|vida'); nunca = @() }
+        # Aquel dia dijo "En este parche, Sylas suele ser fuerte..." sin ningun
+        # dato que lo dijera.
+        @{ q = '¿Cómo va la partida?';           todos = @('.');  nunca = @('parche', 'meta') }
+        @{ q = '¿Qué daño hace el equipo rival?'; todos = @('elise'); nunca = @() }
+    )
+}
 
 function Sin-Tildes($s) {
     $n = "$s".ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD)
@@ -62,6 +88,7 @@ function Sin-Tildes($s) {
 $filas = @()
 for ($v = 1; $v -le $Vueltas; $v++) {
     foreach ($c in $CASOS) {
+        $hechos = Hechos-De $c.q
         $msgs = if ($Prompt -eq 'actual') {
             # Tal cual lo arma ojo.ps1 hoy: la pregunta, y los datos al final como memoria.
             @(@{ role = 'system'; content = $ACTUAL },
@@ -81,7 +108,8 @@ for ($v = 1; $v -le $Vueltas; $v++) {
         $m = [regex]::Match($t, '(?s)\{.*\}')
         $dijo = if ($m.Success) { try { ($m.Value | ConvertFrom-Json).decir } catch { $t } } else { $t }
         $plano = Sin-Tildes $dijo
-        $ok = -not ($c.todos | Where-Object { $plano -notmatch $_ })
+        $ok = -not ($c.todos | Where-Object { $plano -notmatch $_ }) -and
+              -not (@($c.nunca) | Where-Object { $_ -and $plano -match $_ })
         $filas += [pscustomobject]@{ q = $c.q; ok = $ok; ms = [math]::Round($r.timings.prompt_ms + $r.timings.predicted_ms); dijo = $dijo }
     }
 }

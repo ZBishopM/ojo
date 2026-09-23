@@ -36,8 +36,13 @@ muerde en este proyecto. Sin param() no hay nada que pisar.
 #>
 $ErrorActionPreference = 'Stop'
 
-$DDragonIdioma = 'es_ES'
+# es_MX y no es_ES: el cliente del usuario (servidor LAS) escribe "Orbe del
+# Guardian" con mayuscula, que es como lo da es_MX; es_ES lo da en minuscula.
+# Los nombres tienen que coincidir con los que devuelve la API de la partida.
+$DDragonIdioma = 'es_MX'
 $DDragonCache = Join-Path $PSScriptRoot 'ddragon'
+# Sube cuando cambia lo que se guarda: una cache vieja no se lee como buena.
+$DDragonFormato = 'formato-v5'
 
 # PowerShell 5.1 corre sobre un .NET que por defecto solo ofrece SSL3 y TLS 1.0,
 # y el CDN de Riot los rechaza ("Se ha terminado la conexion: Error inesperado
@@ -61,16 +66,24 @@ function Guardar($ruta, $obj) {
 }
 
 # Se guarda RECORTADO: item.json pesa ~1 MB con HTML, iconos y estadisticas que
-# aqui no sirven. Solo el mapa 11 (la Grieta): los items de ARAM y Arena
-# confundirian una respuesta sobre una partida normal.
+# aqui no sirven.
+#
+# TODOS los mapas, y cada item con los suyos. La primera version guardaba solo
+# la Grieta (mapa 11), y la primera partida real fue ARAM Mayhem (mapa 12): el
+# modelo recibio el catalogo de otro mapa. Ahora se filtra al consultar, con el
+# mapa que dice la propia partida.
 function Build-DDragonCache($parche) {
     $crudo = Bajar-Json "https://ddragon.leagueoflegends.com/cdn/$parche/data/$DDragonIdioma/item.json"
     $items = @{}
     foreach ($p in $crudo.data.PSObject.Properties) {
         $i = $p.Value
-        if (-not $i.maps.'11') { continue }
+        $mapas = @($i.maps.PSObject.Properties | Where-Object { $_.Value } | ForEach-Object { $_.Name })
+        if (-not $mapas.Count) { continue }
         $items[$p.Name] = [ordered]@{
             nombre    = $i.name
+            mapas     = $mapas
+            rm        = [bool]($i.stats.FlatSpellBlockMod -gt 0)    # resistencia magica
+            armadura  = [bool]($i.stats.FlatArmorMod -gt 0)
             total     = [int]$i.gold.total
             comprable = [bool]$i.gold.purchasable
             # `| Where-Object { $_ }` y NO `@($i.into)`: en PowerShell `@($null)`
@@ -104,20 +117,60 @@ function Build-DDragonCache($parche) {
     $destino = Join-Path $DDragonCache $parche
     New-Item -ItemType Directory -Force -Path $destino | Out-Null
     Guardar (Join-Path $destino 'items.json') $items
-    Guardar (Join-Path $destino 'campeones-v4.json') $campeones
+    Guardar (Join-Path $destino 'campeones.json') $campeones
+    Guardar (Join-Path $destino 'aumentos.json') (Build-Aumentos)
+    Set-Content (Join-Path $destino $DDragonFormato) 'ok'
     $destino
+}
+
+# Los AUMENTOS de ARAM Mayhem, con su resumen en espanol latino.
+#
+# POR QUE: en la primera partida real el usuario pregunto por un Jax AP "con
+# Locomotora", y el modelo contesto con "la Locomotora de Jaxa" como si fuera
+# un item. Locomotora es un aumento de oro de Mayhem, y la API de la partida NO
+# trae los aumentos: el modelo no tenia forma de saberlo.
+#
+# De donde: Data Dragon no los tiene. CommunityDragon sirve la tabla de textos
+# del propio cliente (es_mx, 33 MB), con `kiwi_<clave>_summary` -- "kiwi" es el
+# nombre interno de Mayhem -- y el nombre en `kiwi_aram_<clave>_name`. 135
+# aumentos con nombre y resumen (comprobado el 2026-09-22).
+#
+# Se lee con una expresion regular y no con ConvertFrom-Json: parsear 33 MB en
+# PowerShell 5.1 es lento y se come la memoria, y solo hacen falta unas cientos
+# de claves.
+function Build-Aumentos {
+    $tmp = Join-Path $env:TEMP 'ojo-stringtable-es_mx.json'
+    & curl.exe -sSL --max-time 180 -o $tmp 'https://raw.communitydragon.org/latest/game/es_mx/data/menu/en_us/lol.stringtable.json'
+    if ($LASTEXITCODE -ne 0) { return @{} }
+    $txt = [IO.File]::ReadAllText($tmp, [Text.UTF8Encoding]::new($false))
+    Remove-Item $tmp -EA SilentlyContinue
+    $t = @{}
+    foreach ($m in [regex]::Matches($txt, '"((?:kiwi|cherry)_[a-z0-9_]+)"\s*:\s*"((?:[^"\\]|\\.)*)"')) {
+        $t[$m.Groups[1].Value] = [regex]::Unescape($m.Groups[2].Value)
+    }
+    $aum = @{}
+    foreach ($k in @($t.Keys)) {
+        if ($k -notmatch '^kiwi_(.+)_summary$') { continue }
+        $x = $Matches[1]
+        $n = $t["kiwi_aram_$($x)_name"]; if (-not $n) { $n = $t["kiwi_$($x)_name"] }; if (-not $n) { $n = $t["cherry_$($x)_name"] }
+        if (-not $n) { continue }
+        # Sin etiquetas HTML ni los @Variable@ del motor, que el modelo no sabe leer.
+        $resumen = ($t[$k] -replace '<[^>]+>', '' -replace '@[^@]+@', 'X' -replace '\s+', ' ').Trim()
+        $aum[$n] = $resumen
+    }
+    $aum
 }
 
 function Leer-Cache($dir) {
     $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
-    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones-v4.json') }
+    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json') }
 }
 
 # La cache mas reciente en disco, SIN red. Solo si no hay ninguna se baja, que
 # pasa una vez en la vida del equipo.
 function Get-DDragon {
     $dirs = @(Get-ChildItem $DDragonCache -Directory -EA SilentlyContinue |
-              Where-Object { Test-Path (Join-Path $_.FullName 'campeones-v4.json') } |
+              Where-Object { Test-Path (Join-Path $_.FullName $DDragonFormato) } |
               Sort-Object { [version]($_.Name -replace '[^\d.]', '') } -Descending)
     if ($dirs.Count) { return Leer-Cache $dirs[0].FullName }
     Update-DDragon
@@ -127,7 +180,7 @@ function Get-DDragon {
 function Update-DDragon {
     $parche = (Invoke-RestMethod 'https://ddragon.leagueoflegends.com/api/versions.json' -TimeoutSec 20)[0]
     $dir = Join-Path $DDragonCache $parche
-    if (-not (Test-Path (Join-Path $dir 'campeones-v4.json'))) { $dir = Build-DDragonCache $parche }
+    if (-not (Test-Path (Join-Path $dir $DDragonFormato))) { $dir = Build-DDragonCache $parche }
     Leer-Cache $dir
 }
 
@@ -147,8 +200,23 @@ function Update-DDragon {
 # build: lo que conviene cada parche es opinion y sale de la web.
 $DDRAGON_APOYO = @('Aura', 'Active', 'ManaRegen')
 
-function Get-DDragonPerfil($cat, $campeonId) {
-    $c = $cat.campeones.$campeonId
+# El campeon del catalogo a partir de lo que trae la API de la partida.
+#
+# La API real manda `rawChampionName = "game_character_displayname_Sylas"`, no
+# "Sylas" (visto en la primera partida real, 2026-09-22): con el id a secas el
+# perfil salia vacio y el filtro de clase se desactivaba sin avisar. Se quita el
+# prefijo, y si aun asi no esta, se busca por el nombre visible.
+function Get-DDragonCampeon($cat, $raw, $nombre = $null) {
+    $id = "$raw" -replace '^game_character_displayname_', ''
+    $c = $cat.campeones.$id
+    if (-not $c -and $nombre) {
+        $c = ($cat.campeones.PSObject.Properties | Where-Object { $_.Value.nombre -eq $nombre } | Select-Object -First 1).Value
+    }
+    $c
+}
+
+function Get-DDragonPerfil($cat, $campeonId, $nombre = $null) {
+    $c = Get-DDragonCampeon $cat $campeonId $nombre
     if (-not $c) { return $null }
     @{
         rol  = @($c.tags)[0]
@@ -170,10 +238,11 @@ function Test-DDragonEncaja($item, $perfil) {
 
 # Items COMPLETOS (no suben a nada) que me puedo permitir y que encajan con mi
 # clase. `$yaLlevo` son itemIDs, para no proponer lo que ya tienes.
-function Get-DDragonAsequibles($cat, $oro, $yaLlevo = @(), $clase = $null, $cuantos = 6) {
+function Get-DDragonAsequibles($cat, $oro, $yaLlevo = @(), $clase = $null, $cuantos = 6, $mapa = '11') {
     $r = foreach ($p in $cat.items.PSObject.Properties) {
         $i = $p.Value
         if (-not $i.comprable) { continue }
+        if (@($i.mapas) -notcontains "$mapa") { continue }
         # Completo = no sube a nada Y TIENE RECETA. Sin lo segundo se colaban
         # los items de inicio (Espada del guardian), consumibles y abalorios,
         # que tampoco suben a nada.
@@ -199,7 +268,7 @@ function Get-DDragonAsequibles($cat, $oro, $yaLlevo = @(), $clase = $null, $cuan
 # se contesta exacto: lo que falta es el precio total menos el de las piezas
 # que ya tienes y que forman parte de la receta. Cada pieza cuenta una vez: si
 # la receta pide dos Varas y llevas una, solo se descuenta una.
-function Get-DDragonCompletables($cat, $misIds, $oro, $clase = $null) {
+function Get-DDragonCompletables($cat, $misIds, $oro, $clase = $null, $mapa = '11') {
     $candidatos = @{}
     foreach ($id in $misIds) {
         foreach ($destino in @($cat.items.$id.sube_a)) { if ($destino) { $candidatos[$destino] = $true } }
@@ -207,6 +276,7 @@ function Get-DDragonCompletables($cat, $misIds, $oro, $clase = $null) {
     $r = foreach ($dest in $candidatos.Keys) {
         $d = $cat.items.$dest
         if (-not $d -or -not $d.comprable) { continue }
+        if (@($d.mapas) -notcontains "$mapa") { continue }
         if (-not (Test-DDragonEncaja $d $clase)) { continue }
         $bolsa = [Collections.Generic.List[string]]@($misIds)
         $descuento = 0
@@ -219,8 +289,83 @@ function Get-DDragonCompletables($cat, $misIds, $oro, $clase = $null) {
     @($r | Sort-Object @{ e = 'me_llega'; Descending = $true }, falta)
 }
 
+# Items que dan la defensa que pide el dano rival ('rm' o 'armadura') y que te
+# llegan con el oro que tienes. Primero los completos; si no llega para
+# ninguno, las piezas.
+#
+# POR QUE: a "que me hago contra un Jax AP?" el modelo invento un item. Con la
+# composicion rival resumida por tipo de dano y esta lista, tiene algo real que
+# nombrar: dato, no opinion.
+function Get-DDragonDefensa($cat, $oro, $tipo, $yaLlevo = @(), $mapa = '11', $cuantos = 4) {
+    $r = foreach ($p in $cat.items.PSObject.Properties) {
+        $i = $p.Value
+        if (-not $i.comprable -or -not $i.$tipo) { continue }
+        if (@($i.mapas) -notcontains "$mapa") { continue }
+        if ($i.total -le 0 -or $i.total -gt $oro) { continue }
+        if ($yaLlevo -contains $p.Name) { continue }
+        $completo = -not @($i.sube_a | Where-Object { $_ }).Count
+        # Sin receta y sin nada a lo que subir: consumible, abalorio o de inicio.
+        if ($completo -and -not @($i.de | Where-Object { $_ }).Count) { continue }
+        [pscustomobject]@{ nombre = $i.nombre; precio = $i.total; completo = $completo }
+    }
+    @($r | Sort-Object @{ e = 'completo'; Descending = $true }, @{ e = 'precio'; Descending = $true }, nombre |
+        Group-Object nombre | ForEach-Object { $_.Group[0] } | Select-Object -First $cuantos)
+}
+
+function Normalizar-Texto($s) {
+    $n = "$s".ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD)
+    (-join ($n.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' })) -replace '[^a-z0-9 ]', ' '
+}
+
+# Clave de COMO SUENA en espanol, sin espacios.
+#
+# El reconocimiento de voz escribio "Jax AP" como "Jacksa P". Letra a letra se
+# parecen poco (distancia 3), pero suenan igual: con x->ks, ck/c/qu->k, z->s,
+# v->b, sin h y sin espacios, las dos dan "jaksap". Asi se reconoce un campeon
+# dicho de viva voz sin inventar una correccion.
+function Clave-Fonetica($s) {
+    $t = (Normalizar-Texto $s) -replace '\s+', ''
+    $t = $t -replace 'ck', 'k' -replace 'qu', 'k' -replace 'c(?=[aou])', 'k' -replace 'c(?=[ei])', 's'
+    $t = $t -replace 'x', 'ks' -replace 'z', 's' -replace 'v', 'b' -replace 'h', '' -replace 'll', 'y' -replace 'w', 'u'
+    $t -replace '(.)\1+', '$1'      # letras dobles, una
+}
+
+# Levenshtein con dos filas (una matriz de dos dimensiones dentro de una
+# llamada a metodo no la parsea PowerShell 5.1).
+function Distancia([string]$a, [string]$b) {
+    $prev = 0..$b.Length
+    for ($i = 1; $i -le $a.Length; $i++) {
+        $cur = @($i) + @(0) * $b.Length
+        for ($j = 1; $j -le $b.Length; $j++) {
+            $coste = if ($a[$i - 1] -eq $b[$j - 1]) { 0 } else { 1 }
+            $cur[$j] = [math]::Min([math]::Min($prev[$j] + 1, $cur[$j - 1] + 1), $prev[$j - 1] + $coste)
+        }
+        $prev = $cur
+    }
+    $prev[$b.Length]
+}
+
+# Los aumentos que la pregunta menciona, con lo que hacen.
+#
+# La pregunta llega del reconocimiento de voz, asi que se compara sin tildes ni
+# mayusculas, y un nombre de UNA palabra se acepta a un error de distancia
+# ("locomotor" -> Locomotora). Solo nombres de 5 letras o mas: con los cortos el
+# margen de error convertiria palabras normales en aumentos.
+function Buscar-Aumentos($cat, $texto) {
+    if (-not $cat.aumentos) { return @() }
+    $t = Normalizar-Texto $texto
+    $palabras = @($t -split '\s+' | Where-Object { $_.Length -ge 5 })
+    foreach ($p in $cat.aumentos.PSObject.Properties) {
+        $n = (Normalizar-Texto $p.Name).Trim()
+        if ($n.Length -lt 5) { continue }
+        $hit = $t.Contains($n)
+        if (-not $hit -and $n -notmatch ' ') { $hit = [bool]($palabras | Where-Object { (Distancia $_ $n) -le 1 }) }
+        if ($hit) { "$($p.Name): $($p.Value)" }
+    }
+}
+
 # Cargado con punto: solo las funciones.
 if ($MyInvocation.InvocationName -eq '.') { return }
 
 $c = if ($args -contains '-Refrescar') { Update-DDragon } else { Get-DDragon }
-"parche $($c.parche): $(@($c.items.PSObject.Properties).Count) items de la Grieta, $(@($c.campeones.PSObject.Properties).Count) campeones"
+"parche $($c.parche): $(@($c.items.PSObject.Properties).Count) items, $(@($c.campeones.PSObject.Properties).Count) campeones, $(@($c.aumentos.PSObject.Properties).Count) aumentos de Mayhem"

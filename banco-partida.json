@@ -1144,5 +1144,176 @@
         "dijo": "La jungla del equipo rival es Darius."
       }
     ]
+  },
+  {
+    "nombre": "4b-real-arreglado",
+    "modelo": "Qwen3.5-4B-UD-Q5_K_XL",
+    "prompt": "partida",
+    "aciertos": "6/8",
+    "ms_medio": 933.0,
+    "filas": [
+      {
+        "q": "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
+        "ok": false,
+        "ms": 1438.0,
+        "dijo": "Con 929 oro y 2200 faltantes para el Diente de Nashor, no puedes comprar nada. El rival Elise tiene más KDA (5/3/5) que tu Varus (8/2/8), así que ella es tu amenaza principal."
+      },
+      {
+        "q": "¿Qué hace Locomotora?",
+        "ok": true,
+        "ms": 690.0,
+        "dijo": "Locomotora te da una acumulación que aumenta tu tamaño y vida máxima al conseguir un derribo, pero pierdes acumulaciones al morir."
+      },
+      {
+        "q": "¿Cómo va la partida?",
+        "ok": true,
+        "ms": 1109.0,
+        "dijo": "Tu equipo liderado por Varus tiene el mejor KDA, pero Elise del rival es la amenaza más grande. Con 929 de oro, no puedes comprar nada completo, pero puedes completar Diente de Nashor si consigues 2200 más."
+      },
+      {
+        "q": "¿Qué daño hace el equipo rival?",
+        "ok": true,
+        "ms": 772.0,
+        "dijo": "El equipo rival hace 2 de daño mágico (Elise, Nautilus) y 3 de daño físico (Sivir, Yone, Jax)."
+      },
+      {
+        "q": "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
+        "ok": false,
+        "ms": 897.0,
+        "dijo": "Con 929 oro puedes comprar el Báculo del Arcángel (te faltan 2500) o el Diente de Nashor (te faltan 2200)."
+      },
+      {
+        "q": "¿Qué hace Locomotora?",
+        "ok": true,
+        "ms": 706.0,
+        "dijo": "Locomotora te da una acumulación que aumenta tu tamaño y vida máxima al conseguir un derribo, pero pierdes acumulaciones al morir."
+      },
+      {
+        "q": "¿Cómo va la partida?",
+        "ok": true,
+        "ms": 1067.0,
+        "dijo": "Tu equipo tiene a Varus como el más fuerte, pero Elise del rival es la amenaza principal. Con 929 de oro, no puedes comprar nada completo, pero puedes completar el Diente de Nashor si consigues 2200 más."
+      },
+      {
+        "q": "¿Qué daño hace el equipo rival?",
+        "ok": true,
+        "ms": 785.0,
+        "dijo": "El equipo rival hace 2 de daño mágico (Elise, Nautilus) y 3 de daño físico (Sivir, Yone, Jax)."
+      }
+    ]
+  },
+  {
+    "nombre": "4b-real-fonetica",
+    "modelo": "Qwen3.5-4B-UD-Q5_K_XL",
+    "prompt": "partida",
+    "aciertos": "8/8",
+    "ms_medio": 860.0,
+    "filas": [
+      {
+        "q": "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
+        "ok": true,
+        "ms": 1141.0,
+        "dijo": "Contra Jax AP, necesitas resistencia mágica. Puedes comprar el Cáliz de la Armonía o la Capa de Negatrones."
+      },
+      {
+        "q": "¿Qué hace Locomotora?",
+        "ok": true,
+        "ms": 713.0,
+        "dijo": "Locomotora te da una acumulación que aumenta tu tamaño y vida máxima al conseguir un derribo, pero pierdes acumulaciones al morir."
+      },
+      {
+        "q": "¿Cómo va la partida?",
+        "ok": true,
+        "ms": 1071.0,
+        "dijo": "Varus es el más fuerte de tu equipo con 8/2/8, mientras que Elise lidera al rival con 5/3/5. Tu Sylas tiene 6/4/10 y necesitas armadura para contrarrestar el daño físico."
+      },
+      {
+        "q": "¿Qué daño hace el equipo rival?",
+        "ok": true,
+        "ms": 790.0,
+        "dijo": "El equipo rival tiene 2 de daño mágico (Elise, Nautilus) y 3 de daño físico (Sivir, Yone, Jax)."
+      },
+      {
+        "q": "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
+        "ok": true,
+        "ms": 827.0,
+        "dijo": "Contra Jax AP, necesitas resistencia mágica. Puedes comprar Cáliz de la Armonía, Capa de Negatrones o Manto Anulamagia."
+      },
+      {
+        "q": "¿Qué hace Locomotora?",
+        "ok": true,
+        "ms": 784.0,
+        "dijo": "Locomotora te da una acumulación que aumenta tu tamaño y vida máxima al conseguir un derribo, y pierdes acumulaciones al morir."
+      },
+      {
+        "q": "¿Cómo va la partida?",
+        "ok": true,
+        "ms": 778.0,
+        "dijo": "Tu equipo lidera por Varus, pero Elise del rival es más fuerte. Sylas tiene buena defensa armadura y puedes comprar Cota de Malla."
+      },
+      {
+        "q": "¿Qué daño hace el equipo rival?",
+        "ok": true,
+        "ms": 777.0,
+        "dijo": "El equipo rival hace 2 de daño mágico (Elise, Nautilus) y 3 de daño físico (Sivir, Yone, Jax)."
+      }
+    ]
+  },
+  {
+    "nombre": "4b-inventada-tras-arreglos",
+    "modelo": "Qwen3.5-4B-UD-Q5_K_XL",
+    "prompt": "partida",
+    "aciertos": "8/8",
+    "ms_medio": 630.0,
+    "filas": [
+      {
+        "q": "¿Cómo es nuestra composición?",
+        "ok": true,
+        "ms": 1099.0,
+        "dijo": "Nuestra composición es Annie (TOP), Garen (JUNGLE), Lux (MIDDLE), Jinx (BOTTOM) y Thresh (UTILITY). Somos un equipo de magos y controladores con mucho potencial de daño."
+      },
+      {
+        "q": "contra quien juego en mid?",
+        "ok": true,
+        "ms": 580.0,
+        "dijo": "Juegas contra Yasuo en la línea de medio. Es un campeón físico muy fuerte."
+      },
+      {
+        "q": "quien del equipo rival esta muerto?",
+        "ok": true,
+        "ms": 591.0,
+        "dijo": "Yasuo del equipo rival está muerto y revive en 13 segundos."
+      },
+      {
+        "q": "cuanto oro tengo?",
+        "ok": true,
+        "ms": 432.0,
+        "dijo": "Tienes 3500 de oro."
+      },
+      {
+        "q": "en que minuto vamos?",
+        "ok": true,
+        "ms": 426.0,
+        "dijo": "Estamos en el minuto 12:34."
+      },
+      {
+        "q": "quien va mas fuerte en el equipo rival?",
+        "ok": true,
+        "ms": 702.0,
+        "dijo": "El equipo rival está liderado por Leona con un KDA de 9/1/2, que es su mayor ventaja."
+      },
+      {
+        "q": "que item termino con lo que llevo?",
+        "ok": true,
+        "ms": 788.0,
+        "dijo": "Puedes completar el Velo de la Banshee, la Lumbría, el Reloj de Arena de Zhonya o el Sombrero Mortífero de Rabadon."
+      },
+      {
+        "q": "quien es la jungla del equipo rival?",
+        "ok": true,
+        "ms": 420.0,
+        "dijo": "La jungla del equipo rival es Darius."
+      }
+    ]
   }
 ]
