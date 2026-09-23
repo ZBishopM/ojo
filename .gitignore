@@ -20,3 +20,6 @@ ddragon/
 
 # Certificados de la partida falsa: se regeneran solos.
 *.pem
+
+# Notas de cada partida (aumentos elegidos): son del usuario, no del codigo.
+partidas/

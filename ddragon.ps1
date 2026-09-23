@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 $DDragonIdioma = 'es_MX'
 $DDragonCache = Join-Path $PSScriptRoot 'ddragon'
 # Sube cuando cambia lo que se guarda: una cache vieja no se lee como buena.
-$DDragonFormato = 'formato-v5'
+$DDragonFormato = 'formato-v8'
 
 # PowerShell 5.1 corre sobre un .NET que por defecto solo ofrece SSL3 y TLS 1.0,
 # y el CDN de Riot los rechaza ("Se ha terminado la conexion: Error inesperado
@@ -114,11 +114,23 @@ function Build-DDragonCache($parche) {
             ataque = [int]$p.Value.info.attack; magia = [int]$p.Value.info.magic
         }
     }
+    # El historial de partidas del cliente habla en NUMEROS: championId 517,
+    # playerAugment1 2087. Hacen falta las dos traducciones.
+    $porNumero = @{}
+    foreach ($p in $c.data.PSObject.Properties) { $porNumero[[string]$p.Value.key] = $p.Value.name }
+    $aumId = @{}
+    try {
+        $ca = Bajar-Json 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/es_mx/v1/cherry-augments.json'
+        foreach ($a in @($ca)) { if ($a.nameTRA) { $aumId[[string]$a.id] = $a.nameTRA } }
+    } catch { }
+
     $destino = Join-Path $DDragonCache $parche
     New-Item -ItemType Directory -Force -Path $destino | Out-Null
     Guardar (Join-Path $destino 'items.json') $items
     Guardar (Join-Path $destino 'campeones.json') $campeones
+    Guardar (Join-Path $destino 'campeones-por-numero.json') $porNumero
     Guardar (Join-Path $destino 'aumentos.json') (Build-Aumentos)
+    Guardar (Join-Path $destino 'aumentos-por-numero.json') $aumId
     Set-Content (Join-Path $destino $DDragonFormato) 'ok'
     $destino
 }
@@ -148,22 +160,48 @@ function Build-Aumentos {
     foreach ($m in [regex]::Matches($txt, '"((?:kiwi|cherry)_[a-z0-9_]+)"\s*:\s*"((?:[^"\\]|\\.)*)"')) {
         $t[$m.Groups[1].Value] = [regex]::Unescape($m.Groups[2].Value)
     }
+
+    # LOS NOMBRES salen de la lista oficial de aumentos del cliente, y el
+    # conjunto de Mayhem de sus listas por modo (augment-lists.json) mas los
+    # que empiezan por ARAM_: 293 aumentos.
+    #
+    # La primera version sacaba los nombres de la tabla de textos buscando
+    # `kiwi_<x>_summary` y se quedo en 135: las claves son irregulares
+    # (`kiwi_aram_archmage` sin `_name`, `kiwi_augment_burstingteeth_name`,
+    # `cherry_frombeginningtoend_name`...) y se perdieron Archimago y De
+    # Principio a Fin -- dos de los cuatro que el usuario eligio en su partida.
+    $b = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/es_mx/v1'
+    # SIN @(...) alrededor: en 5.1, ConvertFrom-Json devuelve un array JSON como
+    # UN solo objeto, y @(...) lo anida -- el bucle recorria "un aumento" que
+    # era la lista entera, y la cache salia con una sola clave hecha de los 291
+    # nombres pegados. Asignado a secas, PowerShell lo deja como array.
+    $ca = Bajar-Json "$b/cherry-augments.json"
+    $listas = Bajar-Json "$b/augment-lists.json"
+    $enListas = @{}
+    foreach ($l in $listas) { foreach ($x in @($l.augmentList)) { $enListas[($x -split '/')[-1]] = $true } }
+
     $aum = @{}
-    foreach ($k in @($t.Keys)) {
-        if ($k -notmatch '^kiwi_(.+)_summary$') { continue }
-        $x = $Matches[1]
-        $n = $t["kiwi_aram_$($x)_name"]; if (-not $n) { $n = $t["kiwi_$($x)_name"] }; if (-not $n) { $n = $t["cherry_$($x)_name"] }
-        if (-not $n) { continue }
+    foreach ($a in $ca) {
+        if (-not $a.nameTRA) { continue }
+        if (-not ($enListas[$a.augmentNameId] -or $a.augmentNameId -like 'ARAM_*')) { continue }
+        # El resumen, probando todas las formas de clave que usa el cliente.
+        $x = ($a.augmentNameId -replace '^ARAM_', '').ToLowerInvariant()
+        $r = $null
+        foreach ($k in "kiwi_$($x)_summary", "kiwi_augment_$($x)_summary", "kiwi_aram_$($x)_summary", "cherry_$($x)_summary",
+                       "kiwi_$($x)_tooltip", "kiwi_augment_$($x)_tooltip", "cherry_$($x)_tooltip") {
+            if ($t[$k]) { $r = $t[$k]; break }
+        }
         # Sin etiquetas HTML ni los @Variable@ del motor, que el modelo no sabe leer.
-        $resumen = ($t[$k] -replace '<[^>]+>', '' -replace '@[^@]+@', 'X' -replace '\s+', ' ').Trim()
-        $aum[$n] = $resumen
+        $limpio = if ($r) { ($r -replace '<br\s*/?>', ' ' -replace '<[^>]+>', '' -replace '@[^@]+@', 'X' -replace '\s+', ' ').Trim() } else { '' }
+        if (-not $aum.ContainsKey($a.nameTRA) -or (-not $aum[$a.nameTRA] -and $limpio)) { $aum[$a.nameTRA] = $limpio }
     }
     $aum
 }
 
 function Leer-Cache($dir) {
     $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
-    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json') }
+    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json')
+       campeones_n = (& $leer 'campeones-por-numero.json'); aumentos_n = (& $leer 'aumentos-por-numero.json') }
 }
 
 # La cache mas reciente en disco, SIN red. Solo si no hay ninguna se baja, que

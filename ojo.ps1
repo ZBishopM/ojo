@@ -372,6 +372,9 @@ Reglas:
 - Nombra SOLO items y aumentos que aparezcan en los datos. No inventes nombres,
   ni digas nada del meta o del parche que no venga en los datos.
 - "aumentos_mencionados" son aumentos (no items) y lo que hacen.
+- "mis_aumentos" son los aumentos que el usuario ya eligio en esta partida.
+- Si los datos dicen "PARTIDA YA TERMINADA", son de la ultima partida: habla
+  en pasado y usa resultado, KDA, dano, items y aumentos de ahi.
 - "campeones_mencionados" son los campeones de la partida que nombro el
   usuario, ya reconocidos; usa ESE nombre ("Jax"), no el que escribio la voz.
 - Para "que me hago / que saco contra X": di la "defensa_que_conviene" y
@@ -640,6 +643,7 @@ $viejos | ForEach-Object { $null = $_.WaitForExit(500) }
 #      juego existe pero aun no ha abierto el puerto (pantalla de carga).
 $partida = $null
 $hayPartida = $false
+$respuestaFija = $null
 if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
     try {
         . "$Raiz\lol.ps1"
@@ -657,11 +661,63 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
             } catch { }
             $catLol = try { Get-DDragon } catch { $null }
             # Con la pregunta: asi se detectan los aumentos que menciona.
-            $partida = Resumir-Partida $datosLol $catLol $Pregunta | ConvertTo-Json -Depth 6 -Compress
+            $hp = Resumir-Partida $datosLol $catLol $Pregunta
+
+            # ---- Los aumentos que VAS ELIGIENDO, apuntados por voz ------------
+            #
+            # La API de la partida NO dice que aumentos llevas, y el cliente
+            # solo los da al terminar (historial). Si quieres que Ojo los tenga
+            # en cuenta DURANTE la partida, basta decir "elegi Archimago": se
+            # reconoce contra los 135 aumentos de Mayhem y se apunta.
+            #
+            # Se apunta en un archivo con la "firma" de la partida (los diez
+            # campeones): no hay id de partida en la API, y la firma cambia en
+            # la siguiente. La partida anterior no se borra: se archiva.
+            $dirPartidas = "$Raiz\partidas"
+            New-Item -ItemType Directory -Force $dirPartidas | Out-Null
+            $firma = (@($datosLol.allPlayers | ForEach-Object { $_.championName }) | Sort-Object) -join ','
+            $notasArchivo = "$dirPartidas\actual.json"
+            $notas = if (Test-Path $notasArchivo) { [IO.File]::ReadAllText($notasArchivo, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } else { $null }
+            if (-not $notas -or $notas.firma -ne $firma) {
+                if ($notas) { Move-Item $notasArchivo ("$dirPartidas\partida-{0:yyyyMMdd-HHmmss}.json" -f (Get-Date)) -Force }
+                $notas = [pscustomobject]@{ firma = $firma; aumentos = @() }
+            }
+            $esNota = (Normalizar-Texto $Pregunta) -match '^\s*(yo\s+)?(eleg|escog|cog|tom|agarr|anota|apunta|me\s+qued|saqu|pill)'
+            $nuevos = @(if ($esNota) { Buscar-Aumentos $catLol $Pregunta | ForEach-Object { ($_ -split ':')[0] } })
+            if ($nuevos.Count) {
+                $notas.aumentos = @(@($notas.aumentos) + $nuevos | Where-Object { $_ } | Select-Object -Unique)
+                [IO.File]::WriteAllText($notasArchivo, ($notas | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+                # Respuesta FIJA, sin modelo: es una confirmacion, y asi sale ya.
+                $respuestaFija = "Anotado: $($nuevos -join ' y '). Llevas $(@($notas.aumentos).Count): $(@($notas.aumentos) -join ', ')."
+            }
+            if (@($notas.aumentos).Count) { $hp['mis_aumentos'] = @($notas.aumentos) }
+
+            $partida = $hp | ConvertTo-Json -Depth 6 -Compress
             $hayPartida = $true
         }
     } catch {
         Write-Warning "no pude leer la partida: $_"
+    }
+} elseif ((Get-Process -Name 'LeagueClient' -EA SilentlyContinue) -and
+          ($Pregunta -match '(?i)partida|jugu|gan[eéa]|perd[ií]|aumento|kda|da[nñ]o|mvp|c[oó]mo me fue|c[oó]mo nos fue|[uú]ltima')) {
+    # ---- DESPUES de la partida: el historial del cliente ----------------------
+    #
+    # La API de la partida se cierra al acabar, pero el cliente de League sigue
+    # abierto y guarda la ultima partida entera, AUMENTOS incluidos (ver
+    # lcu.ps1). Solo si la pregunta va de eso: con el cliente abierto se
+    # pregunta de todo, y no toda pregunta es sobre la partida.
+    try {
+        . "$Raiz\lcu.ps1"
+        $ult = Get-LcuUltimaPartida
+        if ($ult) {
+            $hu = Resumir-UltimaPartida $ult (Get-DDragon)
+            if ($hu) {
+                $partida = "(PARTIDA YA TERMINADA -- habla en pasado)`n" + ($hu | ConvertTo-Json -Depth 5 -Compress)
+                $hayPartida = $true
+            }
+        }
+    } catch {
+        Write-Warning "no pude leer la ultima partida: $_"
     }
 }
 
@@ -741,7 +797,11 @@ try {
 
     Marca 'antes_modelo'
 
-    $r = Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida })
+    $r = if ($respuestaFija) {
+        @{ ms = 0; texto = (@{ decir = $respuestaFija } | ConvertTo-Json -Compress); tok_s = 0; prompt_n = 0 }
+    } else {
+        Preguntar-Modelo $tmp $Pregunta $controles $memoria $(if ($hayPartida) { $partida })
+    }
     Marca 'despues_modelo'
     $json = Extraer-Json $r.texto
     if (-not $json) { throw "el modelo no devolvio JSON. Dijo:`n$($r.texto)" }
