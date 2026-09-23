@@ -743,6 +743,25 @@ function Citar([string]$decir, $web) {
     "$($decir.TrimEnd()) Según $nombre."
 }
 
+# Por que no hubo resultados, dicho como se dice: que buscadores cayeron y
+# como. Sin motores caidos, es que ninguno encontro nada.
+function Motivo-Sin-Web($web, [string]$consulta) {
+    $c = $web.caidos
+    $lista = @(if ($c) {
+        $pares = if ($c -is [hashtable]) { $c.GetEnumerator() | ForEach-Object { @($_.Key, $_.Value) } }
+                 else { $c.PSObject.Properties | ForEach-Object { @($_.Name, $_.Value) } }
+        for ($i = 0; $i -lt $pares.Count; $i += 2) {
+            $motor = (Get-Culture).TextInfo.ToTitleCase("$($pares[$i])"); $por = "$($pares[$i + 1])"
+            if ($por -match '(?i)captcha') { "$motor me pide un CAPTCHA" }
+            elseif ($por -match '(?i)too many|suspended') { "$motor dice que son demasiadas búsquedas" }
+            elseif ($por -match '(?i)timeout') { "$motor no respondió a tiempo" }
+            else { "$motor falló ($por)" }
+        }
+    })
+    if ($lista.Count) { "Ningún buscador me dio nada sobre «$consulta»: $($lista -join ', '). Prueba en un rato." }
+    else { "Busqué «$consulta» y ningún buscador encontró nada." }
+}
+
 # Minusculas y sin tildes, para cotejar.
 function Plano([string]$s) {
     ($s.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD) -replace '\p{Mn}', '')
@@ -1252,24 +1271,30 @@ try {
             if ($webAdelantada) {
                 try { $web = @($webAdelantada.EndInvoke($webEnMarcha))[0] } catch { }
             }
-            if (-not $web) {
-                try { $web = Buscar-Web @($consulta, $Pregunta) } catch { Write-Warning "no pude buscar: $_" }
+            # Sin fuentes en la adelantada (o sin adelantada): la busqueda
+            # completa, con la consulta del modelo y la frase literal.
+            if (-not @($web.fuentes).Count) {
+                try { $otra = Buscar-Web @($consulta, $Pregunta); if ($otra) { $web = $otra } } catch { Write-Warning "no pude buscar: $_" }
             }
             Marca 'buscado'
-            if ($web) {
+            $hayWeb = [bool]@($web.fuentes).Count
+            if ($hayWeb) {
                 $memoria += "`n`n" + (Texto-Web $web)
                 $r = & $preguntar
                 $d = & $leerRespuesta $r
                 $faltan = @(Verificar-Decir $d.decir (& $evidencia))
                 Marca 'despues_web'
             }
-            $sinRespaldo = if (-not $web) { 'No pude buscarlo: el buscador no contesta.' }
+            # Si no hubo fuentes, se dice POR QUE (que motor cayo y como), no
+            # "el buscador no contesta": en los retos del 2026-09-23 eso no
+            # dejaba saber si era un CAPTCHA, un limite o que no habia nada.
+            $sinRespaldo = if (-not $hayWeb) { Motivo-Sin-Web $web $consulta }
                            elseif ($faltan.Count -or (Plano $d.decir) -match 'dejame buscar|lo busco|buscando') {
                                Frase 'sin_resultado' "Busqué «$consulta», pero no lo encontré confirmado en las fuentes." @{ consulta = $consulta } }
             if ($sinRespaldo) {
                 $d | Add-Member -NotePropertyName decir -NotePropertyValue $sinRespaldo -Force
                 $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force
-            } elseif ($web) {
+            } elseif ($hayWeb) {
                 $d | Add-Member -NotePropertyName decir -NotePropertyValue (Citar $d.decir $web) -Force
             }
         }
@@ -1437,6 +1462,7 @@ try {
         sin_respaldo = $faltan -join ' | '
         busco       = "$consulta"
         fuentes_web = if ($web) { (@($web.fuentes) | ForEach-Object { $_.sitio }) -join ', ' } else { '' }
+        buscadores_caidos = if ($web.caidos) { ($web.caidos | ConvertTo-Json -Compress) } else { '' }
         fin_epoch_ms = [int64]([DateTimeOffset]$tDibujo).ToUnixTimeMilliseconds()
         marcas       = $MARCAS
     }

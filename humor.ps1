@@ -83,7 +83,7 @@ Reglas:
     # Una llamada por busqueda: con todo junto se mezclaban.
     $nuevas = @(foreach ($q in $HUMOR_CONSULTAS) {
         $b = Buscar-Web @($q)
-        if (-not $b) { continue }
+        if (-not @($b.fuentes).Count) { continue }
         $cuerpo = @{
             stream = $false; max_tokens = 700; temperature = 0.2
             chat_template_kwargs = @{ enable_thinking = $false }

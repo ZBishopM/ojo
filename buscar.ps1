@@ -19,7 +19,11 @@ pregunta. Una busqueda por consulta y dia: se cachea en web-cache\.
 $ErrorActionPreference = 'Stop'
 $BUSCAR_URL = 'http://127.0.0.1:8888/search'
 $BUSCAR_CACHE = Join-Path $PSScriptRoot 'web-cache'
-$BUSCAR_NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+# Como se saca el texto de cada pagina: 'regex' (Texto-De-Html, aqui abajo) o
+# 'trafilatura' (extraer.py). Decidido por A/B (MEDICIONES.md).
+if (-not $BUSCAR_EXTRACTOR) { $BUSCAR_EXTRACTOR = 'regex' }
+$BUSCAR_PYTHON = 'D:\2026-projects\ojo\voz\.venv\Scripts\python.exe'
+$BUSCAR_NAVEGADOR ='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
 # El texto legible de una pagina: sin scripts, estilos ni etiquetas, una linea
 # por bloque.
@@ -57,32 +61,43 @@ function Buscar-Web([string[]]$consultas, [int]$paginas = 3) {
     $consulta = $consultas -join ' | '
     New-Item -ItemType Directory -Force $BUSCAR_CACHE | Out-Null
     $md5 = [Security.Cryptography.MD5]::Create()
-    $clave = -join ($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes("$(Get-Date -Format yyyyMMdd)|$consulta")) | ForEach-Object { $_.ToString('x2') })
+    $clave = -join ($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes("$(Get-Date -Format yyyyMMdd)|$BUSCAR_EXTRACTOR|$consulta")) | ForEach-Object { $_.ToString('x2') })
     $f = Join-Path $BUSCAR_CACHE "$clave.json"
     if (Test-Path $f) { return [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+
+    # LIMITE DE RITMO: como mucho 6 consultas por minuto a los buscadores. Los
+    # CAPTCHA del 2026-09-23 los provoco nuestro volumen (~40 busquedas en
+    # minutos durante los bancos), y la salida legitima es pedir menos, no
+    # esconderse. Si se pasa, espera a que se libere un hueco (tope 20 s).
+    $ritmo = Join-Path $BUSCAR_CACHE 'ritmo.txt'
+    for ($espera = 0; $espera -lt 20; $espera++) {
+        $recientes = @(try { [IO.File]::ReadAllLines($ritmo) | Where-Object { [datetime]$_ -gt (Get-Date).AddSeconds(-60) } } catch { })
+        if (($recientes.Count + $consultas.Count) -le 6) { break }
+        Start-Sleep -Seconds 1
+    }
+    try { [IO.File]::WriteAllLines($ritmo, [string[]](@($recientes) + @($consultas | ForEach-Object { (Get-Date).ToString('o') }))) } catch { }
 
     $dirJ = Join-Path $env:TEMP 'ojo-buscar'
     New-Item -ItemType Directory -Force $dirJ | Out-Null
     Get-ChildItem $dirJ -File | Remove-Item -EA SilentlyContinue
-    $a = @('-s', '--parallel', '--max-time', '8')
+    $a = @('-s', '--parallel', '--max-time', '10')
     for ($i = 0; $i -lt $consultas.Count; $i++) {
         $a += @('-o', (Join-Path $dirJ "$i.json"), "$BUSCAR_URL`?q=$([uri]::EscapeDataString($consultas[$i]))&format=json&language=es")
     }
-    # DuckDuckGo corta a ratos, y tras una rafaga pide CAPTCHA (visto el
-    # 2026-09-23). Si no llega nada, se reintenta con motores de RESERVA
-    # (deshabilitados por defecto en settings.yml, se piden explicitamente):
-    # DuckDuckGo sigue siendo el unico en uso normal, decision del usuario.
+    # Por defecto VARIOS motores a la vez (settings.yml). Si no llega nada, se
+    # reintenta con la RESERVA (deshabilitados, se piden explicitamente).
+    $caidos = @{}
     for ($intento = 1; $intento -le 2; $intento++) {
-        # Tras las rafagas de los bancos (~40 busquedas en minutos) cayeron
-        # tambien Brave (too many requests) y Qwant (CAPTCHA): reserva amplia.
-        if ($intento -eq 2) { $a = @($a | ForEach-Object { if ($_ -like "$BUSCAR_URL*") { "$_&engines=brave,mojeek,qwant,startpage,bing,wikipedia" } else { $_ } }) }
+        if ($intento -eq 2) { $a = @($a | ForEach-Object { if ($_ -like "$BUSCAR_URL*") { "$_&engines=google,yahoo,presearch,brave,qwant" } else { $_ } }) }
         & curl.exe @a 2>$null
         # Lista explicita de listas: con la coma unaria y UNA sola consulta,
         # PowerShell deshacia el anidado y no salia ningun resultado.
         $listas = [Collections.Generic.List[object]]::new()
         for ($i = 0; $i -lt $consultas.Count; $i++) {
             $p = Join-Path $dirJ "$i.json"
-            $listas.Add(@(if (Test-Path $p) { try { ([IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).results } catch { } }))
+            $j = if (Test-Path $p) { try { [IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } catch { } }
+            foreach ($u in @($j.unresponsive_engines)) { if ($u) { $caidos["$($u[0])"] = "$($u[1])" } }
+            $listas.Add(@($j.results | Where-Object { $_ }))
         }
         if (@($listas | ForEach-Object { $_ }).Count) { break }
     }
@@ -91,7 +106,11 @@ function Buscar-Web([string[]]$consultas, [int]$paginas = 3) {
         foreach ($l in $listas) { if ($k -lt $l.Count -and -not $vistos[$l[$k].url]) { $vistos[$l[$k].url] = 1; $l[$k] } }
     }) | Select-Object -First 5
     $res = @($res)
-    if (-not $res.Count) { return $null }
+    # Sin resultados: se devuelve el MOTIVO (que motores cayeron y por que),
+    # para decirlo en vez de "el buscador no contesta". No se cachea.
+    if (-not $res.Count) {
+        return [pscustomobject]@{ consulta = $consulta; fuentes = @(); caidos = $caidos }
+    }
 
     # Las primeras paginas, en paralelo y con tope: una pagina lenta no puede
     # frenar la respuesta mas de 5 s.
@@ -104,13 +123,24 @@ function Buscar-Web([string[]]$consultas, [int]$paginas = 3) {
     for ($i = 0; $i -lt $leer.Count; $i++) { $a += @('-o', (Join-Path $dir "$i.html"), $leer[$i].url) }
     & curl.exe @a 2>$null
 
+    # Trafilatura: todas las paginas en UNA llamada a Python.
+    $trafi = @()
+    if ($BUSCAR_EXTRACTOR -eq 'trafilatura') {
+        $html = @(for ($i = 0; $i -lt $leer.Count; $i++) { Join-Path $dir "$i.html" }) | Where-Object { Test-Path $_ }
+        if ($html) {
+            try { $trafi = @((& $BUSCAR_PYTHON "$PSScriptRoot\extraer.py" @html 2>$null) -join "`n" | ConvertFrom-Json) } catch { }
+        }
+    }
     $fuentes = for ($i = 0; $i -lt $res.Count; $i++) {
         $p = Join-Path $dir "$i.html"
-        $texto = if (Test-Path $p) { Lo-Relevante (Texto-De-Html ([IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false)))) $consulta } else { '' }
+        $lineas = if ($BUSCAR_EXTRACTOR -eq 'trafilatura' -and $i -lt $trafi.Count) {
+            @("$($trafi[$i])" -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -ge 20 })
+        } elseif (Test-Path $p) { Texto-De-Html ([IO.File]::ReadAllText($p, [Text.UTF8Encoding]::new($false))) } else { @() }
+        $texto = if ($lineas) { Lo-Relevante $lineas $consulta } else { '' }
         [ordered]@{ titulo = "$($res[$i].title)"; url = "$($res[$i].url)"; sitio = ([uri]$res[$i].url).Host -replace '^www\.', ''
                     fragmento = "$($res[$i].content)"; texto = $texto }
     }
-    $b = [ordered]@{ consulta = $consulta; fecha = (Get-Date -Format 'yyyy-MM-dd HH:mm'); fuentes = @($fuentes) }
+    $b = [ordered]@{ consulta = $consulta; fecha = (Get-Date -Format 'yyyy-MM-dd HH:mm'); fuentes = @($fuentes); caidos = $caidos }
     [IO.File]::WriteAllText($f, ($b | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
     [pscustomobject]$b
 }
