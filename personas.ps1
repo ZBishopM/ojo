@@ -27,6 +27,8 @@ pequeno y local):
 $ErrorActionPreference = 'Stop'
 $PERSONAS_DIR = Join-Path $PSScriptRoot 'personas'
 $HISTORIAL = Join-Path $PSScriptRoot 'historial.json'
+# Como se conoce a alguien (capas, noticias, pendientes, reflexion).
+. (Join-Path $PSScriptRoot 'conocer.ps1')
 
 function Plano-P([string]$s) { ($s.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD) -replace '\p{Mn}', '') }
 
@@ -79,6 +81,7 @@ function Ficha-Texto($p) {
     $h = @($p.hechos | Select-Object -Last 12 | ForEach-Object { "  - $($_.hecho) ($($_.fecha))" })
     $ya = @($p.preguntas_hechas | Select-Object -Last 6 | ForEach-Object { "  - $_" })
     "[$($p.id)] $quien; $nom." +
+        $(if ($p.resumen) { "`n en resumen (de sus hechos): $($p.resumen)" } else { '' }) +
         $(if ($h) { "`n lo que sabes (te lo dijo el usuario):`n" + ($h -join "`n") } else { "`n aun no sabes nada de esta persona." }) +
         $(if ($ya) { "`n preguntas que YA le hiciste (no las repitas):`n" + ($ya -join "`n") } else { '' })
 }
@@ -122,7 +125,7 @@ function Guardar-Recuerdos([string]$q, $recordar, $personas) {
         # El mas nuevo gana: se quita un hecho viejo casi igual (mismas primeras palabras).
         $ini = ($pal | Select-Object -First 3) -join ' '
         $p.hechos = @(@($p.hechos) | Where-Object { (((Plano-P $_.hecho) -split '[^a-z0-9]+' | Where-Object { $_.Length -ge 4 } | Select-Object -First 3) -join ' ') -ne $ini }) +
-                    [pscustomobject]@{ hecho = $hecho; fecha = (Get-Date -Format 'yyyy-MM-dd') }
+                    [pscustomobject]@{ hecho = $hecho; fecha = (Get-Date -Format 'yyyy-MM-dd'); capa = (Capa-De $hecho) }
         Guardar-Persona $p
         $guardados += "$($p.id): $hecho"
     }
@@ -169,8 +172,16 @@ function Nombres-Directos([string]$q, $personas) {
 
 # ---- Conversacion reciente ---------------------------------------------------
 
+# En PowerShell 5.1, ConvertFrom-Json saca un array JSON como UN objeto
+# (Object[]): sin desenrollarlo, $_.t era un array y [datetime] reventaba, y
+# con el toda la memoria de personas de esa pregunta.
+function Leer-Historial {
+    $j = try { [IO.File]::ReadAllText($HISTORIAL, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } catch { $null }
+    $j | ForEach-Object { $_ } | Where-Object { $_ -and $_.t -is [string] }
+}
+
 function Historial-Texto {
-    $h = @(try { [IO.File]::ReadAllText($HISTORIAL, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } catch { })
+    $h = @(Leer-Historial)
     $h = @($h | Where-Object { $_ -and [datetime]$_.t -gt (Get-Date).AddMinutes(-15) } | Select-Object -Last 4)
     if (-not $h.Count) { return '' }
     "`n`nCONVERSACION RECIENTE (ultimos 15 min; para entender 'y ella', 'seguro?'):`n" +
@@ -178,8 +189,7 @@ function Historial-Texto {
 }
 
 function Apuntar-Historial([string]$q, [string]$a) {
-    $h = @(try { [IO.File]::ReadAllText($HISTORIAL, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } catch { })
-    $h = @(@($h | Where-Object { $_ }) + [pscustomobject]@{ t = (Get-Date).ToString('o'); q = $q; a = $a } | Select-Object -Last 10)
+    $h = @(@(Leer-Historial) + [pscustomobject]@{ t = (Get-Date).ToString('o'); q = $q; a = $a } | Select-Object -Last 10)
     [IO.File]::WriteAllText($HISTORIAL, (ConvertTo-Json @($h) -Depth 3), [Text.UTF8Encoding]::new($false))
 }
 

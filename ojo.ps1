@@ -1344,7 +1344,7 @@ try {
     try { . "$Raiz\perfil.ps1"; $memoria += Perfil-Texto } catch { Write-Warning "sin perfil: $_" }
     # Las personas de su vida y la conversacion reciente (personas.ps1). Fuera
     # de partida: ahi se pregunta del juego y el prompt de partida es otro.
-    $personas = $null; $pt = $null; $nombresDichos = @()
+    $personas = $null; $pt = $null; $nombresDichos = @(); $plan = $null
     if (-not $hayPartida) {
         try {
             . "$Raiz\personas.ps1"
@@ -1367,7 +1367,13 @@ try {
                 $nom = if ($unaNombrada.nombre) { $unaNombrada.nombre } else { "tu $($unaNombrada.id)" }
                 $respuestaFija = "De $nom todavía no sé nada. ¿Me cuentas algo?"
             }
-        } catch { Write-Warning "sin memoria de personas: $_" }
+            # Como responder para conocerle (conocer.ps1): decidido en codigo.
+            if (-not $respuestaFija) {
+                $plan = Conocer-Turno $Pregunta $personas $pt.ids $pt.tema
+                $memoria += $plan.instruccion
+                if ($plan.conto) { $null = Guardar-Pendiente $Pregunta $pt.ids }
+            }
+        } catch { Write-Warning "sin memoria de personas: $_ $($_.ScriptStackTrace -split "`n" | Select-Object -First 1)" }
     }
     # Aumentos de ARAM Mayhem nombrados FUERA de partida: su descripcion exacta
     # del catalogo local (ddragon). Sin esto, "que hace Locomotora" dijo que "no
@@ -1574,6 +1580,8 @@ try {
         else { try { [IO.File]::WriteAllLines($fRecientes, [string[]](@($recientes) + $arranque | Select-Object -Last 6), [Text.UTF8Encoding]::new($false)) } catch { } }
         $d | Add-Member -NotePropertyName pulla -NotePropertyValue $pulla -Force
     }
+    # Noticias y preguntas para conocer a alguien, sin sarcasmo (conocer.ps1).
+    if ($plan.sin_pulla) { $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force }
 
     # ---- Memoria de personas: recordar y curiosidad -------------------------
     #
@@ -1583,8 +1591,27 @@ try {
     $recordados = @($nombresDichos | Where-Object { $_ }); $curiosa = $null
     if ($personas -and -not $respuestaFija) {
         try {
-            $recordados += @(Guardar-Recuerdos $Pregunta $d.recordar $personas)
-            $curiosa = Apuntar-Curiosidad $d.curiosidad $pt.ids $personas
+            $nuevos = @(Guardar-Recuerdos $Pregunta $d.recordar $personas)
+            # Conto algo y el modelo no lo apunto (a "Luis juega voley los
+            # sabados" dejo "recordar" vacio): se guarda su frase tal cual, si
+            # dice algo mas que el nombre ("Hoy hable con Luis" no).
+            if ($plan.conto -and -not @($nuevos | Where-Object { $_ -like "$($plan.persona.id):*" }).Count) {
+                $claves = @(@($plan.persona.alias) + $plan.persona.nombre | Where-Object { $_ } | ForEach-Object { Plano-P $_ })
+                $resto = @((Plano-P $Pregunta) -split '[^a-z0-9]+' | Where-Object { $_.Length -ge 4 -and $claves -notcontains $_ -and $_ -notmatch '^(hoy|ayer|hable|mira|sabes)$' })
+                if ($resto.Count -ge 2) { $nuevos += @(Guardar-Recuerdos $Pregunta ([pscustomobject]@{ persona = $plan.persona.id; hecho = $Pregunta.Trim() }) $personas) }
+            }
+            $recordados += $nuevos
+            # Reflexion cada 5 hechos (conocer.ps1)
+            foreach ($id in @($nuevos | ForEach-Object { ($_ -split ':')[0] } | Select-Object -Unique)) {
+                try { $null = Reflexionar ($personas | Where-Object id -eq $id | Select-Object -First 1) } catch { Write-Warning "sin reflexion de ${id}: $_" }
+            }
+            # La pregunta la decide conocer.ps1 si la hay (capa, pendiente); con
+            # mala noticia, ninguna.
+            $curiosa = if ($plan.pregunta) {
+                $null = Apuntar-Curiosidad ([pscustomobject]@{ persona = $plan.persona.id; pregunta = $plan.pregunta }) $pt.ids $personas
+                $plan.pregunta
+            } elseif ($plan.valencia -ne 'mala') { Apuntar-Curiosidad $d.curiosidad $pt.ids $personas }
+            if ($plan.acercar) { $d | Add-Member -NotePropertyName decir -NotePropertyValue ("$($d.decir)".Trim() + ' ' + $plan.acercar).Trim() -Force }
             # Pidio tema y el modelo no pregunto: la curiosidad sale de
             # frases\tema.txt, por la persona elegida (en la prueba, a
             # "Cuentame algo" describio la pantalla y cito una web).
@@ -1594,7 +1621,7 @@ try {
                 $d | Add-Member -NotePropertyName decir -NotePropertyValue (Frase 'tema' "¿Qué es de la vida de $($nom)?" @{ quien = $nom }) -Force
                 $curiosa = ''
             }
-            if ($curiosa) {
+            if ($curiosa -or $plan.valencia -eq 'mala') {
                 # La pregunta va UNA vez: se quitan de "decir" las frases que ya
                 # preguntan (con Luis salio la misma pregunta dos veces).
                 $sinPreguntas = (@([regex]::Split("$($d.decir)", '(?<=[.!?])\s+') | Where-Object { $_ -notmatch '\?\s*$' }) -join ' ').Trim()
@@ -1785,6 +1812,8 @@ try {
         buscadores_caidos = if ($web.caidos) { ($web.caidos | ConvertTo-Json -Compress) } else { '' }
         recordo     = $recordados -join ' | '
         curiosidad  = "$curiosa"
+        valencia    = "$($plan.valencia)"
+        acercar     = "$($plan.acercar)"
         fin_epoch_ms = [int64]([DateTimeOffset]$tDibujo).ToUnixTimeMilliseconds()
         marcas       = $MARCAS
     }

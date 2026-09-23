@@ -1,0 +1,24 @@
+﻿# Preguntas para conocer a las personas de su vida, por CAPA de profundidad.
+# Formato: capa|tema|pregunta   ({nombre} = el nombre, o "tu hermana")
+#
+# Capas (Altman y Taylor 1973, penetración social): 1 = lo de fuera (gustos,
+# rutina), 2 = opiniones, planes, lo que comparten, 3 = lo de dentro (lo que le
+# importa, sus preocupaciones, sueños). Se sube de capa solo cuando ya hay
+# datos de la anterior. Redactadas para Ojo, con la idea de Aron et al. 1997
+# (preguntas que escalan en intimidad), sin copiar las suyas.
+1|tiempo_libre|¿Qué suele hacer {nombre} en su tiempo libre?
+1|musica|¿Qué música le gusta a {nombre}?
+1|comida|¿Cuál es la comida favorita de {nombre}?
+1|pantallas|¿Hay alguna serie, juego o canal que le guste a {nombre}?
+1|dia|¿A qué se dedica {nombre} en el día a día?
+1|origen|¿Cómo conociste a {nombre}?
+2|juntos|¿Qué es lo que más les gusta hacer juntos a ti y a {nombre}?
+2|planes|¿Qué planes tiene {nombre} para los próximos meses?
+2|conversaciones|¿De qué suelen hablar tú y {nombre} cuando tienen tiempo?
+2|valoras|¿Qué es lo que más valoras de {nombre}?
+2|reto|¿Qué está intentando conseguir {nombre} últimamente?
+3|importa|¿Qué crees que es lo que más le importa a {nombre}?
+3|apoyo|¿Alguna vez {nombre} estuvo ahí para ti cuando lo necesitabas?
+3|preocupa|¿Hay algo que le preocupe a {nombre} últimamente?
+3|sueno|Si {nombre} pudiera hacer cualquier cosa con su vida, ¿qué crees que haría?
+3|recuerdo|¿Cuál es tu recuerdo favorito con {nombre}?

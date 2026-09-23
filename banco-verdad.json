@@ -6,124 +6,124 @@
                                         {
                                             "value":  [
                                                           "@{value=System.Object[]; Count=2}",
-                                                          "@{nombre=despues7; fecha=2026-09-23 12:12; aciertos=7/8; inventos=0; ms_medio=5387; filas=System.Object[]}"
+                                                          "@{nombre=despues8; fecha=2026-09-23 12:12; aciertos=8/8; inventos=0; ms_medio=5476; filas=System.Object[]}"
                                                       ],
                                             "Count":  2
                                         },
                                         {
-                                            "nombre":  "despues8",
-                                            "fecha":  "2026-09-23 12:12",
-                                            "aciertos":  "8/8",
+                                            "nombre":  "frases",
+                                            "fecha":  "2026-09-23 12:41",
+                                            "aciertos":  "6/8",
                                             "inventos":  0,
-                                            "ms_medio":  5476,
+                                            "ms_medio":  5095,
                                             "filas":  [
-                                                          "@{q=¿Qué hora es?; ok=True; invento=False; ms=4545; busco=; fuentes=; ocr=0; sin_respaldo=; dijo=Son las 12:12 del miércoles 23 de septiembre de 2026. ¿Quieres que te lo repita en un idioma que no sea el español?}",
-                                                          "@{q=¿Qué día es hoy?; ok=True; invento=False; ms=4082; busco=; fuentes=; ocr=0; sin_respaldo=; dijo=Hoy es miércoles 23 de septiembre de 2026, a las 12:12. ¿Quieres que te lo repita en otro idioma? ¿O en un formato más poético?}",
-                                                          "@{q=¿A cuánto está el dólar hoy en Perú?; ok=True; invento=False; ms=8488; busco=dolar peru hoy 23 de septiembre 2026; fuentes=rpp.pe, cuantoestaeldolar.pe, larepublica.pe, elperu.pe, infobae.com; ocr=0; sin_respaldo=; dijo=El dólar en Perú hoy cuesta S/3.37 según el Banco Central de Reserva. Según rpp. ¿Y por qué no lo sabes tú, por cierto?}",
-                                                          "@{q=¿Quién ganó el último mundial de League of Legends?; ok=True; invento=False; ms=5493; busco=ultimo mundial de League of Legends 2026; fuentes=movistaresports.com, strafe.com, todolol.com, es.wikipedia.org, liquipedia.net; ocr=0; sin_respaldo=; dijo=T1 ganó el último mundial de League of Legends, en 2025. Según strafe. ¿Y por qué no lo sabes tú, si lo tengo en la cabeza?}",
-                                                          "@{q=¿Qué hora marca el reloj de la barra de arriba?; ok=True; invento=False; ms=5036; busco=; fuentes=; ocr=80; sin_respaldo=; dijo=La hora que marca el reloj es 12:12. ¿Y por qué no te lo dije en la primera frase?}",
-                                                          "@{q=¿Cuánta VRAM marca la barra de arriba?; ok=True; invento=False; ms=6265; busco=; fuentes=; ocr=80; sin_respaldo=; dijo=La VRAM marca 10.7 de 12 GB usados.}",
-                                                          "@{q=¿Qué dice el último correo que me llegó?; ok=True; invento=False; ms=5386; busco=; fuentes=; ocr=80; sin_respaldo=Llegué\u0027; dijo=El último mensaje que llegaste fue de USUARIO, que dijo \u0027Llegué\u0027 a las 10:37 PM del 23 de septiembre de 2026. (No pude comprobar: Llegué\u0027).}",
-                                                          "@{q=¿Qué tengo abierto en mis workspaces?; ok=True; invento=False; ms=4513; busco=; fuentes=; ocr=0; sin_respaldo=; dijo=Tienes abierto Firefox con un video de JoJo en YouTube, Discord con una conversación y Windows Terminal en el workspace 6. En el workspace 3 hay Wezterm con proyectos y Claude, y en el 1, Hearthstone y su deck tracker.}"
+                                                          "@{q=¿Qué hora es?; ok=True; invento=False; ms=3882; busco=; fuentes=; ocr=0; sin_respaldo=; dijo=Son las 12:40 del miércoles 23 de septiembre de 2026. ¿Y por qué no te quedas en el pasado, donde el tiempo era más flexible?}",
+                                                          "@{q=¿Qué día es hoy?; ok=True; invento=False; ms=5309; busco=¿Qué día es hoy?; fuentes=quediaeshoy.net, datetoday.net, diainternacional.com, calculaterix.com, fechadehoy.com; ocr=0; sin_respaldo=; dijo=Hoy es miércoles 23 de septiembre de 2026, a las 12:40. Según fechadehoy. ¿Y por qué no lo sabes tú, si lo dice el sistema?}",
+                                                          "@{q=¿A cuánto está el dólar hoy en Perú?; ok=False; invento=False; ms=4740; busco=tasa de cambio dólar a soles peruano hoy; fuentes=; ocr=0; sin_respaldo=; dijo=No pude buscarlo: el buscador no contesta.}",
+                                                          "@{q=¿Quién ganó el último mundial de League of Legends?; ok=False; invento=False; ms=4255; busco=ultimo mundial de League of Legends 2026; fuentes=movistaresports.com, strafe.com, todolol.com, es.wikipedia.org, liquipedia.net; ocr=0; sin_respaldo=T1; dijo=Busqué «ultimo mundial de League of Legends 2026». Ninguna fuente seria lo confirma. Qué decepción.}",
+                                                          "@{q=¿Qué hora marca el reloj de la barra de arriba?; ok=True; invento=False; ms=4352; busco=; fuentes=; ocr=80; sin_respaldo=; dijo=El reloj de la barra de arriba marca las 12:40. ¿Y por qué no te lo dije antes? ¡Era obvio!}",
+                                                          "@{q=¿Cuánta VRAM marca la barra de arriba?; ok=True; invento=False; ms=9742; busco=; fuentes=; ocr=80; sin_respaldo=; dijo=La barra de arriba marca 10.4 de 12 GB de VRAM usados.}",
+                                                          "@{q=¿Qué dice el último correo que me llegó?; ok=True; invento=False; ms=4448; busco=; fuentes=; ocr=80; sin_respaldo=; dijo=No puedo ver tu correo porque estás en una pestaña de X, no en Gmail. ¿Por qué no te cambias de pestaña? ¿Es que no sabes usar el ratón?}",
+                                                          "@{q=¿Qué tengo abierto en mis workspaces?; ok=True; invento=False; ms=4032; busco=; fuentes=; ocr=0; sin_respaldo=; dijo=Tienes abierto Firefox con una pestaña de X, Discord y Windows Terminal en el workspace 6. En el otro monitor, el workspace 3 tiene wezterm con varias ventanas.}"
                                                       ]
                                         }
                                     ],
                           "Count":  2
                       },
                       {
-                          "nombre":  "frases",
-                          "fecha":  "2026-09-23 12:41",
-                          "aciertos":  "6/8",
+                          "nombre":  "retos-arreglados",
+                          "fecha":  "2026-09-23 15:46",
+                          "aciertos":  "7/8",
                           "inventos":  0,
-                          "ms_medio":  5095,
+                          "ms_medio":  5279,
                           "filas":  [
                                         {
                                             "q":  "¿Qué hora es?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  3882,
+                                            "ms":  2995,
                                             "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  0,
                                             "sin_respaldo":  "",
-                                            "dijo":  "Son las 12:40 del miércoles 23 de septiembre de 2026. ¿Y por qué no te quedas en el pasado, donde el tiempo era más flexible?"
+                                            "dijo":  "Son las 15:45."
                                         },
                                         {
                                             "q":  "¿Qué día es hoy?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  5309,
-                                            "busco":  "¿Qué día es hoy?",
-                                            "fuentes":  "quediaeshoy.net, datetoday.net, diainternacional.com, calculaterix.com, fechadehoy.com",
-                                            "ocr":  0,
-                                            "sin_respaldo":  "",
-                                            "dijo":  "Hoy es miércoles 23 de septiembre de 2026, a las 12:40. Según fechadehoy. ¿Y por qué no lo sabes tú, si lo dice el sistema?"
-                                        },
-                                        {
-                                            "q":  "¿A cuánto está el dólar hoy en Perú?",
-                                            "ok":  false,
-                                            "invento":  false,
-                                            "ms":  4740,
-                                            "busco":  "tasa de cambio dólar a soles peruano hoy",
+                                            "ms":  2211,
+                                            "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  0,
                                             "sin_respaldo":  "",
-                                            "dijo":  "No pude buscarlo: el buscador no contesta."
+                                            "dijo":  "Hoy es miércoles 23 de septiembre de 2026."
+                                        },
+                                        {
+                                            "q":  "¿A cuánto está el dólar hoy en Perú?",
+                                            "ok":  true,
+                                            "invento":  false,
+                                            "ms":  6058,
+                                            "busco":  "¿A cuánto está el dólar hoy en Perú?",
+                                            "fuentes":  "cuantoestaeldolar.pe, elperu.pe, tipodecambio.pe, actualidadgubernamental.pe, dolargpt.pe",
+                                            "ocr":  80,
+                                            "sin_respaldo":  "",
+                                            "dijo":  "El dólar hoy en Perú está a S/ 3.362. Según elperu."
                                         },
                                         {
                                             "q":  "¿Quién ganó el último mundial de League of Legends?",
                                             "ok":  false,
                                             "invento":  false,
-                                            "ms":  4255,
-                                            "busco":  "ultimo mundial de League of Legends 2026",
-                                            "fuentes":  "movistaresports.com, strafe.com, todolol.com, es.wikipedia.org, liquipedia.net",
-                                            "ocr":  0,
+                                            "ms":  11221,
+                                            "busco":  "ultimo mundial de League of Legends 2023 ganador",
+                                            "fuentes":  "zethacraft.com, strafe.com, laps4.com, es.wikipedia.org, laps4.com",
+                                            "ocr":  80,
                                             "sin_respaldo":  "T1",
-                                            "dijo":  "Busqué «ultimo mundial de League of Legends 2026». Ninguna fuente seria lo confirma. Qué decepción."
+                                            "dijo":  "Revisé «ultimo mundial de League of Legends 2023 ganador». Nada confirmado. Y no, no voy a improvisar."
                                         },
                                         {
                                             "q":  "¿Qué hora marca el reloj de la barra de arriba?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  4352,
+                                            "ms":  3413,
                                             "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  80,
                                             "sin_respaldo":  "",
-                                            "dijo":  "El reloj de la barra de arriba marca las 12:40. ¿Y por qué no te lo dije antes? ¡Era obvio!"
+                                            "dijo":  "El reloj de la barra de arriba marca las 15:46."
                                         },
                                         {
                                             "q":  "¿Cuánta VRAM marca la barra de arriba?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  9742,
+                                            "ms":  9646,
                                             "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  80,
                                             "sin_respaldo":  "",
-                                            "dijo":  "La barra de arriba marca 10.4 de 12 GB de VRAM usados."
+                                            "dijo":  "La barra de arriba marca que la VRAM usada es 11.1 de 12 GB."
                                         },
                                         {
                                             "q":  "¿Qué dice el último correo que me llegó?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  4448,
+                                            "ms":  3550,
                                             "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  80,
                                             "sin_respaldo":  "",
-                                            "dijo":  "No puedo ver tu correo porque estás en una pestaña de X, no en Gmail. ¿Por qué no te cambias de pestaña? ¿Es que no sabes usar el ratón?"
+                                            "dijo":  "No veo ningún correo en la pantalla. Estás en una terminal de WezTerm con mensajes de shell y una ventana de uso de sesión."
                                         },
                                         {
                                             "q":  "¿Qué tengo abierto en mis workspaces?",
                                             "ok":  true,
                                             "invento":  false,
-                                            "ms":  4032,
+                                            "ms":  3137,
                                             "busco":  "",
                                             "fuentes":  "",
                                             "ocr":  0,
                                             "sin_respaldo":  "",
-                                            "dijo":  "Tienes abierto Firefox con una pestaña de X, Discord y Windows Terminal en el workspace 6. En el otro monitor, el workspace 3 tiene wezterm con varias ventanas."
+                                            "dijo":  "Tienes abierto el workspace 3 con WezTerm, Claude y proyectos. En el workspace 6, en el otro monitor, tienes PowerShell, Firefox con WhatsApp, Discord y art-chat-rs."
                                         }
                                     ]
                       }
@@ -131,28 +131,28 @@
         "Count":  2
     },
     {
-        "nombre":  "retos-arreglados",
-        "fecha":  "2026-09-23 15:46",
-        "aciertos":  "7/8",
+        "nombre":  "conocer",
+        "fecha":  "2026-09-23 16:29",
+        "aciertos":  "8/8",
         "inventos":  0,
-        "ms_medio":  5279,
+        "ms_medio":  6602,
         "filas":  [
                       {
                           "q":  "¿Qué hora es?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  2995,
+                          "ms":  3572,
                           "busco":  "",
                           "fuentes":  "",
                           "ocr":  0,
                           "sin_respaldo":  "",
-                          "dijo":  "Son las 15:45."
+                          "dijo":  "Son las 16:28."
                       },
                       {
                           "q":  "¿Qué día es hoy?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  2211,
+                          "ms":  3162,
                           "busco":  "",
                           "fuentes":  "",
                           "ocr":  0,
@@ -163,67 +163,67 @@
                           "q":  "¿A cuánto está el dólar hoy en Perú?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  6058,
-                          "busco":  "¿A cuánto está el dólar hoy en Perú?",
+                          "ms":  7229,
+                          "busco":  "cambio dólar a soles en Perú hoy 23 de septiembre de",
                           "fuentes":  "cuantoestaeldolar.pe, elperu.pe, tipodecambio.pe, actualidadgubernamental.pe, dolargpt.pe",
-                          "ocr":  80,
+                          "ocr":  0,
                           "sin_respaldo":  "",
                           "dijo":  "El dólar hoy en Perú está a S/ 3.362. Según elperu."
                       },
                       {
                           "q":  "¿Quién ganó el último mundial de League of Legends?",
-                          "ok":  false,
+                          "ok":  true,
                           "invento":  false,
-                          "ms":  11221,
-                          "busco":  "ultimo mundial de League of Legends 2023 ganador",
+                          "ms":  8710,
+                          "busco":  "ultimo mundial de League of Legends ganador",
                           "fuentes":  "zethacraft.com, strafe.com, laps4.com, es.wikipedia.org, laps4.com",
-                          "ocr":  80,
-                          "sin_respaldo":  "T1",
-                          "dijo":  "Revisé «ultimo mundial de League of Legends 2023 ganador». Nada confirmado. Y no, no voy a improvisar."
+                          "ocr":  21,
+                          "sin_respaldo":  "",
+                          "dijo":  "T1 ganó el último mundial de League of Legends, el Worlds 2025, derrotando a KT Rolster. Según strafe."
                       },
                       {
                           "q":  "¿Qué hora marca el reloj de la barra de arriba?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  3413,
+                          "ms":  8463,
                           "busco":  "",
                           "fuentes":  "",
-                          "ocr":  80,
+                          "ocr":  71,
                           "sin_respaldo":  "",
-                          "dijo":  "El reloj de la barra de arriba marca las 15:46."
+                          "dijo":  "La hora que marca el reloj de la barra de arriba es 16:28."
                       },
                       {
                           "q":  "¿Cuánta VRAM marca la barra de arriba?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  9646,
+                          "ms":  13932,
                           "busco":  "",
                           "fuentes":  "",
-                          "ocr":  80,
+                          "ocr":  128,
                           "sin_respaldo":  "",
-                          "dijo":  "La barra de arriba marca que la VRAM usada es 11.1 de 12 GB."
+                          "dijo":  "La barra de arriba marca que la VRAM está en 11.2 de 12 GB."
                       },
                       {
                           "q":  "¿Qué dice el último correo que me llegó?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  3550,
+                          "ms":  2959,
                           "busco":  "",
                           "fuentes":  "",
-                          "ocr":  80,
+                          "ocr":  38,
                           "sin_respaldo":  "",
-                          "dijo":  "No veo ningún correo en la pantalla. Estás en una terminal de WezTerm con mensajes de shell y una ventana de uso de sesión."
+                          "dijo":  "No veo ningún correo en la pantalla. Estás en DaVinci Resolve, creando un proyecto."
                       },
                       {
                           "q":  "¿Qué tengo abierto en mis workspaces?",
                           "ok":  true,
                           "invento":  false,
-                          "ms":  3137,
+                          "ms":  4790,
                           "busco":  "",
                           "fuentes":  "",
                           "ocr":  0,
                           "sin_respaldo":  "",
-                          "dijo":  "Tienes abierto el workspace 3 con WezTerm, Claude y proyectos. En el workspace 6, en el otro monitor, tienes PowerShell, Firefox con WhatsApp, Discord y art-chat-rs."
+                          "dijo":  "Tienes abierto DaVinci Resolve con el proyecto \u0027melly veigar\u0027 y el Project Manager. El workspace 4 está activo."
                       }
                   ]
     }
