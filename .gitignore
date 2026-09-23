@@ -42,3 +42,6 @@ web-cache/
 humor/
 
 __pycache__/
+
+# La ultima frase dicha de cada momento (para no repetirla): estado de uso.
+frases/.ultima-*

@@ -1,0 +1,6 @@
+﻿# Cuando la búsqueda no confirma lo que diría: {consulta} es lo que buscó.
+# Todas llevan "confirm..." (banco-verdad las reconoce así como honestas).
+Busqué «{consulta}» y nadie fiable lo confirma. Prefiero callarme a inventar.
+Revisé «{consulta}». Nada confirmado. Y no, no voy a improvisar.
+Sobre «{consulta}» no hay nada confirmado. Inventarlo sería tu especialidad, no la mía.
+Busqué «{consulta}». Ninguna fuente seria lo confirma. Qué decepción.

@@ -666,6 +666,24 @@ function Texto-Pantalla($lineas) {
         ((@($lineas) | ForEach-Object { $i++; [string]::Format($inv, '{0}. {1} @ {2:0.00},{3:0.00}', $i, $_.texto, $_.x, $_.y) }) -join "`n")
 }
 
+# Una frase con caracter para un momento (mirando, buscando, sin_resultado):
+# una linea al azar de frases\<momento>.txt, sin repetir la ultima vez. Las
+# claves de $datos rellenan {consulta} y compania. Sin archivo, $porDefecto.
+function Frase([string]$momento, [string]$porDefecto, [hashtable]$datos = @{}) {
+    $l = @(try { [IO.File]::ReadAllLines("$Raiz\frases\$momento.txt", [Text.Encoding]::UTF8) |
+                 ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') } } catch { })
+    if (-not $l.Count) { $x = $porDefecto }
+    else {
+        $u = "$Raiz\frases\.ultima-$momento"
+        $prev = try { [IO.File]::ReadAllText($u, [Text.Encoding]::UTF8).Trim() } catch { '' }
+        $opc = @($l | Where-Object { $_ -ne $prev })
+        $x = @($(if ($opc.Count) { $opc } else { $l }) | Get-Random)[0]
+        try { [IO.File]::WriteAllText($u, $x, [Text.UTF8Encoding]::new($false)) } catch { }
+    }
+    foreach ($k in $datos.Keys) { $x = $x.Replace("{$k}", "$($datos[$k])") }
+    $x
+}
+
 # Una frase por la voz YA, sin esperar a la respuesta ("Dejame buscarlo"). La
 # respuesta de verdad, al llegar, la corta: el servidor de voz abre un turno
 # nuevo con cada /decir. Sin servidor de voz, nada (la reserva SAPI no se usa
@@ -715,7 +733,9 @@ function Verificar-Decir([string]$decir, [string]$evidencia) {
     $ev = Plano $evidencia
     $sinSep = $ev -replace '(?<=\d)[.,](?=\d)', ''
     $faltan = @()
-    foreach ($m in [regex]::Matches($decir, '\d+(?:[.,:]\d+)*')) {
+    # Con sus letras pegadas: "23H2" entero, no solo "23" (que coincidia con la
+    # fecha de hoy y dejaba pasar una version inventada).
+    foreach ($m in [regex]::Matches($decir, '[\p{L}\d]*\d[\p{L}\d]*(?:[.,:]\d+)*')) {
         $n = $m.Value
         if (-not ($ev.Contains($n) -or $sinSep.Contains(($n -replace '[.,]', '')))) { $faltan += $n }
     }
@@ -1076,7 +1096,7 @@ function Escena($o) {
 }
 
 try {
-    Escena @{ estado = 'mirando'; oido = $Pregunta; dice = 'Déjame ver…' }
+    Escena @{ estado = 'mirando'; oido = $Pregunta; dice = (Frase 'mirando' 'Déjame ver…') }
 
     $tu = [Diagnostics.Stopwatch]::StartNew()
     $controles = if ($SinLista -or $hayPartida) { @() } else { Leer-Controles }
@@ -1179,6 +1199,10 @@ try {
         $esSuyo = $Pregunta -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
+        # (Se probo a contestar SIEMPRE con la web en las preguntas de
+        # actualidad: "que dia es hoy" acababa citando una pagina de fechas en
+        # vez del reloj del sistema. Lo que lo evita de verdad es el verificador:
+        # "23H2, de 2023" dicho de memoria ya no pasa, y eso dispara la busqueda.)
         $consulta = if ($esSuyo) { $null }
                     elseif ("$($d.buscar)".Trim()) { "$($d.buscar)".Trim() }
                     elseif ($faltan.Count -or $seRinde) { $Pregunta } else { $null }
@@ -1189,14 +1213,18 @@ try {
             $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force
         }
         if ($consulta) {
-            Escena @{ estado = 'mirando'; oido = $Pregunta; dice = 'Déjame buscarlo…' }
-            Decir-Ya 'Déjame buscarlo.'
+            $fraseBuscar = Frase 'buscando' 'Déjame buscarlo.'
+            Escena @{ estado = 'buscando'; oido = $Pregunta; dice = $fraseBuscar }
+            Decir-Ya $fraseBuscar
             Marca 'buscando'
+            # buscar.ps1 SIEMPRE cargado aqui: con la busqueda adelantada los
+            # resultados llegan del otro runspace y Texto-Web no existia en este.
+            try { . "$Raiz\buscar.ps1" } catch { Write-Warning "no pude cargar buscar.ps1: $_" }
             if ($webAdelantada) {
                 try { $web = @($webAdelantada.EndInvoke($webEnMarcha))[0] } catch { }
             }
             if (-not $web) {
-                try { . "$Raiz\buscar.ps1"; $web = Buscar-Web @($consulta, $Pregunta) } catch { Write-Warning "no pude buscar: $_" }
+                try { $web = Buscar-Web @($consulta, $Pregunta) } catch { Write-Warning "no pude buscar: $_" }
             }
             Marca 'buscado'
             if ($web) {
@@ -1207,7 +1235,8 @@ try {
                 Marca 'despues_web'
             }
             $sinRespaldo = if (-not $web) { 'No pude buscarlo: el buscador no contesta.' }
-                           elseif ($faltan.Count -or (Plano $d.decir) -match 'dejame buscar') { "Busqué «$consulta», pero no lo encontré confirmado en las fuentes." }
+                           elseif ($faltan.Count -or (Plano $d.decir) -match 'dejame buscar|lo busco|buscando') {
+                               Frase 'sin_resultado' "Busqué «$consulta», pero no lo encontré confirmado en las fuentes." @{ consulta = $consulta } }
             if ($sinRespaldo) {
                 $d | Add-Member -NotePropertyName decir -NotePropertyValue $sinRespaldo -Force
                 $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force

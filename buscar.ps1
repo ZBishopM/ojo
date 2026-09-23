@@ -73,7 +73,9 @@ function Buscar-Web([string[]]$consultas, [int]$paginas = 3) {
     # (deshabilitados por defecto en settings.yml, se piden explicitamente):
     # DuckDuckGo sigue siendo el unico en uso normal, decision del usuario.
     for ($intento = 1; $intento -le 2; $intento++) {
-        if ($intento -eq 2) { $a = @($a | ForEach-Object { if ($_ -like "$BUSCAR_URL*") { "$_&engines=brave,mojeek,qwant" } else { $_ } }) }
+        # Tras las rafagas de los bancos (~40 busquedas en minutos) cayeron
+        # tambien Brave (too many requests) y Qwant (CAPTCHA): reserva amplia.
+        if ($intento -eq 2) { $a = @($a | ForEach-Object { if ($_ -like "$BUSCAR_URL*") { "$_&engines=brave,mojeek,qwant,startpage,bing,wikipedia" } else { $_ } }) }
         & curl.exe @a 2>$null
         # Lista explicita de listas: con la coma unaria y UNA sola consulta,
         # PowerShell deshacia el anidado y no salia ningun resultado.

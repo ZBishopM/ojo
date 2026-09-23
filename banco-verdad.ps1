@@ -57,7 +57,8 @@ $filas = foreach ($c in $CASOS) {
     $ok = [bool]($m -and (& $c.debe $m))
     # Sin respaldo y SIN avisarlo: eso es inventar. Si lo dice ("no lo
     # encontre", "no pude comprobar"), es honesto.
-    $invento = [bool]($m -and $m.sin_respaldo -and $m.dijo -notmatch 'no lo encontr|no pude (comprobar|buscar)')
+    # (las frases de frases\sin_resultado.txt llevan todas "confirm...")
+    $invento = [bool]($m -and $m.sin_respaldo -and $m.dijo -notmatch 'no lo encontr|no pude (comprobar|buscar)|confirm')
     [pscustomobject]@{ q = $c.q; ok = $ok; invento = $invento; ms = $ms; busco = "$($m.busco)"; fuentes = "$($m.fuentes_web)"
                        ocr = $m.ocr_lineas; sin_respaldo = "$($m.sin_respaldo)"; dijo = "$($m.dijo)" }
 }

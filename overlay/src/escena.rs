@@ -11,12 +11,15 @@ use crate::pintura::*;
 
 /// Radio del circulo de un paso numerado.
 const RADIO_PASO: f32 = 21.0;
+/// Alto de la pildora de estado.
+const ALTO_PILDORA: f32 = 36.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Estado {
     Escuchando,
     Mirando,
+    Buscando,
     Hablando,
     Actuando,
     Esperando,
@@ -27,6 +30,7 @@ impl Estado {
         match self {
             Estado::Escuchando => "escuchando",
             Estado::Mirando => "mirando",
+            Estado::Buscando => "buscando en internet",
             Estado::Hablando => "hablando",
             Estado::Actuando => "actuando",
             Estado::Esperando => "confirma con Ctrl+Win",
@@ -36,6 +40,7 @@ impl Estado {
         match self {
             Estado::Escuchando => ACENTO_OK,
             Estado::Mirando => ACENTO,
+            Estado::Buscando => ACENTO_WEB,
             Estado::Hablando => TEXTO,
             Estado::Actuando | Estado::Esperando => ACENTO_AVISO,
         }
@@ -119,14 +124,15 @@ impl Lienzo {
         if let Some((x, y)) = e.cursor {
             cursor_agente(px, self.ax(x), self.ay(y), 1.6, 1.0);
         }
-        // La pildora va JUSTO ENCIMA de los subtitulos: ahi estan ya los ojos.
-        let arriba_sub = if e.oido.is_some() || e.dice.is_some() {
-            self.subtitulos(px, e.oido.as_deref(), e.dice.as_deref())
-        } else {
-            self.alto as f32 - 64.0
-        };
+        // La pildora va JUSTO DEBAJO de los subtitulos (pedido del usuario,
+        // 2026-09-23): abajo del todo, y el panel se sube lo que ella ocupa.
+        let fondo = self.alto as f32 - 64.0;
+        let base_sub = if e.estado.is_some() { fondo - ALTO_PILDORA - 10.0 } else { fondo };
+        if e.oido.is_some() || e.dice.is_some() {
+            self.subtitulos(px, e.oido.as_deref(), e.dice.as_deref(), base_sub);
+        }
         if let Some(s) = e.estado {
-            self.pildora(px, s, fase, arriba_sub);
+            self.pildora(px, s, fase, fondo - ALTO_PILDORA);
         }
     }
 
@@ -159,8 +165,8 @@ impl Lienzo {
 
     /// Panel fijo abajo al centro: lo que oyo arriba en gris, lo que dice abajo.
     /// Lo que dice se parte en lineas (como mucho el 70% del ancho): una frase
-    /// larga se salia de la pantalla. Devuelve la y de su borde de arriba.
-    fn subtitulos(&mut self, px: &mut Pixmap, oido: Option<&str>, dice: Option<&str>) -> f32 {
+    /// larga se salia de la pantalla. `base` es la y de su borde de abajo.
+    fn subtitulos(&mut self, px: &mut Pixmap, oido: Option<&str>, dice: Option<&str>, base: f32) {
         let tam_d = 22.0;
         let tam_o = 14.0;
         let paso_d = 30.0;
@@ -171,7 +177,7 @@ impl Lienzo {
         let w = w_d.max(w_o) + 40.0;
         let h = 20.0 + if oido.is_some() { 30.0 } else { 0.0 } + lineas.len() as f32 * paso_d;
         let x = (self.ancho as f32 - w) / 2.0;
-        let y = self.alto as f32 - h - 64.0;
+        let y = base - h;
 
         rect_redondo(px, x, y, w, h, 12.0, col(FONDO, 0.90));
         rect_redondo(px, x, y + h - 2.0, w, 2.0, 1.0, col(ACENTO, 0.75));
@@ -186,19 +192,17 @@ impl Lienzo {
             self.fuente.dibujar(px, l, x + (w - wl) / 2.0, cy + 6.0, tam_d, TEXTO, 1.0);
             cy += paso_d;
         }
-        y
     }
 
-    /// Mas grande que antes (18 px y no 14) y encima de los subtitulos, no en
-    /// la esquina: "si el objetivo es saber siempre si te escucho, tiene que
-    /// verse sin buscarla" (TODO de estetica).
-    fn pildora(&mut self, px: &mut Pixmap, s: Estado, fase: f32, arriba_sub: f32) {
+    /// Mas grande que antes (18 px y no 14) y bajo los subtitulos, no en la
+    /// esquina: "si el objetivo es saber siempre si te escucho, tiene que
+    /// verse sin buscarla" (TODO de estetica). `y` es su borde de arriba.
+    fn pildora(&mut self, px: &mut Pixmap, s: Estado, fase: f32, y: f32) {
         let tam = 18.0;
         let t = s.texto();
-        let h = 36.0;
+        let h = ALTO_PILDORA;
         let w = self.fuente.ancho(t, tam) + 52.0;
         let x = (self.ancho as f32 - w) / 2.0;
-        let y = arriba_sub - h - 10.0;
         rect_redondo(px, x, y, w, h, 18.0, col(SUPERFICIE, 0.94));
         // El punto late solo mientras trabaja; parado significa que espera.
         let a = match s {

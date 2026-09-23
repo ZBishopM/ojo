@@ -17,6 +17,9 @@ pub const SUBTEXTO: [u8; 3] = [170, 154, 140];
 pub const ACENTO: [u8; 3] = [224, 163, 92];
 pub const ACENTO_OK: [u8; 3] = [169, 181, 106];
 pub const ACENTO_AVISO: [u8; 3] = [208, 135, 112];
+/// Buscando en internet: un azul apagado que no existe en la paleta del rice,
+/// para que "fue a la web" se distinga de "esta mirando la pantalla".
+pub const ACENTO_WEB: [u8; 3] = [122, 162, 196];
 
 pub fn col(c: [u8; 3], a: f32) -> Color {
     Color::from_rgba8(c[0], c[1], c[2], (a.clamp(0.0, 1.0) * 255.0) as u8)

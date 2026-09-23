@@ -27,6 +27,8 @@ $casos = @(
     @{ d = 'Tienes abiertos Discord y Spotify.';                          faltan = @('Spotify') }
     @{ d = '¿Quieres algo más? Déjame buscarlo.';                         faltan = @() }
     @{ d = "Discord: te escribieron 'Llegué' hace poco.";                  faltan = @() }
+    # "23" esta en la fecha; "23H2" no esta en ningun sitio.
+    @{ d = 'La última versión es la 23H2.';                                faltan = @('23H2') }
 )
 $mal = 0
 foreach ($c in $casos) {

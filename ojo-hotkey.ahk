@@ -71,6 +71,28 @@ OjoIsla(titulo, cuerpo, acento) {
     try FileAppend(txt, f, 'UTF-8')
 }
 
+; Una frase con caracter para un momento (escuchando, pensando): una linea al
+; azar de frases\<momento>.txt, sin repetir la anterior. Si el archivo no esta,
+; la de siempre. Los .txt van en UTF-8 CON BOM: sin el, AHK los lee como ANSI.
+global OjoUltimaFrase := Map()
+OjoFrase(momento, porDefecto) {
+    global OjoUltimaFrase
+    lineas := []
+    try {
+        for l in StrSplit(FileRead(OjoRaiz . '\frases\' . momento . '.txt', 'UTF-8'), '`n', '`r') {
+            l := Trim(l)
+            if (l != '' && SubStr(l, 1, 1) != '#' && l != OjoUltimaFrase.Get(momento, ''))
+                lineas.Push(l)
+        }
+    }
+    if !lineas.Length
+        return porDefecto
+    f := lineas[Random(1, lineas.Length)]
+    OjoUltimaFrase[momento] := f
+    ; Van dentro de un JSON: sin comillas ni barras que lo rompan.
+    return StrReplace(StrReplace(f, '"', "'"), '\', '/')
+}
+
 OjoEmpezar() {
     global OjoHablando
     if OjoHablando
@@ -105,16 +127,17 @@ OjoEmpezar() {
     ; acumularon varios y la latencia del modelo paso de 2,5 s a 222 s, con la
     ; GPU al 99% y 343 W. Es el peor fallo que he metido en este proyecto.
     global OjoPidOverlay := 0
+    frase := OjoFrase('escuchando', 'te escucho...')
     try {
         Run('"' . OjoRaiz . '\overlay\target\release\ojo-overlay.exe" --escena '
-            . '"{""estado"":""escuchando"",""dice"":""te escucho...""}" --segundos 60'
+            . '"{""estado"":""escuchando"",""dice"":""' . frase . '""}" --segundos 60'
             , , 'Hide', &pid)
         OjoPidOverlay := pid
     }
 
     ; La isla de la barra se queda igualmente: sirve cuando el overlay esta
     ; tapado por una ventana a pantalla completa.
-    OjoIsla('Ojo', 'escuchando...', '#8fbf6f')
+    OjoIsla('Ojo', frase, '#8fbf6f')
 }
 
 OjoParar() {
@@ -131,7 +154,7 @@ OjoParar() {
         try ProcessClose(OjoPidOverlay)
         OjoPidOverlay := 0
     }
-    OjoIsla('Ojo', 'pensando...', '#e0a35c')
+    OjoIsla('Ojo', OjoFrase('pensando', 'pensando...'), '#e0a35c')
     ; El /parar y todo lo que viene detras -- transcribir, capturar, preguntar
     ; al modelo -- se hace FUERA de aqui. Bloquear el bucle de mensajes de AHK
     ; mientras el modelo piensa dejaria el teclado sordo varios segundos.
