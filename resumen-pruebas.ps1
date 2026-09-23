@@ -31,29 +31,35 @@ $PRUEBAS = @(
     @{ id = 'verdad'; nombre = 'Verdad'; grupo = 'modelo'; archivo = 'banco-verdad.ps1'
        que = 'Preguntas con respuesta comprobable (hora, día, dólar, Mundial de LoL, VRAM de la barra, correo que no existe, workspaces). Falla si se equivoca o si afirma algo sin respaldo (invento).'
        banco = { $u = (Leer-Json 'banco-verdad.json')[-1]
+                 $mal = @($u.filas | Where-Object { -not $_.ok -or $_.invento })
                  @{ resultado = "$($u.aciertos) · $($u.inventos) inventos"; fecha = $u.fecha
-                    fallos = @($u.filas | Where-Object { -not $_.ok -or $_.invento } | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»" }) } } }
+                    fallos = @($mal | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»" })
+                    casos = @($mal | ForEach-Object { [pscustomobject]@{ q = $_.q; dijo = $_.dijo; tocaba = if ($_.invento) { 'no afirmar nada sin respaldo' } else { 'la respuesta comprobable (ver el código del banco)' }
+                        vio = @(@(if ($_.busco) { "buscó: $($_.busco)" }; if ($_.fuentes) { "fuentes: $($_.fuentes)" }; if ($_.sin_respaldo) { "sin respaldo: $($_.sin_respaldo)" }; "líneas de OCR: $($_.ocr)") | Where-Object { $_ }) } }) } } }
     @{ id = 'partida'; nombre = 'Partida (inventada)'; grupo = 'modelo'; archivo = 'banco-partida.ps1'
        que = 'Preguntas de partida sobre una partida inventada con la respuesta conocida: composición, rival de línea, quién está muerto, oro, ítems.'
        banco = { $u = @(Leer-Json 'banco-partida.json' | Where-Object { $_.nombre -notlike '*real*' })[-1]
                  @{ resultado = "$($u.aciertos) · $($u.ms_medio) ms de media"; fecha = ''
-                    fallos = @($u.filas | Where-Object { -not $_.ok } | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»" }) } } }
+                    fallos = @($u.filas | Where-Object { -not $_.ok } | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»" })
+                    casos = @($u.filas | Where-Object { -not $_.ok } | ForEach-Object { [pscustomobject]@{ q = $_.q; dijo = $_.dijo; tocaba = 'ver el código del banco'; vio = @('los datos de la partida inventada (lol.ps1)') } }) } } }
     @{ id = 'partida-real'; nombre = 'Partida (real, frases tuyas)'; grupo = 'modelo'; archivo = 'banco-partida.ps1'
        que = 'La partida real congelada de ARAM Mayhem (2026-09-22) con las frases literales que fallaron aquel día.'
        banco = { $u = @(Leer-Json 'banco-partida.json' | Where-Object { $_.nombre -like '*real*' })[-1]
                  @{ resultado = "$($u.aciertos)"; fecha = ''
                     fallos = @($u.filas | Where-Object { -not $_.ok } | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»" }) } } }
     @{ id = 'pantalla'; nombre = 'Leer y señalar la pantalla'; grupo = 'modelo'; archivo = 'banco-pantalla.ps1'
-       que = 'Imágenes trampa dibujadas con la verdad conocida (cifras de 11 px, tabla densa, gris sobre gris, decimales, el mismo botón dos veces) a 1080p, 1440p y 900p, más una captura real. Camino real de Ojo (OCR + verificador) contra la imagen sola al modelo.'
-       banco = { $t = @(Leer-Json 'banco-pantalla.json'); $u = $t[-1]
-                 $sola = @($t | Where-Object { $_.sola })[-1]
-                 @{ resultado = "camino real $($u.real) · imagen sola $($sola.sola)"; fecha = $u.fecha
-                    fallos = @($u.filas | Where-Object { $_.real -eq $false } | ForEach-Object { "[$($_.res), $($_.cat)] $($_.q) → «$(Corto $_.dijo)»" }) } } }
-    @{ id = 'vision'; nombre = 'Visión sola (antigua)'; grupo = 'modelo'; archivo = 'banco-vision.ps1'
-       que = 'La captura de referencia a 1280x720 mandada sola al modelo, sin OCR: lo que medía el 8/10 de «leer la pantalla».'
-       banco = { $u = (Leer-Json 'banco-vision.json')[-1]
-                 @{ resultado = "leer $($u.leer) · señalar $($u.senalar) (mediana $($u.px_mediana) px)"; fecha = ''
-                    fallos = @($u.filas | Where-Object { -not $_.ok } | ForEach-Object { "$($_.q) → «$(Corto $_.dijo)»$(if ($_.px) { " a $($_.px) px" })" }) } } }
+       que = 'Tus pantallas REALES congeladas (los dos monitores a tamaño nativo, con la verdad del sistema y de UI Automation: leer la barra y señalar controles) e imágenes trampa dibujadas (cifras de 11 px, tabla densa, gris sobre gris, decimales, el mismo botón dos veces) a 1080p, 1440p y 900p. Camino real de Ojo (OCR, controles, verificador) contra la imagen sola al modelo.'
+       banco = { $u = @(Leer-Json 'banco-pantalla.json')[-1]
+                 $mal = @($u.filas | Where-Object { $_.real -eq $false })
+                 $porCat = @($u.filas | Group-Object cat | ForEach-Object { "$($_.Name) $(@($_.Group | Where-Object real).Count)/$($_.Count)" }) -join ' · '
+                 @{ resultado = "camino real $($u.real)$(if ($u.sola) { " · imagen sola $($u.sola)" })"; fecha = $u.fecha; detalle = $porCat
+                    fallos = @($mal | ForEach-Object { "[$($_.res), $($_.cat)] $($_.q) → «$(Corto $_.dijo)»" })
+                    casos = @($mal | ForEach-Object { [pscustomobject]@{ q = "[$($_.res), $($_.cat)] $($_.q)"; dijo = $_.dijo; tocaba = $_.tocaba; vio = @($_.vio)
+                        dijo_sola = $_.dijo_sola; sola_ok = $_.sola; _img = $_.img; _caja = $_.caja; _senalo = $_.senalo; _cat = $_.cat } }) +
+                            # Los que solo falla la IMAGEN SOLA: lo que el modelo hace sin OCR ni controles.
+                            @($u.filas | Where-Object { $_.real -and $_.sola -eq $false } | ForEach-Object { [pscustomobject]@{ q = "[imagen sola · $($_.res), $($_.cat)] $($_.q)"; dijo = $_.dijo_sola
+                                tocaba = $_.tocaba; vio = @('solo la imagen reducida a 1280, sin OCR ni lista de controles'); dijo_sola = "camino real (acertó): $($_.dijo)"; sola_ok = $true
+                                _img = $_.img; _caja = $_.caja; _senalo = ''; _cat = $_.cat } }) } } }
     @{ id = 'conocer'; nombre = 'Conocer a tu gente'; grupo = 'modelo'; archivo = 'prueba-conocer.ps1'; correr = @()
        que = 'Conversación guionada sobre una copia de la memoria: seguimiento de lo que cuentas, preguntas por capas, buena y mala noticia, un evento con fecha que pregunta después, tope de «acercar», nada inventado.' }
     @{ id = 'personas'; nombre = 'Memoria de personas'; grupo = 'modelo'; archivo = 'prueba-personas.ps1'; correr = @()
@@ -110,14 +116,54 @@ $salidaPruebas = foreach ($p in $PRUEBAS) {
     } elseif ($previo[$p.id]) {
         $x = $previo[$p.id]; $r = @{ resultado = $x.resultado; fecha = $x.fecha; fallos = @($x.fallos); ok = $x.ok; ms = $x.ms }
     } else { $r.resultado = 'sin correr' }
-    [pscustomobject]@{ id = $p.id; nombre = $p.nombre; grupo = $p.grupo; archivo = $p.archivo; que = $p.que
-                       resultado = $r.resultado; fecha = $r.fecha; ok = $r.ok; ms = $r.ms; fallos = @($r.fallos); medicion = $r.medicion }
+    [pscustomobject]@{ id = $p.id; nombre = $p.nombre; grupo = $p.grupo; archivo = $p.archivo; que = $p.que; detalle = $r.detalle
+                       resultado = $r.resultado; fecha = $r.fecha; ok = $r.ok; ms = $r.ms; fallos = @($r.fallos); medicion = $r.medicion; casos = @($r.casos | Where-Object { $_ }) }
 }
-[IO.File]::WriteAllText($guardado, (ConvertTo-Json @($salidaPruebas) -Depth 4), [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText($guardado, (ConvertTo-Json @($salidaPruebas) -Depth 5), [Text.UTF8Encoding]::new($false))
+
+# El recorte de un fallo de pantalla: la caja que tocaba en verde y el punto
+# que marco en rojo; en lectura, la barra de arriba (o la imagen entera).
+function Recorte($c, [string]$destino) {
+    Add-Type -AssemblyName System.Drawing
+    $src = [Drawing.Image]::FromFile($c._img)
+    try {
+        $W = $src.Width; $H = $src.Height
+        $pt = if ($c._senalo) { $s = @("$($c._senalo)" -split ',' | ForEach-Object { [double]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) }); @(($s[0] * $W), ($s[1] * $H)) }
+        if ($c._caja) {
+            $k = @($c._caja | ForEach-Object { [double]$_ })
+            $bx = @(($k[0] * $W), ($k[1] * $H), ($k[2] * $W), ($k[3] * $H))
+            $xs = @($bx[0], $bx[2]); $ys = @($bx[1], $bx[3]); if ($pt) { $xs += $pt[0]; $ys += $pt[1] }
+            $x0 = [math]::Max(0, ($xs | Measure-Object -Minimum).Minimum - 220); $y0 = [math]::Max(0, ($ys | Measure-Object -Minimum).Minimum - 140)
+            $x1 = [math]::Min($W, ($xs | Measure-Object -Maximum).Maximum + 220); $y1 = [math]::Min($H, ($ys | Measure-Object -Maximum).Maximum + 140)
+        } elseif ($c._cat -match 'barra') { $x0 = [int]($W * 0.45); $y0 = 0; $x1 = $W; $y1 = 60 }
+        else { $x0 = 0; $y0 = 0; $x1 = $W; $y1 = $H }
+        $rw = [int]($x1 - $x0); $rh = [int]($y1 - $y0)
+        $esc = [math]::Min(1.0, 1100.0 / $rw)
+        $bmp = New-Object Drawing.Bitmap ([int]($rw * $esc)), ([int]($rh * $esc))
+        $g = [Drawing.Graphics]::FromImage($bmp); $g.InterpolationMode = 'HighQualityBicubic'
+        $g.DrawImage($src, (New-Object Drawing.Rectangle 0, 0, $bmp.Width, $bmp.Height), (New-Object Drawing.Rectangle ([int]$x0), ([int]$y0), $rw, $rh), 'Pixel')
+        if ($c._caja) { $g.DrawRectangle((New-Object Drawing.Pen ([Drawing.Color]::LimeGreen), 3), [float](($bx[0] - $x0) * $esc), [float](($bx[1] - $y0) * $esc), [float](($bx[2] - $bx[0]) * $esc), [float](($bx[3] - $bx[1]) * $esc)) }
+        if ($pt) { $r = 9; $g.FillEllipse([Drawing.Brushes]::Red, [float](($pt[0] - $x0) * $esc - $r), [float](($pt[1] - $y0) * $esc - $r), 2 * $r, 2 * $r) }
+        $g.Dispose(); $bmp.Save($destino, [Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+    } finally { $src.Dispose() }
+}
 
 if ($Salida) {
     New-Item -ItemType Directory -Force (Join-Path $Salida 'codigo') | Out-Null
-    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($salidaPruebas) -Depth 4 -Compress);", [Text.UTF8Encoding]::new($false))
+    $dirFallos = Join-Path $Salida 'fallos'
+    Remove-Item $dirFallos -Recurse -Force -EA SilentlyContinue; New-Item -ItemType Directory -Force $dirFallos | Out-Null
+    $n = 0
+    $web = foreach ($p in $salidaPruebas) {
+        $casos = foreach ($c in @($p.casos)) {
+            $img = $null
+            if ($c._img -and (Test-Path $c._img)) { $n++; $img = "fallos/$n.png"; try { Recorte $c (Join-Path $Salida $img) } catch { $img = $null } }
+            [pscustomobject]@{ q = $c.q; tocaba = $c.tocaba; vio = @($c.vio); dijo = $c.dijo; dijo_sola = $c.dijo_sola; sola_ok = $c.sola_ok; img = $img }
+        }
+        $p | Select-Object * -ExcludeProperty casos | Add-Member -NotePropertyName casos -NotePropertyValue @($casos) -PassThru
+    }
+    # La VRAM por proceso (vram.ps1), para el diagrama.
+    $vram = @(Get-ChildItem $raiz -Filter 'vram-*.json' | Where-Object Name -ne 'vram-ahora.json' | ForEach-Object { [IO.File]::ReadAllText($_.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json })
+    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);", [Text.UTF8Encoding]::new($false))
     foreach ($a in @($PRUEBAS | ForEach-Object { $_.archivo } | Select-Object -Unique)) {
         Copy-Item (Join-Path $raiz $a) (Join-Path $Salida "codigo\$a.txt") -Force
     }
