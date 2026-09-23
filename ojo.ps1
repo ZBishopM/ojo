@@ -661,17 +661,26 @@ function Pregunta-De-Lectura([string]$q) {
 # (busqueda adelantada), si es de SUS cosas (no se busca en internet), si pide
 # aumento, workspaces o metricas. Juntas para poder compararlas con otra forma
 # de decidir (banco-decidir.ps1: las "decisiones tipadas" a lo Jev).
+#
+# Comparadas con decisiones tipadas del modelo local ("a lo Jev",
+# decidir.ps1) sobre 49 preguntas etiquetadas a mano (banco-decidir.ps1): 91,5%
+# contra 92,4%, y el modelo cuesta ~940 ms por pregunta. Se quedan las reglas;
+# el banco sirvio para cazar sus fallos (los marcados abajo).
 function Decidir-Con-Reglas([string]$q) {
+    $personal = $q -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
     [ordered]@{
         lectura    = [bool](Pregunta-De-Lectura $q)
         sitio      = [bool](Pregunta-De-Sitio $q)
-        web        = $q -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o'
-        personal   = $q -match '(?i)\b(mis?|me|tengo|correo|mensajes?|archivos?|carpeta|pantalla|ventana)\b'
-        aumento    = $q -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|mejor|tomo|cojo|agarro)' -or
+        # Ni de SUS cosas ("que version de Python TENGO") ni la hora o el dia
+        # ("que dia es HOY"): esas las sabe el sistema, no internet.
+        web        = ($q -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o') -and
+                     -not $personal -and $q -notmatch '(?i)qu[eé] (d[ií]a|fecha|hora)|\bhora es\b'
+        personal   = $personal
+        aumento    = $q -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|tomo|cojo|agarro|\bo el otro)' -or
                      $q -match '(?i)(cu[aá]l|elij|escoj|recomi).*aument' -or
                      $q -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)'
-        workspaces = $q -match '(?i)workspace|escritorio|abiert|ventanas'
-        metricas   = $q -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consumo|memoria|procesador|gr[aá]fica'
+        workspaces = $q -match '(?i)workspace|escritorio|abiert|ventanas|otro monitor'
+        metricas   = $q -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consum|memoria|procesador|gr[aá]fica'
     }
 }
 
