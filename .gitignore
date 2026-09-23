@@ -28,5 +28,8 @@ partidas/
 prueba-lol/eleccion-*.png
 prueba-lol/eleccion-*.bmp
 
+# Audio generado por el banco de voces: se rehace con voz/banco_voz.py.
+voz/salida/
+
 # La DLL de OjoTexto (ddragon.ps1): se compila sola la primera vez.
 bin/

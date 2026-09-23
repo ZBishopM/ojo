@@ -1583,3 +1583,30 @@ Dos muestras más bajas, 53,2 y 54,5 (18:36 y 18:41), con la VRAM libre
 libre —, es otra cosa usando la GPU a la vez (vídeo, la grabación continua).
 Volvió sola a 63 en la siguiente. Antes de la auditoría, la misma hora habría
 acabado en ~12 tok/s: fue lo que pasó esta mañana en 25 minutos.
+
+## Voz: banco de motores (2026-09-23)
+
+Seis frases (`voz/frases.txt`), en caliente, con el cliente de LoL abierto y
+el 4B cargado. «Primera» = sintetizar la primera frase de cada respuesta, que
+es lo que se espera si se habla frase a frase. Criterio escrito antes de medir:
+gana la mejor puntuada a ciegas entre las que empiezan en **< 400 ms**.
+
+| motor | dónde | primera (peor de 6) | RTF medio | ¿cumple? |
+|---|---|---|---|---|
+| SAPI Sabina (actual) | CPU | 38-102 ms (frase entera) | ~0,01 | sí |
+| **Piper es_MX-claude-high** | CPU | **336 ms** | 0,063 | sí |
+| Supertonic 3, 8 pasos | CPU | 2.261-3.473 ms | 0,34-0,42 | no |
+| Supertonic 3, 4 pasos (F1-F5) | CPU | 1.367-1.738 ms | 0,24-0,31 | no |
+| Chatterbox Multilingual | GPU, 3,8 GB | 20.068 ms | 2,48 | no |
+
+- Supertonic no se acerca a lo anunciado (167× tiempo real en un M4 Pro): aquí
+  va a 3-4× tiempo real. Con 2 pasos, 731 ms para una frase de 6 s. Los hilos
+  (auto o 6) no cambian nada.
+- Chatterbox Multilingual genera audio de duración normal (no alucina); es
+  lento de verdad. El Turbo (solo inglés) iba a RTF 0,6: el multilingüe no
+  tiene esas optimizaciones.
+- Voces naturales de Windows (Dalia): sin medir. El adaptador pide
+  administrador y la voz que funciona con él solo está en un espejo de
+  terceros.
+
+Escucha a ciegas de las 8 (clave en `voz/salida/escucha-clave.json`): pendiente.
