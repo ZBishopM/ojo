@@ -40,6 +40,7 @@ DllCall('CreateMutexW', 'Ptr', 0, 'Int', 1, 'Str', 'Global\ojo-hotkey', 'Ptr')
 global OjoRaiz    := 'D:\2026-projects\ojo'
 global OjoPuerto  := 17494
 global OjoHablando := false
+global OjoPidHablar := 0     ; el proceso que esta contestando (y hablando)
 
 ; Peticion al oido. Sincrona a proposito: es localhost y tarda milisegundos,
 ; y hacerla asincrona obligaria a llevar estado para algo que no lo necesita.
@@ -75,6 +76,15 @@ OjoEmpezar() {
     if OjoHablando
         return                      ; el auto-repeat de la tecla no cuenta
     OjoHablando := true
+
+    ; Si todavia esta contestando la pregunta anterior, se le corta: la voz
+    ; vive en ese proceso de PowerShell, y sin esto las dos respuestas sonarian
+    ; a la vez. Es lo natural: hablarle encima para interrumpir.
+    global OjoPidHablar
+    if OjoPidHablar {
+        try ProcessClose(OjoPidHablar)
+        OjoPidHablar := 0
+    }
 
     ; Grabar PRIMERO. Lo demas es adorno y no debe retrasar el microfono: si el
     ; overlay tarda 200 ms en abrir, esos 200 ms de voz se pierden.
@@ -130,7 +140,10 @@ OjoParar() {
     ; su propio proceso, y ojo.ps1 esta hecho para 5.1. Medido el 2026-09-22,
     ; de soltar a dibujo, mediana de 10: dos procesos 2.614 ms, uno en 7
     ; 2.312, uno en 5.1 2.091. 5.1 arranca en 165 ms; 7 en 289.
-    Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' . OjoRaiz . '\hablar.ps1"', , 'Hide')
+    ; Se guarda el PID para poder cortarle la voz si vuelves a pulsar.
+    global OjoPidHablar
+    Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' . OjoRaiz . '\hablar.ps1"', , 'Hide', &pidH)
+    OjoPidHablar := pidH
 }
 
 ; ------------------------------------------------------------
@@ -174,5 +187,17 @@ A_HotkeyInterval := 2000
 Esc:: {
     global OjoHablando := false
     OjoPedir('cancelar')
+}
+#HotIf
+
+; Esc tambien CALLA a Ojo mientras contesta.
+;
+; `~` para que Esc siga llegando al juego (en LoL abre el menu): Ojo se calla,
+; y el juego hace lo suyo igual que siempre.
+#HotIf OjoPidHablar && ProcessExist(OjoPidHablar)
+~Esc:: {
+    global OjoPidHablar
+    try ProcessClose(OjoPidHablar)
+    OjoPidHablar := 0
 }
 #HotIf

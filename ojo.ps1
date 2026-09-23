@@ -47,6 +47,13 @@ param(
     # MiB de RAM para la cache de prompts del servidor. El defecto de
     # llama-server son 8.192 y es la mayor fuga de RAM que teniamos.
     [int]$CacheRam = 1024,
+    # La voz con la que habla. Cadena vacia = no habla.
+    #
+    # OJO: en PowerShell 5.1 -- donde corre esto -- solo existen las voces
+    # "Desktop": Sabina Desktop (es-MX) y Helena Desktop (es-ES). Laura, Pablo,
+    # Raul y las Sabina/Helena "OneCore" solo las ve PowerShell 7. Pedir una
+    # que no existe cae a la de por defecto y cuesta ~400 ms (medido).
+    [string]$Voz = 'Microsoft Sabina Desktop',
     # Que modelo servir. El 8B es el predeterminado desde que se midio: gana en
     # las cuatro columnas -- 4/4 aciertos contra 3/4, la mitad de latencia, 1,2
     # GB de RAM contra 10,5, y carga en 5 s en vez de 15. El 35B se queda para
@@ -77,6 +84,29 @@ $OutputEncoding = [Text.Encoding]::UTF8
 $RELOJ = [Diagnostics.Stopwatch]::StartNew()
 $MARCAS = [ordered]@{ arranque_ps = [int]((Get-Date) - (Get-Process -Id $PID).StartTime).TotalMilliseconds }
 function Marca($n) { $MARCAS[$n] = [int]$RELOJ.ElapsedMilliseconds }
+
+# La voz se PREPARA en paralelo desde el principio.
+#
+# Iniciar el motor de voz cuesta ~410 ms en un PowerShell 5.1 nuevo (110 de
+# cargar System.Speech y ~300 de arrancar el motor la primera vez que se usa;
+# medido paso a paso). Hecho despues de dibujar, la voz empezaba 400 ms tarde.
+# En otro runspace se hace mientras se captura y piensa el modelo, y lanzarlo
+# cuesta 25 ms. El sintetizador creado alli se usa desde aqui sin problema
+# (comprobado: SpeakAsync en 3-6 ms, voz correcta).
+$vozPreparando = $null
+if ($Voz -and -not $Servidor) {
+    $vozPreparando = [powershell]::Create()
+    $null = $vozPreparando.AddScript({
+        param($v)
+        Add-Type -AssemblyName System.Speech
+        $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+        if ($s.Voice.Name -ne $v) { try { $s.SelectVoice($v) } catch { } }
+        $s.Rate = 1
+        $s.SetOutputToDefaultAudioDevice()
+        $s
+    }).AddArgument($Voz)
+    $vozEnMarcha = $vozPreparando.BeginInvoke()
+}
 
 $captura = "$Raiz\captura\target\release\ojo-captura.exe"
 $overlay = "$Raiz\overlay\target\release\ojo-overlay.exe"
@@ -604,6 +634,16 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
         . "$Raiz\lol.ps1"
         $datosLol = Get-LolDatos
         if ($datosLol) {
+            # La muestra REAL se guarda sola: sin comandos a mano en mitad de
+            # una partida. La ultima siempre, y la primera de cada dia aparte,
+            # para el banco de partida (hoy prueba con una partida inventada).
+            try {
+                $crudoJson = $datosLol | ConvertTo-Json -Depth 12
+                $dirMuestras = "$Raiz\prueba-lol"
+                [IO.File]::WriteAllText("$dirMuestras\real-ultima.json", $crudoJson, [Text.UTF8Encoding]::new($false))
+                $delDia = "$dirMuestras\real-{0:yyyyMMdd}.json" -f (Get-Date)
+                if (-not (Test-Path $delDia)) { [IO.File]::WriteAllText($delDia, $crudoJson, [Text.UTF8Encoding]::new($false)) }
+            } catch { }
             $catLol = try { Get-DDragon } catch { $null }
             $partida = Resumir-Partida $datosLol $catLol | ConvertTo-Json -Depth 6 -Compress
             $hayPartida = $true
@@ -768,6 +808,26 @@ try {
     $tDibujo = Get-Date
     Marca 'dibujo'
 
+    # ---- La voz ---------------------------------------------------------------
+    #
+    # Las voces de Windows en espanol (SAPI / OneCore): ya estan instaladas, no
+    # gastan VRAM -- que en partida no sobra -- y sintetizan una frase de ~7 s
+    # de audio en 39-66 ms (medido con las cinco). No son neuronales: suenan
+    # algo roboticas. Es la voz de HOY; Piper, neuronal y tambien sin VRAM, es
+    # la siguiente comparacion.
+    #
+    # Asincrona: el subtitulo ya esta en pantalla y la voz arranca a la vez. El
+    # proceso espera a que termine antes de cerrarse (ver el finally). El
+    # sintetizador lleva preparandose en paralelo desde el principio.
+    $vozSintetizador = $null
+    if ($vozPreparando -and $d.decir) {
+        try {
+            $vozSintetizador = @($vozPreparando.EndInvoke($vozEnMarcha))[0]
+            $null = $vozSintetizador.SpeakAsync($d.decir)
+            Marca 'voz'
+        } catch { Write-Warning "no pude hablar: $_" }
+    }
+
     # DESPUES de dibujar, fuera del camino que espera el usuario: nvidia-smi son
     # 49 ms por pregunta. La VRAM libre no cambia en los dos segundos que tarda
     # el modelo, asi que leerla ahora cuenta lo mismo.
@@ -841,6 +901,13 @@ try {
     Write-Host "`nel overlay se queda $Segundos s. Ctrl+C para cortar antes."
     Start-Sleep -Seconds $Segundos
 } finally {
+    # Que termine de HABLAR antes de cerrar: si la frase dura mas que el
+    # overlay, cerrarlo cortaria la voz a media palabra. Tope de 30 s.
+    if ($vozSintetizador) {
+        $t = [Diagnostics.Stopwatch]::StartNew()
+        while ($vozSintetizador.State -eq 'Speaking' -and $t.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 100 }
+        $vozSintetizador.Dispose()
+    }
     try { $tuberia.WriteLine('salir'); $ov.WaitForExit(3000) } catch { }
     if (-not $ov.HasExited) { $ov.Kill() }
 }
