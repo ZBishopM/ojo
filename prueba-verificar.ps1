@@ -10,12 +10,13 @@ $ErrorActionPreference = 'Stop'
 $errores = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\ojo.ps1", [ref]$null, [ref]$errores)
 if ($errores.Count) { $errores | ForEach-Object { "SINTAXIS $($_.Extent.StartLineNumber): $($_.Message)" }; exit 2 }
-$ast.FindAll({ $args[0] -is [Management.Automation.Language.FunctionDefinitionAst] -and $args[0].Name -in 'Plano', 'Verificar-Decir', 'Hechos-Sistema' }, $true) |
+$ast.FindAll({ $args[0] -is [Management.Automation.Language.FunctionDefinitionAst] -and $args[0].Name -in 'Plano', 'Verificar-Decir', 'Hechos-Sistema', 'Distancia-Corta' }, $true) |
     ForEach-Object { . ([scriptblock]::Create($_.Extent.Text)) }
 
 $ev = "HECHOS VERIFICADOS:`nhora: 11:28`nfecha: miércoles 23 de septiembre de 2026`n" +
       "WORKSPACES: Discord «ALAN»; firefox «WhatsApp»`n" +
-      "RESULTADOS WEB: [elperu.pe] un dólar equivale a S/ 3.362 ... [dolargpt.pe] S/ 3.44 compra"
+      "RESULTADOS WEB: [elperu.pe] un dólar equivale a S/ 3.362 ... [dolargpt.pe] S/ 3.44 compra`n" +
+      "[es.lugares.org] La capital de Australia es Canberra."
 $casos = @(
     @{ d = 'Son las 11:28.';                                              faltan = @() }
     @{ d = 'Son las 12:05.';                                              faltan = @('12:05') }
@@ -29,6 +30,9 @@ $casos = @(
     @{ d = "Discord: te escribieron 'Llegué' hace poco.";                  faltan = @() }
     # "23" esta en la fecha; "23H2" no esta en ningun sitio.
     @{ d = 'La última versión es la 23H2.';                                faltan = @('23H2') }
+    # Una letra de diferencia en un nombre largo vale; dos no.
+    @{ d = 'Según elperu, la capital es Camberra.';                        faltan = @() }
+    @{ d = 'Según Wikipedia, la capital es Canberra.';                     faltan = @('Wikipedia') }
 )
 $mal = 0
 foreach ($c in $casos) {

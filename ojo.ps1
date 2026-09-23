@@ -379,7 +379,9 @@ ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
 "decir" lleva la respuesta completa y solo hechos (si piden una lista, TODOS
 los nombres). El humor va aparte, en "pulla": una frase de ocho palabras o
 menos, que no afirma ningun dato (ni horas, ni cifras, ni nombres nuevos).
-Si no se te ocurre nada bueno, sin pulla. Nunca insulta.
+Si no se te ocurre nada bueno, sin pulla. Nunca insulta. Nunca una pregunta
+retorica que empiece por "¿Y..." ("¿Y por que...?", "¿Y que esperabas...?"):
+cansa.
 Ejemplo: {"decir": "El boton Guardar esta arriba a la derecha, junto a
 Compartir.", "pulla": "Donde estuvo siempre, por cierto."}
 '@
@@ -448,7 +450,8 @@ ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
 "decir" lleva la respuesta completa y solo hechos (si piden una lista, TODOS
 los nombres). El humor va aparte, en "pulla": una frase de ocho palabras o
 menos, que no afirma ningun dato (ni cifras, ni nombres nuevos). Si no se te
-ocurre nada bueno, sin pulla. Nunca insulta.
+ocurre nada bueno, sin pulla. Nunca insulta. Nunca una pregunta retorica que
+empiece por "¿Y..." ("¿Y por que...?", "¿Y que esperabas...?"): cansa.
 Ejemplo: {"decir": "Tu equipo: Garen top, Lee Sin jungla, Lux mid, Jinx
 tirador y Thresh soporte.", "pulla": "Equilibrado, para variar."}
 '@
@@ -734,8 +737,12 @@ function Decir-Ya([string]$t) {
 function Citar([string]$decir, $web) {
     # Vale solo si nombra un sitio de los resultados: "segun la ultima
     # cotizacion disponible" no es una fuente.
+    # Y con "segun": "es.windows.day" se queda en "windows", palabra que sale
+    # sola en cualquier respuesta sobre Windows, y lo daba por citado.
     $p = Plano $decir
-    foreach ($s in @($web.fuentes)) { $n = ("$($s.sitio)" -split '\.')[-2]; if ($n -and $p.Contains((Plano $n))) { return $decir } }
+    if ($p -match 'segun') {
+        foreach ($s in @($web.fuentes)) { $n = ("$($s.sitio)" -split '\.')[-2]; if ($n -and $p.Contains((Plano $n))) { return $decir } }
+    }
     $claves = @([regex]::Matches($decir, '\d+(?:[.,:]\d+)*|\b\p{Lu}[\p{L}\p{N}''-]{2,}') | ForEach-Object { Plano $_.Value })
     $mejor = @($web.fuentes) | Sort-Object {
         $t = Plano "$($_.titulo) $($_.fragmento) $($_.texto)"
@@ -771,6 +778,25 @@ function Plano([string]$s) {
     ($s.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD) -replace '\p{Mn}', '')
 }
 
+# Levenshtein con tope: devuelve 2 en cuanto hay mas de una diferencia. Solo
+# para comparar dos palabras cortas; lo largo va en OjoTexto (ddragon.ps1).
+function Distancia-Corta([string]$a, [string]$b) {
+    if ($a -eq $b) { return 0 }
+    $prev = 0..$b.Length
+    for ($i = 1; $i -le $a.Length; $i++) {
+        $cur = @($i) + @(0) * $b.Length
+        $min = $i
+        for ($j = 1; $j -le $b.Length; $j++) {
+            $c = if ($a[$i - 1] -eq $b[$j - 1]) { 0 } else { 1 }
+            $cur[$j] = [math]::Min([math]::Min($prev[$j] + 1, $cur[$j - 1] + 1), $prev[$j - 1] + $c)
+            if ($cur[$j] -lt $min) { $min = $cur[$j] }
+        }
+        if ($min -gt 1) { return 2 }
+        $prev = $cur
+    }
+    [math]::Min($prev[$b.Length], 2)
+}
+
 # Lo que "decir" afirma sin respaldo en NINGUNA de las fuentes de esta pregunta.
 #
 # En codigo y no en el modelo: pedirle que se revise a si mismo es pedirle que
@@ -794,9 +820,20 @@ function Verificar-Decir([string]$decir, [string]$evidencia) {
     # Las comillas de apertura tipograficas van como \p{Pi} y no literales:
     # dentro de una cadena de PowerShell entre comillas simples, la comilla
     # simple curva de apertura CIERRA la cadena.
+    $palabrasEv = $null
     foreach ($m in [regex]::Matches($decir, '(?<!(?:^|[.!?¡¿:"''\p{Pi}(]\s*))\b\p{Lu}[\p{L}\p{N}''-]{2,}')) {
         $w = $m.Value.TrimEnd("'", '-')
-        if (-not $ev.Contains((Plano $w))) { $faltan += $w }
+        $pw = Plano $w
+        if ($ev.Contains($pw)) { continue }
+        # Variante de una letra en nombres largos: el modelo dice "Canberra" y
+        # la Wikipedia en espanol "Camberra". Solo contra palabras de la
+        # evidencia con la misma inicial y largo parecido (rapido).
+        if ($pw.Length -ge 6) {
+            if (-not $palabrasEv) { $palabrasEv = @($ev -split '[^\p{L}\p{N}]+' | Where-Object { $_.Length -ge 5 } | Select-Object -Unique) }
+            $casi = $palabrasEv | Where-Object { $_[0] -eq $pw[0] -and [math]::Abs($_.Length - $pw.Length) -le 1 -and (Distancia-Corta $_ $pw) -le 1 } | Select-Object -First 1
+            if ($casi) { continue }
+        }
+        $faltan += $w
     }
     @($faltan | Select-Object -Unique)
 }
@@ -1176,6 +1213,16 @@ try {
     # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de
     # escritorio sin bateria.
     try { . "$Raiz\perfil.ps1"; $memoria += Perfil-Texto } catch { Write-Warning "sin perfil: $_" }
+    # Aumentos de ARAM Mayhem nombrados FUERA de partida: su descripcion exacta
+    # del catalogo local (ddragon). Sin esto, "que hace Locomotora" dijo que "no
+    # existe" y la web le trajo trenes.
+    if (-not $hayPartida -and $Pregunta -match '(?i)aument') {
+        try {
+            . "$Raiz\ddragon.ps1"
+            $aum = @(Buscar-Aumentos (Get-DDragon) $Pregunta)
+            if ($aum.Count) { $memoria += "`n`nAUMENTOS DE ARAM MAYHEM (League of Legends, del cliente, exacto):`n" + ($aum -join "`n") }
+        } catch { Write-Warning "sin catalogo de aumentos: $_" }
+    }
 
     # El texto de la pantalla a tamano real, si la pregunta es de leer o de
     # ubicar algo. ~450 ms (OCR de Windows sobre la captura ampliada x2: a x1
@@ -1251,7 +1298,9 @@ try {
         # Un "no puedo / no se" tambien se busca: la regla es buscar, no rendirse.
         # Salvo si la pregunta es de SUS cosas (su correo, sus archivos, su
         # pantalla): ahi internet no sabe nada y "no tengo acceso" es la verdad.
-        $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo)'
+        # ("no existe" / "no hay informacion": fuera de partida dijo que el
+        # aumento Locomotora "no existe" sin buscarlo.)
+        $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo|existe|hay (informacion|datos))'
         $esSuyo = $dec.personal
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
@@ -1281,11 +1330,15 @@ try {
             }
             # Sin fuentes en la adelantada (o sin adelantada): la busqueda
             # completa, con la consulta del modelo y la frase literal.
-            if (-not @($web.fuentes).Count) {
+            # Contando SIN nulos: con $web nulo, @($web.fuentes).Count vale 1 (la
+            # trampa de @($null)). Asi, sin busqueda adelantada, NUNCA se buscaba
+            # y se hacia una segunda pasada sin resultados: "capital de
+            # Australia" acababa en "nada confirmado".
+            if (-not @($web.fuentes | Where-Object { $_ }).Count) {
                 try { $otra = Buscar-Web @($consulta, $Pregunta); if ($otra) { $web = $otra } } catch { Write-Warning "no pude buscar: $_" }
             }
             Marca 'buscado'
-            $hayWeb = [bool]@($web.fuentes).Count
+            $hayWeb = [bool]@($web.fuentes | Where-Object { $_ }).Count
             if ($hayWeb) {
                 $memoria += "`n`n" + (Texto-Web $web)
                 $r = & $preguntar
@@ -1307,6 +1360,27 @@ try {
             }
         }
     }
+    # ---- Pullas: menos y variadas (retos del 2026-09-23) --------------------
+    #
+    # "Que lo diga cada vez lo hace ver sintetico" y "ya empieza a ser molesto
+    # mas que divertido": salia en todas, casi siempre con el molde "¿Y por que
+    # no...?" / "¿Y que esperabas...?". En codigo, no pidiendoselo al modelo:
+    #   - nunca en respuestas de datos (cifras, hora, metricas, lectura, web)
+    #   - nunca con ese molde
+    #   - nunca arrancando igual que alguna de las ultimas 6
+    #   - y aun asi, solo 1 de cada 3
+    $pulla = "$($d.pulla)".Trim()
+    if ($pulla) {
+        $fRecientes = "$Raiz\frases\.pullas-recientes"
+        $recientes = @(try { [IO.File]::ReadAllLines($fRecientes, [Text.Encoding]::UTF8) } catch { })
+        $arranque = ((Plano $pulla) -replace '[^a-z0-9 ]', ' ' -split '\s+' | Where-Object { $_ } | Select-Object -First 3) -join ' '
+        $esDato = $consulta -or $dec.metricas -or $dec.lectura -or "$($d.decir)" -match '\d' -or $Pregunta -match '(?i)\bhora\b|\bd[ií]a\b|fecha'
+        $molde = (Plano $pulla) -match '^\W*y\s+(por que|que esperabas|que tal|acaso)'
+        if ($esDato -or $molde -or ($recientes -contains $arranque) -or (Get-Random -Maximum 3) -ne 0) { $pulla = '' }
+        else { try { [IO.File]::WriteAllLines($fRecientes, [string[]](@($recientes) + $arranque | Select-Object -Last 6), [Text.UTF8Encoding]::new($false)) } catch { } }
+        $d | Add-Member -NotePropertyName pulla -NotePropertyValue $pulla -Force
+    }
+
     # Lo que se dice en voz alta y se ve en los subtitulos: los hechos y, detras,
     # la pulla.
     $dicho = (@("$($d.decir)".Trim(), "$($d.pulla)".Trim()) | Where-Object { $_ }) -join ' '
