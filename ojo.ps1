@@ -593,10 +593,15 @@ function Leer-Memoria($pregunta) {
 # probar-senalar.ps1. Si aparece una forma de preguntar por un sitio que no
 # esta aqui, el sintoma es que deja de apuntar cuando deberia -- se anade el
 # marcador y se vuelve a correr probar-senalar.
+#
+# SIN 'marca' ni 'muestra' sueltos (banco-pantalla, 2026-09-23): "¿cuantos
+# vatios MARCA la barra?" y "¿que MUESTRA?" son de LEER, y se trataban como
+# de senalar. Solo cuentan si abren la frase ("Marca el boton...", ver
+# Pregunta-De-Sitio).
 $MARCAS_SITIO = @(
     'donde', 'dónde', 'ubica', 'situa', 'sitúa', 'senala', 'señala', 'apunta',
-    'muestra', 'muestrame', 'muéstrame', 'ensena', 'enseña', 'localiza',
-    'resalta', 'marca', 'subraya', 'dibuja', 'en que parte', 'en qué parte',
+    'muestrame', 'muéstrame', 'ensena', 'enseña', 'localiza',
+    'resalta', 'marcame', 'márcame', 'subraya', 'dibuja', 'en que parte', 'en qué parte',
     'que boton', 'qué botón', 'cual boton', 'cuál botón', 'haz clic', 'pulsa',
     'click', 'clic', 'llevame', 'llévame'
 )
@@ -606,7 +611,8 @@ function Pregunta-De-Sitio([string]$q) {
     # los marcadores sin tilde siguen cazando la mayoria.
     $n = if (Get-Command Normalizar -ErrorAction SilentlyContinue) { Normalizar $q } else { $q.ToLower() }
     foreach ($m in $MARCAS_SITIO) { if ($n.Contains((Normalizar $m))) { return $true } }
-    $false
+    # "Marca el boton de enviar" / "Muestra donde...": imperativo al principio.
+    $q -match '(?i)^\W*(marca|muestra)\b'
 }
 
 # VRAM libre, en MiB. Devuelve -1 si no se puede leer, que es mejor que romper
@@ -724,8 +730,14 @@ function Texto-Pantalla($lineas) {
     $i = 0
     # El LADO va escrito: en los chats, a la derecha escribe el usuario y a la
     # izquierda la otra persona, y comparar numeros de x se le daba mal al 8B.
-    "`n`nTEXTO EN PANTALLA (OCR de la imagen a tamano real, exacto; N. [lado] texto @ x,y de 0 a 1):`n" +
-        ((@($lineas) | ForEach-Object {
+    #
+    # Con una imagen PEQUENA (menos de 1600 px de ancho) el OCR se equivoca: en
+    # la captura de referencia de 1280 leyo "22:27" donde pone 12:17, y el
+    # modelo se fiaba de el. Entonces se le avisa en vez de llamarlo exacto.
+    $fiable = -not $script:anchoNativa -or $script:anchoNativa -ge 1600
+    $cabecera = if ($fiable) { 'OCR de la imagen a tamano real, exacto' } else { 'OCR de una imagen PEQUENA: puede equivocarse en cifras; si no cuadra con lo que ves, di que no lo lees claro' }
+    "`n`nTEXTO EN PANTALLA ($cabecera; N. [lado] texto @ x,y de 0 a 1):`n" +
+        ((@($lineas) | Select-Object -First 120 | ForEach-Object {
             $i++
             $lado = if ($_.x -lt 0.45) { 'izq' } elseif ($_.x -gt 0.55) { 'der' } else { 'centro' }
             [string]::Format($inv, '{0}. [{1}] {2} @ {3:0.00},{4:0.00}', $i, $lado, $_.texto, $_.x, $_.y) }) -join "`n")
@@ -801,6 +813,57 @@ function Motivo-Sin-Web($web, [string]$consulta) {
     })
     if ($lista.Count) { "Ningún buscador me dio nada sobre «$consulta»: $($lista -join ', '). Prueba en un rato." }
     else { "Busqué «$consulta» y ningún buscador encontró nada." }
+}
+
+# La linea del OCR que la PREGUNTA nombra, para senalarla sin depender del
+# modelo. banco-pantalla (2026-09-23): a "senala el boton Guardar del panel
+# derecho" se enganchaba al titulo "Panel derecho" (lo que dijo el modelo) y
+# no al boton; y habia dos "Guardar". Palabras de 3+ letras de la pregunta
+# que no sean de relleno; las lineas que solo casan por el lado ("derecho")
+# se descartan, y el lado pedido desempata.
+function Linea-Por-Pregunta([string]$q, $ocr) {
+    $relleno = 'senala senalame donde pone esta boton barra indica panel ventana pantalla muestrame marca marcame ' +
+               'del las los una que por favor ahi aqui cual texto dice sale donde como para esa ese esto consumo'
+    $lados = 'derecha derecho izquierda izquierdo arriba abajo superior inferior'
+    $rel = $relleno -split ' '; $lad = $lados -split ' '
+    $pq = (Plano $q) -replace '[^a-z0-9 ]', ' '
+    $tokens = @($pq -split '\s+' | Where-Object { $_.Length -ge 3 -and $rel -notcontains $_ -and $lad -notcontains $_ } | Select-Object -Unique)
+    # Unidades: la pantalla no dice "vatios", dice "218W".
+    $unidad = if ($pq -match '\bvatios?\b|\bwatts?\b') { '^\d+([.,]\d+)?w$' }
+              elseif ($pq -match '\bporcentaje\b') { '%$' }
+              elseif ($pq -match '\btemperatura\b') { '°' }
+    # Pide el VALOR de una etiqueta ("el porcentaje de RAM"): se apunta al
+    # numero que la sigue, no a la etiqueta.
+    $pideValor = $pq -match '\b(porcentaje|valor|cifra|numero|cuanto|cuanta)\b'
+    # Casa exacta o a una letra (el OCR lee "Deiame" por "Dejame").
+    $casaTok = { param($w) @($tokens | Where-Object { $_ -eq $w -or ($_.Length -ge 5 -and [math]::Abs($_.Length - $w.Length) -le 1 -and (Distancia-Corta $_ $w) -le 1) }).Count }
+    $cand = @(foreach ($l in $ocr) {
+        $pal = @($l.palabras); if (-not $pal.Count) { $pal = @($l) }
+        for ($i = 0; $i -lt $pal.Count; $i++) {
+            $w = ((Plano $pal[$i].texto) -replace '[^a-z0-9%° ]', '').Trim()
+            if (-not $w -or $lad -contains $w) { continue }
+            $casa = & $casaTok $w
+            # La unidad puntua, pero en una linea que TAMBIEN nombra lo pedido
+            # pesa mas: "porcentaje de RAM" se iba a un "25%" de la terminal.
+            $lineaNombra = @(((Plano $l.texto) -split '[^a-z0-9]+') | Where-Object { $_ -and (& $casaTok $_) }).Count
+            if ($unidad -and $w -match $unidad) { $casa += 1 + [int][bool]$lineaNombra * 2 }
+            if (-not $casa) { continue }
+            $obj = $pal[$i]
+            if ($pideValor -and -not $unidad -and $i + 1 -lt $pal.Count -and $pal[$i + 1].texto -match '\d') { $obj = $pal[$i + 1] }
+            # Una linea que solo casa por el lado ("Panel derecho") no vale.
+            $linPl = (Plano $l.texto) -split '[^a-z0-9]+'
+            if (@($linPl | Where-Object { $lad -contains $_ }).Count -and $casa -lt 2) { continue }
+            [pscustomobject]@{ l = [pscustomobject]@{ texto = $pal[$i].texto; x = $obj.x; y = $obj.y; w = $obj.w; h = $obj.h }; casa = $casa }
+        }
+    })
+    if (-not $cand.Count) { return $null }
+    $max = ($cand | Measure-Object casa -Maximum).Maximum
+    $cand = @($cand | Where-Object casa -eq $max | ForEach-Object l)
+    if ($pq -match '\bderech') { $cand = @($cand | Sort-Object x -Descending) }
+    elseif ($pq -match '\bizquierd') { $cand = @($cand | Sort-Object x) }
+    elseif ($pq -match '\b(abajo|inferior)\b') { $cand = @($cand | Sort-Object y -Descending) }
+    elseif ($pq -match '\b(arriba|superior)\b') { $cand = @($cand | Sort-Object y) }
+    $cand[0]
 }
 
 # El chat de la pantalla, ya masticado: el ultimo mensaje de cada lado.
@@ -1200,7 +1263,20 @@ if (-not $hayPartida -and $conVision) {
     # viejas se borran; la que siga abierta, se queda para la proxima.
     Get-ChildItem $env:TEMP -Filter 'ojo-nativa-*.bmp' -EA SilentlyContinue | Remove-Item -EA SilentlyContinue
     $nativa = Join-Path $env:TEMP "ojo-nativa-$PID-$([Environment]::TickCount).bmp"
-    if ($Imagen) { $tmp = (Resolve-Path $Imagen).Path; $nativa = $tmp }
+    if ($Imagen) {
+        # Como la captura: el OCR lee la imagen a tamano real y el modelo la
+        # recibe reducida a 1280 de lado mayor (si no, el banco probaria otra
+        # cosa que lo que ve Ojo de verdad).
+        $nativa = (Resolve-Path $Imagen).Path
+        Add-Type -AssemblyName System.Drawing
+        $src = [Drawing.Image]::FromFile($nativa)
+        $script:anchoNativa = $src.Width
+        $k = [math]::Min(1.0, 1280.0 / [math]::Max($src.Width, $src.Height))
+        $red = New-Object Drawing.Bitmap ([int]($src.Width * $k)), ([int]($src.Height * $k))
+        $gr = [Drawing.Graphics]::FromImage($red); $gr.InterpolationMode = 'HighQualityBicubic'
+        $gr.DrawImage($src, 0, 0, $red.Width, $red.Height); $gr.Dispose(); $src.Dispose()
+        $red.Save($tmp, [Drawing.Imaging.ImageFormat]::Jpeg); $red.Dispose()
+    }
     else { & $captura --salida $tmp --nativa $nativa | Out-Null }
 }
 $tc.Stop()
@@ -1259,7 +1335,9 @@ try {
     if (-not $hayPartida -and $dec.workspaces) {
         try { $memoria += Leer-Workspaces } catch { Write-Warning "no pude leer los workspaces: $_" }
     }
-    $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:$dec.metricas
+    # Con -Imagen (pruebas) sin hechos del sistema: la imagen es de otro momento,
+    # y el modelo contestaba la RAM y la hora de AHORA en vez de las de la imagen.
+    if (-not $Imagen) { $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:$dec.metricas }
     # Su perfil y el de su PC, siempre (perfil.ps1): que no adivine lo que se
     # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de
     # escritorio sin bateria.
@@ -1273,7 +1351,9 @@ try {
             $personas = Leer-Personas
             $nombresDichos = @(Nombres-Directos $Pregunta $personas)
             $pt = Personas-Texto $Pregunta $personas
-            $memoria += $pt.texto + (Historial-Texto)
+            # (con -Imagen, sin historial: en el banco, "las 22:27" de una
+            # respuesta anterior se colaba como la hora de la imagen)
+            $memoria += $pt.texto + $(if (-not $Imagen) { Historial-Texto })
             # Respuestas FIJAS, sin modelo, donde el modelo se liaba (prueba del
             # 2026-09-23): a "Me llamo Bishop" contesto "Me llamo Bishop, segun
             # tu ficha" como si fuera el; a "¿que sabes de Melly?" le atribuyo
@@ -1307,7 +1387,10 @@ try {
     $to = [Diagnostics.Stopwatch]::new()
     $leerPantalla = {
         $to.Start()
-        try { . "$Raiz\ocr.ps1"; $ocr = @(Leer-Palabras $nativa 'es-MX' 2 | Select-Object -First 80) }
+        # TODAS las lineas (antes se cortaba en 80 y en una pantalla con mucho
+        # texto se perdia justo lo de abajo: "Dejame ver..." no se podia
+        # senalar). Al modelo le llegan como mucho 120 (Texto-Pantalla).
+        try { . "$Raiz\ocr.ps1"; $ocr = @(Leer-Palabras $nativa 'es-MX' 2) }
         catch { Write-Warning "no pude leer la pantalla: $_" }
         $to.Stop()
         $memoria += Texto-Pantalla $ocr
@@ -1372,6 +1455,26 @@ try {
             . $leerPantalla
             $faltan = @(Verificar-Decir $d.decir (& $evidencia))
         }
+        # Pregunta de PANTALLA y lo dicho sigue sin casar con el OCR: segunda
+        # pasada con el contraste estirado (texto gris sobre gris) y se
+        # repregunta con lo nuevo. Si ni asi, lo dice (abajo, sin_pantalla).
+        $sinPantalla = $false
+        if ($faltan.Count -and $nativa -and ($dec.lectura -or $dec.sitio)) {
+            try {
+                . "$Raiz\ocr.ps1"
+                $vistos = @($ocr | ForEach-Object { (Plano $_.texto) -replace '\s', '' })
+                $nuevas = @(Leer-Contraste $nativa | Where-Object { $vistos -notcontains ((Plano $_.texto) -replace '\s', '') })
+                if ($nuevas.Count) {
+                    $memoria += "`n`nTEXTO EN PANTALLA, SEGUNDA LECTURA (contraste aumentado; lineas que la primera no leyo):`n" +
+                                (($nuevas | ForEach-Object { "- $($_.texto)" }) -join "`n")
+                    $r = & $preguntar
+                    $d = & $leerRespuesta $r
+                    $faltan = @(Verificar-Decir $d.decir (& $evidencia))
+                    Marca 'segunda_lectura'
+                }
+            } catch { Write-Warning "segunda lectura: $_" }
+            $sinPantalla = [bool]$faltan.Count
+        }
         # Un "no puedo / no se" tambien se busca: la regla es buscar, no rendirse.
         # Salvo si la pregunta es de SUS cosas (su correo, sus archivos, su
         # pantalla): ahi internet no sabe nada y "no tengo acceso" es la verdad.
@@ -1380,7 +1483,10 @@ try {
         $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo|existe|hay (informacion|datos))'
         # Tambien si nombra a alguien de su vida o pide tema: "¿que sabes de
         # Melly?" busco en internet y contesto con un rapero.
-        $esSuyo = $dec.personal -or ($pt -and ($pt.ids.Count -or $pt.tema)) -or $nombresDichos.Count
+        # Y las preguntas de PANTALLA (leer, senalar): lo que no esta en la
+        # pantalla no esta en internet ("¿que codigo pone en la nota gris?"
+        # acababa buscando en la web).
+        $esSuyo = $dec.personal -or $dec.lectura -or $dec.sitio -or ($pt -and ($pt.ids.Count -or $pt.tema)) -or $nombresDichos.Count
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
         # (Se probo a contestar SIEMPRE con la web en las preguntas de
@@ -1400,7 +1506,9 @@ try {
         # Se deja la respuesta (puede ser una lectura buena de la imagen) y se
         # avisa de lo que no se pudo comprobar, sin pulla.
         if ($esSuyo -and $faltan.Count) {
-            $d | Add-Member -NotePropertyName decir -NotePropertyValue "$($d.decir.TrimEnd()) (No pude comprobar: $($faltan -join ', '))." -Force
+            $aviso = if ($sinPantalla) { "No lo leo con claridad en la pantalla: $($faltan -join ', ') no lo pude confirmar. Acércalo o hazle zoom y vuelvo a mirar." }
+                     else { "$($d.decir.TrimEnd()) (No pude comprobar: $($faltan -join ', '))." }
+            $d | Add-Member -NotePropertyName decir -NotePropertyValue $aviso -Force
             $d | Add-Member -NotePropertyName pulla -NotePropertyValue $null -Force
         }
         if ($consulta) {
@@ -1532,6 +1640,11 @@ try {
         $c = $controles[$d.control - 1]
         $punto = @($c.x, $c.y)
         $via = "control $($d.control) '$($c.nombre)'"
+    } elseif ($deSitio -and $ocr.Count -and ($tPreg = Linea-Por-Pregunta $Pregunta $ocr)) {
+        # La linea que nombra la PREGUNTA gana a la que elija el modelo.
+        $c = [pscustomobject]@{ x = $tPreg.x; y = $tPreg.y; w = $tPreg.w; h = $tPreg.h; nombre = $tPreg.texto }
+        $punto = @($c.x, $c.y)
+        $via = "texto de la pregunta '$($tPreg.texto)'"
     } elseif ($d.texto -and $d.texto -ge 1 -and $d.texto -le $ocr.Count) {
         # Una linea del OCR: su rectangulo sale de la imagen a tamano real, tan
         # exacto como el de un control. Mismo formato que un control para la caja.
@@ -1540,9 +1653,11 @@ try {
         $punto = @($c.x, $c.y)
         $via = "texto $($d.texto) '$($t.texto)'"
     } elseif ($deSitio -and $ocr.Count -and ($tDicho = @($ocr | Where-Object {
-                # Sin espacios: el OCR lee el reloj como "12 : 44".
+                # Sin espacios: el OCR lee el reloj como "12 : 44". Y como palabra
+                # entera: "SUPER" (de "RTX 4070 SUPER") casaba dentro de "barra
+                # SUPERior" y senalaba la terminal.
                 $t = (Plano $_.texto) -replace '\s', ''
-                $t.Length -ge 3 -and ((Plano $d.decir) -replace '\s', '').Contains($t) } |
+                $t.Length -ge 3 -and ((Plano $d.decir) -replace '\s', '') -match "(?<![a-z0-9])$([regex]::Escape($t))(?![a-z0-9])" } |
                                                       Sort-Object { $_.texto.Length } -Descending | Select-Object -First 1)[0])) {
         # Pide un sitio y lo que dice CONTIENE el texto de una linea del OCR
         # ("el reloj marca 12:43"): se senala esa linea, con su rectangulo real.
@@ -1685,7 +1800,7 @@ try {
     # problema. Se sigue imprimiendo la linea para poder verla en la consola,
     # pero quien manda es el archivo.
     # La conversacion reciente, para la proxima pregunta ("¿y ella?").
-    try { if (Get-Command Apuntar-Historial -EA SilentlyContinue) { Apuntar-Historial $Pregunta $dicho } } catch { }
+    try { if (-not $Imagen -and (Get-Command Apuntar-Historial -EA SilentlyContinue)) { Apuntar-Historial $Pregunta $dicho } } catch { }
     $medidaJson = $medida | ConvertTo-Json -Depth 4 -Compress
     [IO.File]::WriteAllText("$Raiz\ultima-medida.json", $medidaJson, [Text.UTF8Encoding]::new($false))
     "MEDIDA $medidaJson"

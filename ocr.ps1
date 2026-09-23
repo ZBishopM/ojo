@@ -71,10 +71,46 @@ function Leer-Palabras([string]$ruta, [string]$idioma = 'es-MX', [double]$escala
             $x1 = ($rs | Measure-Object X -Minimum).Minimum; $y1 = ($rs | Measure-Object Y -Minimum).Minimum
             $x2 = ($rs | ForEach-Object { $_.X + $_.Width } | Measure-Object -Maximum).Maximum
             $y2 = ($rs | ForEach-Object { $_.Y + $_.Height } | Measure-Object -Maximum).Maximum
+            # Y cada PALABRA con su rectangulo: una barra de estado entera sale
+            # como UNA linea ("218W 0.75kWh ... RAM 45% CPU ..."), y senalar su
+            # centro no es senalar "RAM".
+            $palabras = @($_.Words | ForEach-Object {
+                $b = $_.BoundingRect
+                [pscustomobject]@{ texto = $_.Text; x = ($b.X + $b.Width / 2) / $W; y = ($b.Y + $b.Height / 2) / $H; w = $b.Width / $W; h = $b.Height / $H }
+            })
             [pscustomobject]@{ texto = $_.Text; x = ($x1 + $x2) / 2 / $W; y = ($y1 + $y2) / 2 / $H
-                               w = ($x2 - $x1) / $W; h = ($y2 - $y1) / $H }
+                               w = ($x2 - $x1) / $W; h = ($y2 - $y1) / $H; palabras = $palabras }
         })
     } finally { $s.Dispose() }
+}
+
+# Segunda oportunidad para texto de BAJO CONTRASTE (gris sobre gris): la imagen
+# en grises con el contraste estirado alrededor de su brillo medio, y otra
+# pasada de OCR. banco-pantalla (2026-09-23): "Codigo de acceso: 7169-B" en gris
+# sobre gris no salia en la primera pasada. Con ColorMatrix de GDI+ (rapido):
+# recorrer 3,7 millones de pixeles en PowerShell no es opcion.
+function Leer-Contraste([string]$ruta, [double]$factor = 3.0) {
+    Add-Type -AssemblyName System.Drawing
+    $src = [Drawing.Bitmap]::FromFile((Resolve-Path $ruta).Path)
+    # Brillo medio, de una miniatura (2.304 pixeles).
+    $mini = New-Object Drawing.Bitmap $src, 64, 36
+    $suma = 0.0
+    for ($y = 0; $y -lt 36; $y++) { for ($x = 0; $x -lt 64; $x++) { $c = $mini.GetPixel($x, $y); $suma += (0.299 * $c.R + 0.587 * $c.G + 0.114 * $c.B) / 255 } }
+    $mini.Dispose()
+    $m = $suma / (64 * 36)
+    # Grises y contraste x$factor centrado en el brillo medio: (v - m) * f + m.
+    $gr = 0.299 * $factor; $gg = 0.587 * $factor; $gb = 0.114 * $factor; $off = $m * (1 - $factor)
+    $cm = New-Object Drawing.Imaging.ColorMatrix(,[single[][]]@(
+        [single[]]@($gr, $gr, $gr, 0, 0), [single[]]@($gg, $gg, $gg, 0, 0), [single[]]@($gb, $gb, $gb, 0, 0),
+        [single[]]@(0, 0, 0, 1, 0), [single[]]@($off, $off, $off, 0, 1)))
+    $ia = New-Object Drawing.Imaging.ImageAttributes; $ia.SetColorMatrix($cm)
+    $dst = New-Object Drawing.Bitmap $src.Width, $src.Height
+    $g = [Drawing.Graphics]::FromImage($dst)
+    $g.DrawImage($src, (New-Object Drawing.Rectangle 0, 0, $src.Width, $src.Height), 0, 0, $src.Width, $src.Height, [Drawing.GraphicsUnit]::Pixel, $ia)
+    $g.Dispose(); $src.Dispose()
+    $tmp = Join-Path $env:TEMP "ojo-contraste-$PID-$([Environment]::TickCount).bmp"
+    $dst.Save($tmp, [Drawing.Imaging.ImageFormat]::Bmp); $dst.Dispose()
+    Leer-Palabras $tmp 'es-MX' 2
 }
 
 if ($MyInvocation.InvocationName -eq '.') { return }
