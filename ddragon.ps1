@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 $DDragonIdioma = 'es_MX'
 $DDragonCache = Join-Path $PSScriptRoot 'ddragon'
 # Sube cuando cambia lo que se guarda: una cache vieja no se lee como buena.
-$DDragonFormato = 'formato-v8'
+$DDragonFormato = 'formato-v9'
 
 # PowerShell 5.1 corre sobre un .NET que por defecto solo ofrece SSL3 y TLS 1.0,
 # y el CDN de Riot los rechaza ("Se ha terminado la conexion: Error inesperado
@@ -119,9 +119,16 @@ function Build-DDragonCache($parche) {
     $porNumero = @{}
     foreach ($p in $c.data.PSObject.Properties) { $porNumero[[string]$p.Value.key] = $p.Value.name }
     $aumId = @{}
+    # Y por CLAVE interna ("Marksmage", "ARAM_TankEngine"): es como las
+    # nombran las paginas de builds en sus imagenes (ver builds.ps1).
+    $aumClave = @{}
     try {
         $ca = Bajar-Json 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/es_mx/v1/cherry-augments.json'
-        foreach ($a in @($ca)) { if ($a.nameTRA) { $aumId[[string]$a.id] = $a.nameTRA } }
+        foreach ($a in $ca) {
+            if (-not $a.nameTRA) { continue }
+            $aumId[[string]$a.id] = $a.nameTRA
+            $aumClave[($a.augmentNameId -replace '^ARAM_', '').ToLowerInvariant()] = $a.nameTRA
+        }
     } catch { }
 
     $destino = Join-Path $DDragonCache $parche
@@ -131,6 +138,7 @@ function Build-DDragonCache($parche) {
     Guardar (Join-Path $destino 'campeones-por-numero.json') $porNumero
     Guardar (Join-Path $destino 'aumentos.json') (Build-Aumentos)
     Guardar (Join-Path $destino 'aumentos-por-numero.json') $aumId
+    Guardar (Join-Path $destino 'aumentos-por-clave.json') $aumClave
     Set-Content (Join-Path $destino $DDragonFormato) 'ok'
     $destino
 }
@@ -201,7 +209,8 @@ function Build-Aumentos {
 function Leer-Cache($dir) {
     $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
     @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json')
-       campeones_n = (& $leer 'campeones-por-numero.json'); aumentos_n = (& $leer 'aumentos-por-numero.json') }
+       campeones_n = (& $leer 'campeones-por-numero.json'); aumentos_n = (& $leer 'aumentos-por-numero.json')
+       aumentos_k = (& $leer 'aumentos-por-clave.json'); dir = $dir }
 }
 
 # La cache mas reciente en disco, SIN red. Solo si no hay ninguna se baja, que

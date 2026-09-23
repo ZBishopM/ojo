@@ -373,6 +373,9 @@ Reglas:
   ni digas nada del meta o del parche que no venga en los datos.
 - "aumentos_mencionados" son aumentos (no items) y lo que hacen.
 - "mis_aumentos" son los aumentos que el usuario ya eligio en esta partida.
+- "build_popular" es la build que mas se juega ahora con su campeon, sacada de
+  la web. Si la usas, di la fuente ("segun op.gg"). Es lo unico de meta que
+  puedes afirmar. Nunca des porcentajes de victoria de aumentos.
 - Si los datos dicen "PARTIDA YA TERMINADA", son de la ultima partida: habla
   en pasado y usa resultado, KDA, dano, items y aumentos de ahi.
 - "campeones_mencionados" son los campeones de la partida que nombro el
@@ -691,6 +694,25 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                 $respuestaFija = "Anotado: $($nuevos -join ' y '). Llevas $(@($notas.aumentos).Count): $(@($notas.aumentos) -join ', ')."
             }
             if (@($notas.aumentos).Count) { $hp['mis_aumentos'] = @($notas.aumentos) }
+
+            # ---- La build que se esta jugando, de la web (builds.ps1) ---------
+            #
+            # La primera lectura tarda ~8 s: en mitad de una partida no se
+            # espera. Si esta en cache (una por campeon, modo y parche) va en los
+            # datos; si no, se baja EN SEGUNDO PLANO y estara para la siguiente
+            # pregunta. Sin redirecciones: no hereda nada de este proceso.
+            try {
+                . "$Raiz\builds.ps1"
+                $miRaw = (@($datosLol.allPlayers) | Where-Object { $_.championName -eq $hp.mi_campeon } | Select-Object -First 1).rawChampionName
+                $modoLol = "$($datosLol.gameData.gameMode)"
+                $bp = if ($miRaw) { Get-BuildCacheada $miRaw $modoLol $catLol }
+                if ($bp) {
+                    $hp['build_popular'] = [ordered]@{ fuente = $bp.fuente; nucleo = $bp.nucleo; botas = $bp.botas }
+                    if (@($bp.aumentos).Count) { $hp['build_popular']['aumentos_recomendados'] = $bp.aumentos }
+                } elseif ($miRaw) {
+                    Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$Raiz\builds.ps1", $miRaw, $modoLol -WindowStyle Hidden
+                }
+            } catch { }
 
             $partida = $hp | ConvertTo-Json -Depth 6 -Compress
             $hayPartida = $true
