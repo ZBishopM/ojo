@@ -373,6 +373,9 @@ Reglas:
   ni digas nada del meta o del parche que no venga en los datos.
 - "aumentos_mencionados" son aumentos (no items) y lo que hacen.
 - "mis_aumentos" son los aumentos que el usuario ya eligio en esta partida.
+- "aumentos_en_pantalla" son los aumentos que le ofrecen AHORA, leidos de su
+  pantalla. Recomienda UNO de ellos, mejor si esta en los recomendados de
+  "build_popular", y di por que en una frase con lo que hace.
 - "build_popular" es la build que mas se juega ahora con su campeon, sacada de
   la web. Si la usas, di la fuente ("segun op.gg"). Es lo unico de meta que
   puedes afirmar. Nunca des porcentajes de victoria de aumentos.
@@ -694,6 +697,35 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                 $respuestaFija = "Anotado: $($nuevos -join ' y '). Llevas $(@($notas.aumentos).Count): $(@($notas.aumentos) -join ', ')."
             }
             if (@($notas.aumentos).Count) { $hp['mis_aumentos'] = @($notas.aumentos) }
+
+            # ---- Los aumentos que te OFRECEN ahora, leidos de la pantalla -----
+            #
+            # EXPERIMENTAL. En Mayhem la eleccion sale al inicio y en los niveles
+            # 7, 11 y 15, y ni la API de la partida ni el cliente la cuentan.
+            # Si la pregunta va de elegir aumento, se captura la pantalla a
+            # resolucion completa (la del modelo esta reducida a 1280 y el OCR
+            # empeora) y se lee con el OCR de Windows (es-MX, sin VRAM).
+            #
+            # La captura se GUARDA en prueba-lol\eleccion-*.png: aun no hay una
+            # muestra real de esa pantalla, y con la primera se afina esto.
+            # Sobre el HUD normal el OCR leyo "iT6rrega erfe rul da!" por
+            # "Torreta enemiga destruida": sin muestra no se da por bueno.
+            if ($Pregunta -match '(?i)aument' -and $Pregunta -match '(?i)cu[aá]l|elij|escoj|ofrec|estos|me (dan|salen)|elegir|escoger') {
+                try {
+                    Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+                    $pant = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+                    $img = New-Object Drawing.Bitmap $pant.Width, $pant.Height
+                    $g = [Drawing.Graphics]::FromImage($img)
+                    $g.CopyFromScreen($pant.Location, [Drawing.Point]::Empty, $pant.Size)
+                    $g.Dispose()
+                    $muestraEleccion = "$Raiz\prueba-lol\eleccion-{0:yyyyMMdd-HHmmss}.png" -f (Get-Date)
+                    $img.Save($muestraEleccion, [Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
+                    . "$Raiz\ocr.ps1"
+                    $texto = (Leer-Texto $muestraEleccion) -join "`n"
+                    $ofrecidos = @(Buscar-Aumentos $catLol $texto)
+                    if ($ofrecidos.Count) { $hp['aumentos_en_pantalla'] = $ofrecidos }
+                } catch { Write-Warning "no pude leer la pantalla: $_" }
+            }
 
             # ---- La build que se esta jugando, de la web (builds.ps1) ---------
             #

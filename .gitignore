@@ -23,3 +23,6 @@ ddragon/
 
 # Notas de cada partida (aumentos elegidos): son del usuario, no del codigo.
 partidas/
+
+# Capturas de la pantalla de eleccion de aumentos: son de las partidas del usuario.
+prueba-lol/eleccion-*.png
