@@ -40,3 +40,5 @@ web-cache/
 
 # El humor aprendido cada dia (humor.ps1): se rehace solo.
 humor/
+
+__pycache__/
