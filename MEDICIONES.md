@@ -1708,3 +1708,28 @@ rival?»), visión leer 8/10 y señalar 8/12.
 
 **Hearthstone: 406 MiB de VRAM** (medido con el juego abierto). Sale de la
 lista del supervisor: Ojo conserva la visión ahí.
+
+## Decisiones tipadas «a lo Jev» contra reglas (2026-09-23)
+
+Jev (TypeSafe AI, acceso anticipado desde el 15-09-2026) devuelve decisiones
+con tipo y probabilidad en vez de texto. Es de nube, con lista de espera y
+solo texto: se probó el PATRÓN con el modelo local (`decidir.ps1`: esquema
+JSON + logprobs, entrada solo la pregunta) contra `Decidir-Con-Reglas`, en
+`banco-decidir.ps1` (49 preguntas × 7 decisiones, etiquetas a mano):
+
+| | aciertos | ms |
+|---|---|---|
+| reglas | 314/343 (91,5%) | ~0 |
+| modelo tipado (8B) | 317/343 (92,4%) | 939 (mediana) |
+| reglas corregidas con lo que cazó el banco | 321/343 | ~0 |
+
+Criterio previo (ganar y < 200 ms): no entra. Y su confianza no avisa:
+muchos fallos llevan 1,0. Las reglas corregidas se ajustaron sobre este mismo
+banco: parte es sobreajuste.
+
+## Enganche al texto dicho
+
+A «¿dónde está el reloj?» decía «superior izquierda» (está en el centro) sin
+señalar nada. Si pide un sitio y lo dicho contiene una línea del OCR
+(comparando sin espacios: el OCR lee «12 : 44»), se señala esa línea:
+(0,49; 0,01), el reloj.
