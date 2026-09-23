@@ -1,0 +1,12 @@
+﻿# Palabras que el oído escribe mal, y cómo son de verdad.
+# Formato: CORRECTO = como lo escribe el oído, otra forma, ...
+# Se aplica a la transcripción ANTES de pasársela a Ojo (hablar.ps1), por
+# palabra entera y sin distinguir mayúsculas. Añade aquí lo que veas fallar en
+# sesion.csv (columna frase: "corregida (oído: original)").
+#
+# Retos del 2026-09-23: "¿Cuánto virra me estoy usando?" y "la comunidad de Yoyos".
+VRAM = virra, birra, vira, vi ram, uve ram, bram, vram
+JoJo = yoyos, yoyo's, yoyo, jojos
+GlazeWM = glaze wm, gleis wm, glace wm
+WezTerm = wes term, west term, wez term
+ARAM = a ram, aram

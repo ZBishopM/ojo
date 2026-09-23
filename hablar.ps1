@@ -50,6 +50,22 @@ if (-not $texto) {
     exit 0
 }
 
+# El VOCABULARIO: palabras que el oido escribe mal (vocabulario.txt). En los
+# retos del 2026-09-23, "VRAM" llego como "virra" y no activo las metricas del
+# sistema, y "JoJo" como "Yoyos". Por palabra entera, sin mayusculas.
+$oido = $texto
+try {
+    foreach ($l in [IO.File]::ReadAllLines("$Raiz\vocabulario.txt", [Text.Encoding]::UTF8)) {
+        if ($l -match '^\s*#' -or $l -notmatch '=') { continue }
+        $bien, $malos = $l -split '=', 2
+        foreach ($m in ($malos -split ',')) {
+            $m = $m.Trim(); if (-not $m) { continue }
+            $texto = [regex]::Replace($texto, "(?i)(?<![\p{L}\d])$([regex]::Escape($m))(?![\p{L}\d])", $bien.Trim())
+        }
+    }
+} catch { Apuntar "sin vocabulario: $_" }
+if ($texto -ne $oido) { Apuntar "vocabulario: '$oido' -> '$texto'" }
+
 if ($SoloTexto) { $texto; exit 0 }
 
 # El reloj arranca AL SOLTAR LA TECLA, que es cuando empieza la espera del
@@ -92,7 +108,9 @@ if ($crudo) {
         $hastaDibujo = [int](([DateTimeOffset]::FromUnixTimeMilliseconds($j.fin_epoch_ms)).LocalDateTime - $t0).TotalMilliseconds
         $fila = [pscustomobject]@{
             hora            = (Get-Date).ToString('HH:mm:ss')
-            frase           = $j.pregunta
+            # Con lo que escribio el oido si el vocabulario lo corrigio: asi se
+            # ve en el CSV que palabras falla (y se anaden a vocabulario.txt).
+            frase           = if ($texto -ne $oido) { "$($j.pregunta) (oído: $oido)" } else { $j.pregunta }
             modelo          = $j.modelo
             audio_s         = $r.segundos
             stt_ms          = $r.ms

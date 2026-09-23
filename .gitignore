@@ -45,3 +45,10 @@ __pycache__/
 
 # La ultima frase dicha de cada momento (para no repetirla): estado de uso.
 frases/.ultima-*
+frases/.pullas-recientes
+
+# Datos personales del usuario: su perfil, su memoria de personas y la
+# conversacion reciente. Se generan y se aprenden solos.
+perfil.json
+personas/
+historial.json

@@ -340,7 +340,10 @@ con un unico objeto JSON, sin texto alrededor y sin bloques de codigo.
  "dibujar": [{"tipo":"caja","x":0.0,"y":0.0,"w":0.0,"h":0.0}]}
 
 De donde sale lo que dices, de mas fiable a menos:
-1. HECHOS VERIFICADOS (hora, fecha, ventana activa): exactos, del sistema.
+1. HECHOS VERIFICADOS (hora, fecha, ventana activa) y PERFIL (su equipo, donde
+   vive, que juega y usa): exactos. Usalos SOLO si la pregunta los pide: no
+   digas la hora si no te la preguntan. Nunca supongas otro equipo (no tiene
+   bateria: es un PC de escritorio).
 2. TEXTO EN PANTALLA (OCR a tamano real) y LISTA DE CONTROLES: exactos.
 3. RESULTADOS WEB: actuales; si los usas, di la fuente ("segun ...").
 4. Lo que ves en la imagen (reducida: las cifras pequenas pueden enganarte;
@@ -436,7 +439,8 @@ Reglas:
 - Para "que me hago / que saco contra X": di la "defensa_que_conviene" y
   nombra items de la lista "..._que_te_llega" de ese tipo, con su precio.
   "el_usuario_dice" (por ejemplo "Jax va AP") ya esta tenido en cuenta ahi.
-- "hora" y "fecha" de HECHOS VERIFICADOS son las del sistema: exactas.
+- "hora" y "fecha" de HECHOS VERIFICADOS son las del sistema: exactas. Usalas
+  solo si la pregunta las pide.
 - Horas, fechas y cantidades en CIFRAS ("12:09", "3500"), no en letra.
 
 Caracter: una IA de laboratorio sarcastica, al estilo de GLaDOS. Seca e
@@ -1168,6 +1172,10 @@ try {
         try { $memoria += Leer-Workspaces } catch { Write-Warning "no pude leer los workspaces: $_" }
     }
     $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:$dec.metricas
+    # Su perfil y el de su PC, siempre (perfil.ps1): que no adivine lo que se
+    # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de
+    # escritorio sin bateria.
+    try { . "$Raiz\perfil.ps1"; $memoria += Perfil-Texto } catch { Write-Warning "sin perfil: $_" }
 
     # El texto de la pantalla a tamano real, si la pregunta es de leer o de
     # ubicar algo. ~450 ms (OCR de Windows sobre la captura ampliada x2: a x1
