@@ -36,6 +36,25 @@ $BUILDS_URL = @{
     ARAM    = 'https://op.gg/lol/modes/aram/{0}/build'
     CLASSIC = 'https://op.gg/lol/champions/{0}/build'
 }
+# La CLASIFICACION ENTERA de aumentos para el campeon (solo Mayhem): la pagina
+# de build trae 10, y en cada eleccion te ofrecen 3 de 291 -- casi nunca
+# estarian. Esta trae ~170, en el orden en que op.gg los clasifica. Se usa solo
+# el ORDEN, nunca porcentajes (politica de Riot).
+$BUILDS_URL_AUMENTOS = 'https://op.gg/lol/modes/aram-mayhem/{0}/augments'
+
+# Aumentos de una pagina, en orden de primera aparicion, traducidos al nombre
+# del cliente (es_MX) por su clave interna.
+function Aumentos-De($html, $cat) {
+    # Cada imagen lleva alt="<nombre en ingles>" y la clave en la ruta. Se
+    # traduce por la clave y, si no esta, por el nombre ingles.
+    @([regex]::Matches($html, '<img alt="([^"]*)"[^>]*?aram-augment/([A-Za-z0-9_]+?)_(?:large|small)\.png') |
+      ForEach-Object {
+          $clave = ($_.Groups[2].Value.ToLowerInvariant()) -replace '^aram_', '' -replace '^quest_?', ''
+          $es = $cat.aumentos_k.$clave
+          if (-not $es) { $es = $cat.aumentos_en.((Normalizar-Texto ([Net.WebUtility]::HtmlDecode($_.Groups[1].Value))).Trim()) }
+          $es
+      } | Where-Object { $_ } | Select-Object -Unique)
+}
 $BUILDS_NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
 # El HTML de la pagina, en UTF-8, por curl (como el resto: sin tocar el
@@ -104,22 +123,40 @@ function Archivo-Build($campeon, $modo, $cat) {
 
 # Solo la cache: para contestar YA, sin esperar a la web (la primera lectura
 # tarda ~8 s). Si no esta, $null.
+# En Mayhem, una build sin la clasificacion de aumentos es de antes de que se
+# leyera: cuenta como que no esta, y se vuelve a bajar.
 function Get-BuildCacheada($campeon, $modo, $cat) {
     $f = Archivo-Build $campeon $modo $cat
-    if (Test-Path $f) { [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+    if (-not (Test-Path $f)) { return }
+    $b = [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    if ($modo -eq 'KIWI' -and -not @($b.ranking_aumentos).Count) { return }
+    $b
+}
+
+# De los aumentos que ofrecen ("Nombre: resumen"), el mejor clasificado por
+# op.gg para el campeon. $null si ninguno esta en la clasificacion.
+function Elegir-Aumento($ofrecidos, $ranking) {
+    $ranking = @($ranking)
+    @($ofrecidos) | ForEach-Object { [pscustomobject]@{ texto = $_; puesto = [array]::IndexOf($ranking, ($_ -split ':')[0]) } } |
+        Where-Object { $_.puesto -ge 0 } | Sort-Object puesto | Select-Object -First 1
 }
 
 function Get-Build($campeon, $modo, $cat) {
     $modo = if ($BUILDS_URL[$modo]) { $modo } else { 'CLASSIC' }
     $slug = Slug-Campeon $campeon
     $f = Archivo-Build $campeon $modo $cat
-    if (Test-Path $f) { return [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+    $b = Get-BuildCacheada $campeon $modo $cat
+    if ($b) { return $b }
     $url = $BUILDS_URL[$modo] -f $slug
     $html = Bajar-Pagina $url
     if (-not $html) { return $null }
     $b = Leer-Build $html $cat
     if (-not $b.nucleo.Count) { return $null }     # pagina cambiada o vacia: no se cachea basura
     $b['fuente'] = "op.gg, parche $($cat.parche)"
+    if ($modo -eq 'KIWI') {
+        $ha = Bajar-Pagina ($BUILDS_URL_AUMENTOS -f $slug)
+        if ($ha) { $b['ranking_aumentos'] = @(Aumentos-De $ha $cat) }
+    }
     [IO.File]::WriteAllText($f, ($b | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
     [pscustomobject]$b
 }
@@ -141,6 +178,26 @@ if ($args -contains '-Prueba') {
     $b | ConvertTo-Json -Depth 4 | Write-Host
     if ($fallos) { Write-Host "`nFALLA:`n  $($fallos -join "`n  ")" -ForegroundColor Red; exit 2 }
     Write-Host "`n6 comprobaciones OK" -ForegroundColor Green
+    exit 0
+}
+
+if ($args -contains '-Precargar') {
+    # Lo lanza el supervisor cuando ARRANCA el juego (proceso "League of
+    # Legends"): durante la pantalla de carga hay de sobra para bajar la build
+    # (~8 s) y la primera eleccion de aumento ya la encuentra en cache. El
+    # campeon y el modo, del cliente: la API de la partida aun no esta abierta.
+    . "$PSScriptRoot\lcu.ps1"
+    $cat = Get-DDragon
+    $con = Get-LcuConexion
+    if (-not $con) { exit 1 }
+    $s = Invoke-Lcu $con '/lol-gameflow/v1/session'
+    $yo = (Invoke-Lcu $con '/lol-summoner/v1/current-summoner').puuid
+    $n = (@($s.gameData.playerChampionSelections) | Where-Object puuid -eq $yo | Select-Object -First 1).championId
+    $nombre = $cat.campeones_n.([string]$n)
+    $id = ($cat.campeones.PSObject.Properties | Where-Object { $_.Value.nombre -eq $nombre } | Select-Object -First 1).Name
+    if (-not $id) { exit 1 }
+    $b = Get-Build $id "$($s.gameData.queue.gameMode)" $cat
+    "$id $($s.gameData.queue.gameMode): $(if ($b) { "$(@($b.ranking_aumentos).Count) aumentos clasificados" } else { 'sin build' })"
     exit 0
 }
 

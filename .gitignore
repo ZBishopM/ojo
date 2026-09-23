@@ -26,3 +26,7 @@ partidas/
 
 # Capturas de la pantalla de eleccion de aumentos: son de las partidas del usuario.
 prueba-lol/eleccion-*.png
+prueba-lol/eleccion-*.bmp
+
+# La DLL de OjoTexto (ddragon.ps1): se compila sola la primera vez.
+bin/

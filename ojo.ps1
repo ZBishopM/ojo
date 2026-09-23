@@ -698,41 +698,14 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
             }
             if (@($notas.aumentos).Count) { $hp['mis_aumentos'] = @($notas.aumentos) }
 
-            # ---- Los aumentos que te OFRECEN ahora, leidos de la pantalla -----
-            #
-            # EXPERIMENTAL. En Mayhem la eleccion sale al inicio y en los niveles
-            # 7, 11 y 15, y ni la API de la partida ni el cliente la cuentan.
-            # Si la pregunta va de elegir aumento, se captura la pantalla a
-            # resolucion completa (la del modelo esta reducida a 1280 y el OCR
-            # empeora) y se lee con el OCR de Windows (es-MX, sin VRAM).
-            #
-            # La captura se GUARDA en prueba-lol\eleccion-*.png: aun no hay una
-            # muestra real de esa pantalla, y con la primera se afina esto.
-            # Sobre el HUD normal el OCR leyo "iT6rrega erfe rul da!" por
-            # "Torreta enemiga destruida": sin muestra no se da por bueno.
-            if ($Pregunta -match '(?i)aument' -and $Pregunta -match '(?i)cu[aá]l|elij|escoj|ofrec|estos|me (dan|salen)|elegir|escoger') {
-                try {
-                    Add-Type -AssemblyName System.Drawing, System.Windows.Forms
-                    $pant = [Windows.Forms.Screen]::PrimaryScreen.Bounds
-                    $img = New-Object Drawing.Bitmap $pant.Width, $pant.Height
-                    $g = [Drawing.Graphics]::FromImage($img)
-                    $g.CopyFromScreen($pant.Location, [Drawing.Point]::Empty, $pant.Size)
-                    $g.Dispose()
-                    $muestraEleccion = "$Raiz\prueba-lol\eleccion-{0:yyyyMMdd-HHmmss}.png" -f (Get-Date)
-                    $img.Save($muestraEleccion, [Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
-                    . "$Raiz\ocr.ps1"
-                    $texto = (Leer-Texto $muestraEleccion) -join "`n"
-                    $ofrecidos = @(Buscar-Aumentos $catLol $texto)
-                    if ($ofrecidos.Count) { $hp['aumentos_en_pantalla'] = $ofrecidos }
-                } catch { Write-Warning "no pude leer la pantalla: $_" }
-            }
-
             # ---- La build que se esta jugando, de la web (builds.ps1) ---------
             #
             # La primera lectura tarda ~8 s: en mitad de una partida no se
-            # espera. Si esta en cache (una por campeon, modo y parche) va en los
-            # datos; si no, se baja EN SEGUNDO PLANO y estara para la siguiente
-            # pregunta. Sin redirecciones: no hereda nada de este proceso.
+            # espera. Normalmente ya esta: el supervisor la precarga al arrancar
+            # el juego (builds.ps1 -Precargar). Si no, se baja EN SEGUNDO PLANO
+            # y estara para la siguiente pregunta. Sin redirecciones: no hereda
+            # nada de este proceso.
+            $bp = $null
             try {
                 . "$Raiz\builds.ps1"
                 $miRaw = (@($datosLol.allPlayers) | Where-Object { $_.championName -eq $hp.mi_campeon } | Select-Object -First 1).rawChampionName
@@ -745,6 +718,60 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                     Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$Raiz\builds.ps1", $miRaw, $modoLol -WindowStyle Hidden
                 }
             } catch { }
+
+            # ---- Cual de los tres aumentos que te OFRECEN ---------------------
+            #
+            # En Mayhem la eleccion sale al inicio y en los niveles 7, 11 y 15, y
+            # ni la API de la partida ni el cliente la cuentan: se LEE de la
+            # pantalla con el OCR de Windows (es-MX, sin VRAM), a resolucion
+            # completa, del monitor donde esta el juego. En BMP: sin comprimir,
+            # guardarlo y abrirlo es casi gratis.
+            #
+            # Y se contesta SIN MODELO: de los que se ven, el mejor clasificado
+            # por op.gg para tu campeon (el orden, nunca porcentajes: politica
+            # de Riot). Es un dato, no una opinion, y asi sale en ~medio segundo.
+            # Si no esta la clasificacion, el modelo recibe los aumentos leidos.
+            #
+            # Se guarda la ultima captura (eleccion-ultima.bmp), y cada vez que
+            # NO lee tres aumentos, una copia fechada: con esas se afina.
+            $pideAumento = $Pregunta -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|mejor|tomo|cojo|agarro)' -or
+                           $Pregunta -match '(?i)(cu[aá]l|elij|escoj|recomi).*aument' -or
+                           $Pregunta -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)'
+            if ($pideAumento) {
+                try {
+                    Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+                    $hwnd = (Get-Process 'League of Legends' -EA SilentlyContinue | Select-Object -First 1).MainWindowHandle
+                    $pant = $(if ($hwnd -and $hwnd -ne [IntPtr]::Zero) { [Windows.Forms.Screen]::FromHandle($hwnd) } else { [Windows.Forms.Screen]::PrimaryScreen }).Bounds
+                    $img = New-Object Drawing.Bitmap $pant.Width, $pant.Height
+                    $g = [Drawing.Graphics]::FromImage($img)
+                    $g.CopyFromScreen($pant.Location, [Drawing.Point]::Empty, $pant.Size)
+                    $g.Dispose()
+                    $muestraEleccion = "$Raiz\prueba-lol\eleccion-ultima.bmp"
+                    $img.Save($muestraEleccion, [Drawing.Imaging.ImageFormat]::Bmp)
+                    Marca 'captura_aumentos'
+                    . "$Raiz\ocr.ps1"
+                    $lineasOcr = @(Leer-Texto $muestraEleccion)
+                    Marca 'ocr'
+                    $ofrecidos = @(Aumentos-En-Lineas $catLol $lineasOcr | Select-Object -First 3)
+                    Marca 'aumentos_leidos'
+                    if ($ofrecidos.Count -lt 3) {
+                        $img.Save(("$Raiz\prueba-lol\eleccion-{0:yyyyMMdd-HHmmss}.png" -f (Get-Date)), [Drawing.Imaging.ImageFormat]::Png)
+                    }
+                    $img.Dispose()
+                    if ($ofrecidos.Count) {
+                        $hp['aumentos_en_pantalla'] = $ofrecidos
+                        $mejor = if ($bp) { Elegir-Aumento $ofrecidos $bp.ranking_aumentos }
+                        if ($mejor) {
+                            $nom, $que = $mejor.texto -split ':\s*', 2
+                            $otros = @($ofrecidos | ForEach-Object { ($_ -split ':')[0] } | Where-Object { $_ -ne $nom })
+                            $respuestaFija = "Elige $nom" + $(if ($que) { ": $($que.Trim().TrimEnd('.'))." } else { '.' }) +
+                                $(if ($otros.Count) { " Frente a $($otros -join ' y '), es el que mejor clasifica op.gg para $($hp.mi_campeon)." } else { " Es el que mejor clasifica op.gg para $($hp.mi_campeon)." })
+                        }
+                    } else {
+                        $respuestaFija = 'No veo la elección de aumentos en pantalla. Pregúntame con las tres cartas a la vista.'
+                    }
+                } catch { Write-Warning "no pude leer la pantalla: $_" }
+            }
 
             $partida = $hp | ConvertTo-Json -Depth 6 -Compress
             $hayPartida = $true

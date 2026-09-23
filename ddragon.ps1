@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 $DDragonIdioma = 'es_MX'
 $DDragonCache = Join-Path $PSScriptRoot 'ddragon'
 # Sube cuando cambia lo que se guarda: una cache vieja no se lee como buena.
-$DDragonFormato = 'formato-v9'
+$DDragonFormato = 'formato-v12'
 
 # PowerShell 5.1 corre sobre un .NET que por defecto solo ofrece SSL3 y TLS 1.0,
 # y el CDN de Riot los rechaza ("Se ha terminado la conexion: Error inesperado
@@ -130,6 +130,19 @@ function Build-DDragonCache($parche) {
             $aumClave[($a.augmentNameId -replace '^ARAM_', '').ToLowerInvariant()] = $a.nameTRA
         }
     } catch { }
+    # Y por su NOMBRE EN INGLES, via el mismo id en la lista inglesa (que en
+    # CommunityDragon se llama 'default', no 'en_us': con en_us salian cero).
+    # op.gg usa a veces otra clave en la imagen ("UpgradeHubris"), pero
+    # siempre pone el nombre ingles en el alt: por clave se traducian 142 de
+    # 168. Sin clave vacia: pwsh 7 no lee un JSON con una propiedad "".
+    $aumIngles = @{}
+    try {
+        foreach ($a in (Bajar-Json 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json')) {
+            $es = $aumId[[string]$a.id]
+            $en = if ($a.nameTRA) { (Normalizar-Texto $a.nameTRA).Trim() }
+            if ($en -and $es) { $aumIngles[$en] = $es }
+        }
+    } catch { }
 
     $destino = Join-Path $DDragonCache $parche
     New-Item -ItemType Directory -Force -Path $destino | Out-Null
@@ -139,6 +152,7 @@ function Build-DDragonCache($parche) {
     Guardar (Join-Path $destino 'aumentos.json') (Build-Aumentos)
     Guardar (Join-Path $destino 'aumentos-por-numero.json') $aumId
     Guardar (Join-Path $destino 'aumentos-por-clave.json') $aumClave
+    Guardar (Join-Path $destino 'aumentos-por-ingles.json') $aumIngles
     Set-Content (Join-Path $destino $DDragonFormato) 'ok'
     $destino
 }
@@ -210,7 +224,7 @@ function Leer-Cache($dir) {
     $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
     @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json')
        campeones_n = (& $leer 'campeones-por-numero.json'); aumentos_n = (& $leer 'aumentos-por-numero.json')
-       aumentos_k = (& $leer 'aumentos-por-clave.json'); dir = $dir }
+       aumentos_k = (& $leer 'aumentos-por-clave.json'); aumentos_en = (& $leer 'aumentos-por-ingles.json'); dir = $dir }
 }
 
 # La cache mas reciente en disco, SIN red. Solo si no hay ninguna se baja, que
@@ -359,9 +373,84 @@ function Get-DDragonDefensa($cat, $oro, $tipo, $yaLlevo = @(), $mapa = '11', $cu
         Group-Object nombre | ForEach-Object { $_.Group[0] } | Select-Object -First $cuantos)
 }
 
+# Sin tildes (\p{Mn}: las marcas que FormD separa de la letra), minusculas, y
+# lo que no sea letra o cifra, espacio. Con una regex y no letra a letra por
+# la tuberia: asi costaba ~1 ms, y leer la pantalla normaliza 291 nombres.
 function Normalizar-Texto($s) {
-    $n = "$s".ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD)
-    (-join ($n.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' })) -replace '[^a-z0-9 ]', ' '
+    ("$s".ToLowerInvariant().Normalize([Text.NormalizationForm]::FormD) -replace '\p{Mn}', '') -replace '[^a-z0-9 ]', ' '
+}
+
+# La comparacion de textos, en C#. En PowerShell cada Levenshtein costaba ~1 ms
+# y leer la pantalla hace miles. Se compila UNA vez a una DLL (csc tarda ~1 s)
+# y despues solo se carga. Una por edicion: la que compila pwsh 7 (.NET) no la
+# carga PowerShell 5.1 (.NET Framework), y los dos usan este archivo.
+if (-not ('OjoTexto' -as [type])) {
+    $dllTexto = Join-Path $PSScriptRoot "bin\OjoTexto-v2-$($PSVersionTable.PSEdition).dll"
+    if (-not (Test-Path $dllTexto)) {
+        New-Item -ItemType Directory -Force (Split-Path $dllTexto) | Out-Null
+        Add-Type -OutputAssembly $dllTexto -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+public static class OjoTexto {
+    public static int Distancia(string a, string b) {
+        int[] prev = new int[b.Length + 1], cur = new int[b.Length + 1];
+        for (int j = 0; j <= b.Length; j++) prev[j] = j;
+        for (int i = 1; i <= a.Length; i++) {
+            cur[0] = i;
+            for (int j = 1; j <= b.Length; j++)
+                cur[j] = Math.Min(Math.Min(prev[j] + 1, cur[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            int[] t = prev; prev = cur; cur = t;
+        }
+        return prev[b.Length];
+    }
+    // El nombre mas parecido a un texto: a un error cada 5 letras, o -1.
+    static int Parecido(string t, string[] nombres) {
+        int mejor = -1, md = int.MaxValue;
+        for (int j = 0; j < nombres.Length; j++) {
+            var n = nombres[j]; int tope = n.Length / 5;
+            if (n.Length < 4 || Math.Abs(n.Length - t.Length) > tope) continue;
+            int d = Distancia(t, n);
+            if (d <= tope && d < md) { md = d; mejor = j; }
+        }
+        return mejor;
+    }
+    // Los nombres (indices) que aparecen en las lineas, ya normalizadas.
+    // Primero los que son una linea ENTERA (los titulos de las cartas), o dos
+    // seguidas (un titulo largo se parte: "Mejorar Filo del" / "Infinito"; lo
+    // que sus mitades dieran por separado se descarta). Despues, dentro de
+    // cada linea, los tramos de palabras seguidas, del mas largo al mas corto.
+    public static int[] Buscar(string[] lineas, string[] nombres) {
+        var entero = new int[lineas.Length];
+        for (int i = 0; i < lineas.Length; i++) entero[i] = Parecido(lineas[i], nombres);
+        var enteros = new List<int>(); var sueltos = new List<int>();
+        var usada = new bool[lineas.Length];
+        for (int i = 0; i + 1 < lineas.Length; i++) {
+            int p = Parecido(lineas[i] + " " + lineas[i + 1], nombres);
+            if (p < 0 || enteros.Contains(p)) continue;
+            enteros.Add(p); usada[i] = usada[i + 1] = true; i++;
+        }
+        for (int i = 0; i < lineas.Length; i++)
+            if (!usada[i] && entero[i] >= 0 && !enteros.Contains(entero[i])) { enteros.Add(entero[i]); usada[i] = true; }
+        for (int li = 0; li < lineas.Length; li++) {
+            if (usada[li]) continue;
+            var w = lineas[li].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < w.Length; i++) {
+                for (int k = Math.Min(6, w.Length - i); k >= 1; k--) {
+                    int m = Parecido(string.Join(" ", w, i, k), nombres);
+                    if (m < 0) continue;
+                    if (!enteros.Contains(m) && !sueltos.Contains(m)) sueltos.Add(m);
+                    i += k - 1;
+                    break;
+                }
+            }
+        }
+        enteros.AddRange(sueltos);
+        return enteros.ToArray();
+    }
+}
+'@
+    }
+    Add-Type -Path $dllTexto
 }
 
 # Clave de COMO SUENA en espanol, sin espacios.
@@ -377,20 +466,8 @@ function Clave-Fonetica($s) {
     $t -replace '(.)\1+', '$1'      # letras dobles, una
 }
 
-# Levenshtein con dos filas (una matriz de dos dimensiones dentro de una
-# llamada a metodo no la parsea PowerShell 5.1).
-function Distancia([string]$a, [string]$b) {
-    $prev = 0..$b.Length
-    for ($i = 1; $i -le $a.Length; $i++) {
-        $cur = @($i) + @(0) * $b.Length
-        for ($j = 1; $j -le $b.Length; $j++) {
-            $coste = if ($a[$i - 1] -eq $b[$j - 1]) { 0 } else { 1 }
-            $cur[$j] = [math]::Min([math]::Min($prev[$j] + 1, $cur[$j - 1] + 1), $prev[$j - 1] + $coste)
-        }
-        $prev = $cur
-    }
-    $prev[$b.Length]
-}
+# Levenshtein (en OjoTexto, arriba).
+function Distancia([string]$a, [string]$b) { [OjoTexto]::Distancia($a, $b) }
 
 # Los aumentos que la pregunta menciona, con lo que hacen.
 #
@@ -409,6 +486,17 @@ function Buscar-Aumentos($cat, $texto) {
         if (-not $hit -and $n -notmatch ' ') { $hit = [bool]($palabras | Where-Object { (Distancia $_ $n) -le 1 }) }
         if ($hit) { "$($p.Name): $($p.Value)" }
     }
+}
+
+# Los aumentos de la PANTALLA DE ELECCION, de las lineas que leyo el OCR, como
+# "Nombre: resumen". El OCR falla letras sueltas ("Tirador Magic0"), asi que
+# se compara con margen (OjoTexto.Buscar); los titulos de las cartas primero.
+function Aumentos-En-Lineas($cat, $lineas) {
+    $props = @($cat.aumentos.PSObject.Properties)
+    if (-not $props.Count) { return @() }
+    $nombres = [string[]]@($props | ForEach-Object { ((Normalizar-Texto $_.Name) -replace '\s+', ' ').Trim() })
+    $ls = [string[]]@($lineas | ForEach-Object { ((Normalizar-Texto $_) -replace '\s+', ' ').Trim() } | Where-Object { $_ })
+    @([OjoTexto]::Buscar($ls, $nombres) | ForEach-Object { "$($props[$_].Name): $($props[$_].Value)" })
 }
 
 # Cargado con punto: solo las funciones.
