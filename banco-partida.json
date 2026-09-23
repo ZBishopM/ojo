@@ -6,131 +6,131 @@
                                         {
                                             "value":  [
                                                           "@{value=System.Object[]; Count=2}",
-                                                          "@{nombre=verdad2-8b; modelo=Qwen3-VL-8B-Instruct-Q6_K; prompt=partida; aciertos=16/16; ms_medio=1293; filas=System.Object[]}"
+                                                          "@{nombre=frases-8b; modelo=Qwen3-VL-8B-Instruct-Q6_K; prompt=partida; aciertos=16/16; ms_medio=1025; filas=System.Object[]}"
                                                       ],
                                             "Count":  2
                                         },
                                         {
-                                            "nombre":  "verdad2-8b-real",
+                                            "nombre":  "frases-8b-real",
                                             "modelo":  "Qwen3-VL-8B-Instruct-Q6_K",
                                             "prompt":  "partida",
-                                            "aciertos":  "8/8",
-                                            "ms_medio":  1802,
+                                            "aciertos":  "7/8",
+                                            "ms_medio":  1378,
                                             "filas":  [
-                                                          "@{q=Veo un Jacksa P con locomotora.¿Qué podría sacar?; ok=True; ms=1881; dijo=Con locomotora, Jax podría sacar Cáliz de la Armonía o Capa de Negatrones para resistencia mágica.}",
-                                                          "@{q=¿Qué hace Locomotora?; ok=True; ms=1810; dijo=Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir.}",
-                                                          "@{q=¿Cómo va la partida?; ok=True; ms=2281; dijo=Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel.}",
-                                                          "@{q=¿Qué daño hace el equipo rival?; ok=True; ms=1347; dijo=El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax.}",
-                                                          "@{q=Veo un Jacksa P con locomotora.¿Qué podría sacar?; ok=True; ms=1591; dijo=Con locomotora, Jax podría sacar Cáliz de la Armonía o Capa de Negatrones para resistencia mágica.}",
-                                                          "@{q=¿Qué hace Locomotora?; ok=True; ms=1810; dijo=Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir.}",
-                                                          "@{q=¿Cómo va la partida?; ok=True; ms=2301; dijo=Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel.}",
-                                                          "@{q=¿Qué daño hace el equipo rival?; ok=True; ms=1399; dijo=El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax.}"
+                                                          "@{q=Veo un Jacksa P con locomotora.¿Qué podría sacar?; ok=True; ms=1474; dijo=Con locomotora, Jax podría sacar Cáliz de la Armonía o Capa de Negatrones para resistencia mágica.}",
+                                                          "@{q=¿Qué hace Locomotora?; ok=True; ms=1471; dijo=Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir.}",
+                                                          "@{q=¿Cómo va la partida?; ok=True; ms=1586; dijo=Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel.}",
+                                                          "@{q=¿Qué daño hace el equipo rival?; ok=True; ms=984; dijo=El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax.}",
+                                                          "@{q=Veo un Jacksa P con locomotora.¿Qué podría sacar?; ok=False; ms=1447; dijo=Con locomotora, Jacksa P podría sacar Cáliz de la Armonía, Capa de Negatrones, Prototipo de Núcleo Hex o Manto Anulamagia para resistencia mágica.}",
+                                                          "@{q=¿Qué hace Locomotora?; ok=True; ms=1447; dijo=Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir.}",
+                                                          "@{q=¿Cómo va la partida?; ok=True; ms=1585; dijo=Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel.}",
+                                                          "@{q=¿Qué daño hace el equipo rival?; ok=True; ms=1031; dijo=El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax.}"
                                                       ]
                                         }
                                     ],
                           "Count":  2
                       },
                       {
-                          "nombre":  "frases-8b",
+                          "nombre":  "memoria-8b",
                           "modelo":  "Qwen3-VL-8B-Instruct-Q6_K",
                           "prompt":  "partida",
                           "aciertos":  "16/16",
-                          "ms_medio":  1025,
+                          "ms_medio":  936,
                           "filas":  [
                                         {
                                             "q":  "¿Cómo es nuestra composición?",
                                             "ok":  true,
-                                            "ms":  1952,
+                                            "ms":  1929,
                                             "dijo":  "Tu equipo: Annie top, Garen jungla, Lux mid, Jinx tirador y Thresh soporte. Tu equipo es fuerte en soporte y dano AP, pero el rival tiene más KDA y dano fisico."
                                         },
                                         {
                                             "q":  "contra quien juego en mid?",
                                             "ok":  true,
-                                            "ms":  1087,
+                                            "ms":  988,
                                             "dijo":  "En mid juegas contra Yasuo, nivel 10, con KDA 7/1/2."
                                         },
                                         {
                                             "q":  "quien del equipo rival esta muerto?",
                                             "ok":  true,
-                                            "ms":  759,
-                                            "dijo":  "Yasuo del equipo rival está muerto, revive en 13 segundos."
+                                            "ms":  820,
+                                            "dijo":  "Yasuo, el mid del equipo rival, esta muerto y revive en 13 segundos."
                                         },
                                         {
                                             "q":  "cuanto oro tengo?",
                                             "ok":  true,
-                                            "ms":  843,
+                                            "ms":  604,
                                             "dijo":  "Tienes 3500 oro."
                                         },
                                         {
                                             "q":  "en que minuto vamos?",
                                             "ok":  true,
-                                            "ms":  639,
+                                            "ms":  739,
                                             "dijo":  "Estamos en el minuto 12:34."
                                         },
                                         {
                                             "q":  "quien va mas fuerte en el equipo rival?",
                                             "ok":  true,
-                                            "ms":  945,
-                                            "dijo":  "Leona va más fuerte en el equipo rival con 9/1/2."
+                                            "ms":  768,
+                                            "dijo":  "Leona va mas fuerte en el equipo rival con 9/1/2."
                                         },
                                         {
                                             "q":  "que item termino con lo que llevo?",
                                             "ok":  true,
-                                            "ms":  1777,
-                                            "dijo":  "Velo de la Banshee (te faltan 1800), Lumbría (te faltan 2000), Reloj de Arena de Zhonya (te faltan 2050) y Sombrero Mortífero de Rabadon (te faltan 2300)."
+                                            "ms":  1286,
+                                            "dijo":  "Puedes completar Velo de la Banshee, Lumbría, Reloj de Arena de Zhonya o Sombrero Mortífero de Rabadon."
                                         },
                                         {
                                             "q":  "quien es la jungla del equipo rival?",
                                             "ok":  true,
-                                            "ms":  720,
+                                            "ms":  705,
                                             "dijo":  "Darius es la jungla del equipo rival."
                                         },
                                         {
                                             "q":  "¿Cómo es nuestra composición?",
                                             "ok":  true,
-                                            "ms":  1471,
+                                            "ms":  1405,
                                             "dijo":  "Tu equipo: Annie top, Garen jungla, Lux mid, Jinx tirador y Thresh soporte. Tu equipo es fuerte en soporte y dano AP, pero el rival tiene más KDA y dano fisico."
                                         },
                                         {
                                             "q":  "contra quien juego en mid?",
                                             "ok":  true,
-                                            "ms":  917,
+                                            "ms":  964,
                                             "dijo":  "En mid juegas contra Yasuo, nivel 10, con KDA 7/1/2."
                                         },
                                         {
                                             "q":  "quien del equipo rival esta muerto?",
                                             "ok":  true,
-                                            "ms":  668,
-                                            "dijo":  "Yasuo del equipo rival está muerto, revive en 13 segundos."
+                                            "ms":  822,
+                                            "dijo":  "Yasuo, el mid del equipo rival, esta muerto y revive en 13 segundos."
                                         },
                                         {
                                             "q":  "cuanto oro tengo?",
                                             "ok":  true,
-                                            "ms":  632,
+                                            "ms":  599,
                                             "dijo":  "Tienes 3500 oro."
                                         },
                                         {
                                             "q":  "en que minuto vamos?",
                                             "ok":  true,
-                                            "ms":  622,
+                                            "ms":  700,
                                             "dijo":  "Estamos en el minuto 12:34."
                                         },
                                         {
                                             "q":  "quien va mas fuerte en el equipo rival?",
                                             "ok":  true,
-                                            "ms":  869,
+                                            "ms":  891,
                                             "dijo":  "Leona va más fuerte en el equipo rival con 9/1/2."
                                         },
                                         {
                                             "q":  "que item termino con lo que llevo?",
                                             "ok":  true,
-                                            "ms":  1815,
-                                            "dijo":  "Velo de la Banshee (te faltan 1800), Lumbría (te faltan 2000), Reloj de Arena de Zhonya (te faltan 2050) y Sombrero Mortífero de Rabadon (te faltan 2300)."
+                                            "ms":  1109,
+                                            "dijo":  "Puedes completar Velo de la Banshee, Lumbría, Reloj de Arena de Zhonya o Sombrero Mortífero de Rabadon."
                                         },
                                         {
                                             "q":  "quien es la jungla del equipo rival?",
                                             "ok":  true,
-                                            "ms":  683,
+                                            "ms":  641,
                                             "dijo":  "Darius es la jungla del equipo rival."
                                         }
                                     ]
@@ -139,58 +139,58 @@
         "Count":  2
     },
     {
-        "nombre":  "frases-8b-real",
+        "nombre":  "memoria-8b-real",
         "modelo":  "Qwen3-VL-8B-Instruct-Q6_K",
         "prompt":  "partida",
-        "aciertos":  "7/8",
-        "ms_medio":  1378,
+        "aciertos":  "8/8",
+        "ms_medio":  1498,
         "filas":  [
                       {
                           "q":  "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
                           "ok":  true,
-                          "ms":  1474,
-                          "dijo":  "Con locomotora, Jax podría sacar Cáliz de la Armonía o Capa de Negatrones para resistencia mágica."
+                          "ms":  1975,
+                          "dijo":  "Con locomotora, Jax podría sacar resistencia mágica: Cáliz de la Armonía (880), Capa de Negatrones (850), Prototipo de Núcleo Hex (750) o Manto Anulamagia (400)."
                       },
                       {
                           "q":  "¿Qué hace Locomotora?",
                           "ok":  true,
-                          "ms":  1471,
+                          "ms":  1226,
                           "dijo":  "Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir."
                       },
                       {
                           "q":  "¿Cómo va la partida?",
                           "ok":  true,
-                          "ms":  1586,
-                          "dijo":  "Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel."
+                          "ms":  1707,
+                          "dijo":  "Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes comprar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel si acumulas más oro."
                       },
                       {
                           "q":  "¿Qué daño hace el equipo rival?",
                           "ok":  true,
-                          "ms":  984,
+                          "ms":  1006,
                           "dijo":  "El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax."
                       },
                       {
                           "q":  "Veo un Jacksa P con locomotora.¿Qué podría sacar?",
-                          "ok":  false,
-                          "ms":  1447,
-                          "dijo":  "Con locomotora, Jacksa P podría sacar Cáliz de la Armonía, Capa de Negatrones, Prototipo de Núcleo Hex o Manto Anulamagia para resistencia mágica."
+                          "ok":  true,
+                          "ms":  2074,
+                          "dijo":  "Con locomotora, Jax podría sacar resistencia mágica: Cáliz de la Armonía (880), Capa de Negatrones (850), Prototipo de Núcleo Hex (750) o Manto Anulamagia (400)."
                       },
                       {
                           "q":  "¿Qué hace Locomotora?",
                           "ok":  true,
-                          "ms":  1447,
+                          "ms":  1232,
                           "dijo":  "Locomotora: al conseguir un derribo, obtienes una acumulación que aumenta tu tamaño y vida máxima. Pierdes acumulaciones al morir."
                       },
                       {
                           "q":  "¿Cómo va la partida?",
                           "ok":  true,
-                          "ms":  1585,
-                          "dijo":  "Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes completar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel."
+                          "ms":  1804,
+                          "dijo":  "Tu equipo lidera con Varus (8/2/8), pero el rival tiene a Sivir (3/3/7). Tu oro es 929, y puedes comprar Diente de Nashor, Espadafuria de Guinsoo o Báculo del Arcángel si consigues más oro."
                       },
                       {
                           "q":  "¿Qué daño hace el equipo rival?",
                           "ok":  true,
-                          "ms":  1031,
+                          "ms":  958,
                           "dijo":  "El equipo rival hace dano magico: Elise y Nautilus; dano fisico: Sivir, Yone y Jax."
                       }
                   ]

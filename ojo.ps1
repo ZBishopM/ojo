@@ -338,6 +338,8 @@ con un unico objeto JSON, sin texto alrededor y sin bloques de codigo.
 {"decir": "<la respuesta en espanol, solo hechos, lo que dirias en voz alta>",
  "pulla": "<opcional: el comentario sarcastico, sin datos>",
  "buscar": "<opcional: consulta para internet si te falta un dato>",
+ "recordar": [{"persona": "<id>", "hecho": "<opcional: algo nuevo que conto>"}],
+ "curiosidad": {"persona": "<id>", "pregunta": "<opcional: para conocerle>"},
  "control": 0,
  "texto": 0,
  "senalar": {"x": 0.0, "y": 0.0},
@@ -372,6 +374,15 @@ Reglas:
   lo ves claro en la imagen, dilo ("No veo ningun boton de enviar") y, si lo
   sabes, como se hace sin el (en muchas apps se envia con Enter). NUNCA
   describas donde estaria.
+- PERSONAS DE SU VIDA (si llegan sus fichas): de ellas di SOLO lo que dice su
+  ficha; nunca inventes nada. El PERFIL es del USUARIO, no de sus amistades ni
+  de su hermana: no se lo atribuyas. Tu no eres el usuario: su nombre es suyo.
+  Si el usuario cuenta algo nuevo de alguien, o de
+  si mismo ("me llamo X" es de [yo]), ponlo en "recordar" con su id y con sus
+  palabras. "curiosidad": solo si esa persona sale en la pregunta (o te piden
+  tema): UNA pregunta corta y natural para conocerla mejor, que no este entre
+  las que ya le hiciste; si sabes su nombre, usalo. La curiosidad va en lugar
+  de la pulla. Si sabes el nombre del usuario, usalo de vez en cuando.
 - CHATS (WhatsApp, Discord, Telegram...): en TEXTO EN PANTALLA, las lineas
   [der] las escribio el USUARIO; las [izq], la otra persona. "Lo ultimo que me
   envio Irene" es la linea [izq] de mensaje mas abajo (la y mas grande), NUNCA
@@ -850,7 +861,9 @@ function Verificar-Decir([string]$decir, [string]$evidencia) {
     # Con sus letras pegadas: "23H2" entero, no solo "23" (que coincidia con la
     # fecha de hoy y dejaba pasar una version inventada).
     foreach ($m in [regex]::Matches($decir, '[\p{L}\d]*\d[\p{L}\d]*(?:[.,:]\d+)*')) {
-        $n = $m.Value
+        # En minusculas, como la evidencia: "T1" no casaba nunca con "t1" y el
+        # ultimo mundial acababa en "nada confirmado".
+        $n = Plano $m.Value
         if (-not ($ev.Contains($n) -or $sinSep.Contains(($n -replace '[.,]', '')))) { $faltan += $n }
     }
     # Tras comillas tambien abre frase ('Llegue' citado no es un nombre propio).
@@ -1251,6 +1264,31 @@ try {
     # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de
     # escritorio sin bateria.
     try { . "$Raiz\perfil.ps1"; $memoria += Perfil-Texto } catch { Write-Warning "sin perfil: $_" }
+    # Las personas de su vida y la conversacion reciente (personas.ps1). Fuera
+    # de partida: ahi se pregunta del juego y el prompt de partida es otro.
+    $personas = $null; $pt = $null; $nombresDichos = @()
+    if (-not $hayPartida) {
+        try {
+            . "$Raiz\personas.ps1"
+            $personas = Leer-Personas
+            $nombresDichos = @(Nombres-Directos $Pregunta $personas)
+            $pt = Personas-Texto $Pregunta $personas
+            $memoria += $pt.texto + (Historial-Texto)
+            # Respuestas FIJAS, sin modelo, donde el modelo se liaba (prueba del
+            # 2026-09-23): a "Me llamo Bishop" contesto "Me llamo Bishop, segun
+            # tu ficha" como si fuera el; a "¿que sabes de Melly?" le atribuyo
+            # el perfil del usuario ("vive en Peru y juega League").
+            $yoDicho = @($nombresDichos | Where-Object { $_ -like 'yo:*' })
+            if (-not $respuestaFija -and $yoDicho.Count -and @($Pregunta -split '\s+').Count -le 6) {
+                $respuestaFija = "Anotado, $(($yoDicho[0] -split 'se llama ')[1]). Ya sé cómo llamarte."
+            }
+            $unaNombrada = if ($pt.ids.Count -eq 1) { $personas | Where-Object id -eq $pt.ids[0] | Select-Object -First 1 }
+            if (-not $respuestaFija -and $unaNombrada -and -not @($unaNombrada.hechos).Count -and $Pregunta -match '(?i)qu[eé] sabes de|qui[eé]n es|h[aá]blame de|c[oó]mo es') {
+                $nom = if ($unaNombrada.nombre) { $unaNombrada.nombre } else { "tu $($unaNombrada.id)" }
+                $respuestaFija = "De $nom todavía no sé nada. ¿Me cuentas algo?"
+            }
+        } catch { Write-Warning "sin memoria de personas: $_" }
+    }
     # Aumentos de ARAM Mayhem nombrados FUERA de partida: su descripcion exacta
     # del catalogo local (ddragon). Sin esto, "que hace Locomotora" dijo que "no
     # existe" y la web le trajo trenes.
@@ -1340,7 +1378,9 @@ try {
         # ("no existe" / "no hay informacion": fuera de partida dijo que el
         # aumento Locomotora "no existe" sin buscarlo.)
         $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo|existe|hay (informacion|datos))'
-        $esSuyo = $dec.personal
+        # Tambien si nombra a alguien de su vida o pide tema: "¿que sabes de
+        # Melly?" busco en internet y contesto con un rapero.
+        $esSuyo = $dec.personal -or ($pt -and ($pt.ids.Count -or $pt.tema)) -or $nombresDichos.Count
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
         # (Se probo a contestar SIEMPRE con la web en las preguntas de
@@ -1350,6 +1390,13 @@ try {
         $consulta = if ($esSuyo) { $null }
                     elseif ("$($d.buscar)".Trim()) { "$($d.buscar)".Trim() }
                     elseif ($faltan.Count -or $seRinde) { $Pregunta } else { $null }
+        # Sin los anos que el usuario no dijo: con la regla en el prompt, el
+        # modelo siguio buscando "ultimo mundial ... 2023 ganador" (su
+        # entrenamiento) y encontro paginas viejas. En codigo, no en el prompt.
+        if ($consulta) {
+            foreach ($a in [regex]::Matches($consulta, '\b(19|20)\d{2}\b')) { if ($Pregunta -notmatch "\b$($a.Value)\b") { $consulta = $consulta.Replace($a.Value, '') } }
+            $consulta = ($consulta -replace '\s+', ' ').Trim()
+        }
         # Se deja la respuesta (puede ser una lectura buena de la imagen) y se
         # avisa de lo que no se pudo comprobar, sin pulla.
         if ($esSuyo -and $faltan.Count) {
@@ -1418,6 +1465,35 @@ try {
         if ($esDato -or $molde -or ($recientes -contains $arranque) -or (Get-Random -Maximum 3) -ne 0) { $pulla = '' }
         else { try { [IO.File]::WriteAllLines($fRecientes, [string[]](@($recientes) + $arranque | Select-Object -Last 6), [Text.UTF8Encoding]::new($false)) } catch { } }
         $d | Add-Member -NotePropertyName pulla -NotePropertyValue $pulla -Force
+    }
+
+    # ---- Memoria de personas: recordar y curiosidad -------------------------
+    #
+    # Lo nuevo que conto se guarda SOLO si sale de sus palabras (lo coteja
+    # Guardar-Recuerdos). La curiosidad, solo sobre alguien que salio en la
+    # pregunta (o si pidio tema), sin repetir, y va EN LUGAR de la pulla.
+    $recordados = @($nombresDichos | Where-Object { $_ }); $curiosa = $null
+    if ($personas -and -not $respuestaFija) {
+        try {
+            $recordados += @(Guardar-Recuerdos $Pregunta $d.recordar $personas)
+            $curiosa = Apuntar-Curiosidad $d.curiosidad $pt.ids $personas
+            # Pidio tema y el modelo no pregunto: la curiosidad sale de
+            # frases\tema.txt, por la persona elegida (en la prueba, a
+            # "Cuentame algo" describio la pantalla y cito una web).
+            if (-not $curiosa -and $pt.tema -and $pt.ids.Count) {
+                $quien = $personas | Where-Object id -eq $pt.ids[0] | Select-Object -First 1
+                $nom = if ($quien.nombre) { $quien.nombre } else { "tu $($quien.id)" }
+                $d | Add-Member -NotePropertyName decir -NotePropertyValue (Frase 'tema' "¿Qué es de la vida de $($nom)?" @{ quien = $nom }) -Force
+                $curiosa = ''
+            }
+            if ($curiosa) {
+                # La pregunta va UNA vez: se quitan de "decir" las frases que ya
+                # preguntan (con Luis salio la misma pregunta dos veces).
+                $sinPreguntas = (@([regex]::Split("$($d.decir)", '(?<=[.!?])\s+') | Where-Object { $_ -notmatch '\?\s*$' }) -join ' ').Trim()
+                $d | Add-Member -NotePropertyName decir -NotePropertyValue $sinPreguntas -Force
+                $d | Add-Member -NotePropertyName pulla -NotePropertyValue $curiosa -Force
+            }
+        } catch { Write-Warning "no pude actualizar la memoria de personas: $_" }
     }
 
     # Lo que se dice en voz alta y se ve en los subtitulos: los hechos y, detras,
@@ -1592,6 +1668,8 @@ try {
         busco       = "$consulta"
         fuentes_web = if ($web) { (@($web.fuentes) | ForEach-Object { $_.sitio }) -join ', ' } else { '' }
         buscadores_caidos = if ($web.caidos) { ($web.caidos | ConvertTo-Json -Compress) } else { '' }
+        recordo     = $recordados -join ' | '
+        curiosidad  = "$curiosa"
         fin_epoch_ms = [int64]([DateTimeOffset]$tDibujo).ToUnixTimeMilliseconds()
         marcas       = $MARCAS
     }
@@ -1606,6 +1684,8 @@ try {
     # Un archivo con codificacion explicita en los dos lados no tiene ese
     # problema. Se sigue imprimiendo la linea para poder verla en la consola,
     # pero quien manda es el archivo.
+    # La conversacion reciente, para la proxima pregunta ("¿y ella?").
+    try { if (Get-Command Apuntar-Historial -EA SilentlyContinue) { Apuntar-Historial $Pregunta $dicho } } catch { }
     $medidaJson = $medida | ConvertTo-Json -Depth 4 -Compress
     [IO.File]::WriteAllText("$Raiz\ultima-medida.json", $medidaJson, [Text.UTF8Encoding]::new($false))
     "MEDIDA $medidaJson"

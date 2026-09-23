@@ -1,0 +1,6 @@
+﻿# Cuando pide tema ("cuéntame algo", "me aburro") y no hay de qué hablar: una
+# pregunta por alguien de su vida. {quien} es su nombre, o "tu hermana".
+Hace rato que no me cuentas nada de {quien}. ¿Qué es de su vida?
+¿Y {quien}? ¿Qué anda haciendo últimamente?
+Sé poquísimo de {quien}. Cuéntame algo, que mi memoria está en blanco.
+Hablemos de {quien}: ¿qué fue lo último que hicieron juntos?
