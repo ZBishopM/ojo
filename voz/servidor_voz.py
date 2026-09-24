@@ -1,12 +1,15 @@
-"""La voz de Ojo: Supertonic 3 (voz F2) residente, en la GPU.
+"""La voz de Ojo, residente. Dos motores (--motor):
 
-POR QUE ESTA: gano la escucha a ciegas del 2026-09-23 entre las que empiezan a
-sonar en menos de 400 ms (naturalidad 5, pronunciacion 5; ver MEDICIONES.md),
-y en GPU empieza en ~300 ms. Residente porque cargarla cuesta ~1,5 s.
+  pocket  (por defecto) Pocket TTS de Kyutai, espanol de 24 capas, voz "lola",
+          en CPU con 2 hilos. Gano la escucha a ciegas 3 del 2026-09-24
+          (naturalidad 5, personalidad 5, pronunciacion 4; la F2 saco 3/2/1).
+          Medido: primer audio ~180 ms, RTF ~0,61, 0 de VRAM (la F2 ocupaba
+          ~811 MiB). Corre en su venv: F:\\ai\\tts\\pocket\\.venv.
+  f2      Supertonic 3, voz F2, en la GPU (la de antes; reserva). voz\\.venv.
 
-Habla FRASE A FRASE: la primera suena mientras se sintetiza la siguiente. El
-texto pasa antes por texto_voz.para_decir (numeros en palabras, nombres en
-ingles como se dicen).
+Habla EN STREAMING: cada trozo de audio suena en cuanto sale, y cada frase
+empieza mientras se genera la siguiente. El texto pasa antes por
+texto_voz.para_decir (numeros en palabras, nombres en ingles como se dicen).
 
 Se CALLA sola cuando muere el proceso que pregunto: el atajo corta una
 respuesta matando hablar.ps1 (Ctrl+Win otra vez, o Esc), y asi no hace falta
@@ -33,8 +36,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PUERTO = 8098
+MOTOR = sys.argv[sys.argv.index("--motor") + 1] if "--motor" in sys.argv else "pocket"
 VOZ = "F2"
 MODELO = Path(r"F:\ai\voz\supertonic-3")
+POCKET_VOZ = "lola"
+POCKET_LENGUA = "spanish_24l"
+POCKET_HILOS = 2  # 4 hilos fue mas lento (RTF 0,66 contra 0,61) y ocupaba 7 nucleos
 
 
 # El mutex ANTES de los imports pesados, como el oido: asi el supervisor lo ve
@@ -58,9 +65,26 @@ sys.path.insert(0, str(Path(__file__).parent))
 from texto_voz import para_decir  # noqa: E402
 
 
+def cargar_pocket():
+    """Pocket TTS en CPU. generar(texto) va soltando trozos de audio."""
+    import torch
+    from pocket_tts import TTSModel
+    torch.set_num_threads(POCKET_HILOS)
+    m = TTSModel.load_model(language=POCKET_LENGUA, quantize=True)
+    estado = m.get_state_for_audio_prompt(POCKET_VOZ)
+
+    def generar(texto):
+        for trozo in m.generate_audio_stream(estado, texto):
+            yield trozo.numpy().astype(np.float32).reshape(-1)
+    for _ in generar("Hola."):  # en caliente
+        pass
+    return generar, m.sample_rate, False
+
+
 def cargar():
-    """El motor, en GPU si se puede. En CPU la primera frase tarda ~1,5 s
-    (medido): vale de reserva, no de uso normal."""
+    """Supertonic F2, en GPU si se puede. En CPU la primera frase tarda ~1,5 s
+    (medido): vale de reserva, no de uso normal. generar(texto) suelta la
+    frase entera de una vez."""
     import onnxruntime
     import supertonic.loader
     from supertonic import TTS
@@ -86,11 +110,12 @@ def cargar():
     estilo = t.get_voice_style(voice_name=VOZ)
     pasos = 8 if gpu else 4
 
-    def sintetizar(texto):
+    def generar(texto):
         wav, _ = t.synthesize(texto, voice_style=estilo, lang="es", total_steps=pasos)
-        return np.asarray(wav, dtype=np.float32).reshape(-1)
-    sintetizar("Hola.")  # en caliente
-    return sintetizar, t.sample_rate, gpu
+        yield np.asarray(wav, dtype=np.float32).reshape(-1)
+    for _ in generar("Hola."):  # en caliente
+        pass
+    return generar, t.sample_rate, gpu
 
 
 def frases(texto):
@@ -100,7 +125,8 @@ def frases(texto):
 
 class Voz:
     def __init__(self):
-        self.sintetizar, self.sr, self.gpu = cargar()
+        self.generar, self.sr, self.gpu = cargar_pocket() if MOTOR == "pocket" else cargar()
+        self.ultimo_rtf = None  # de la ultima respuesta: >1 es que se entrecorta (CPU ocupada)
         self.trozos = queue.Queue()
         self.actual = np.zeros(0, dtype=np.float32)
         self.turno = 0                  # cada /decir abre un turno; el viejo se descarta
@@ -148,21 +174,31 @@ class Voz:
             self.sonando.clear(); self.callado.clear()
         t0 = time.perf_counter()
         partes = frases(para_decir(texto))
-        primera = self.sintetizar(partes[0]) if partes else np.zeros(0, dtype=np.float32)
-        self.trozos.put((turno, primera))
-        primera_ms = round((time.perf_counter() - t0) * 1000)
+        primer_trozo = threading.Event()
+        marca = {}
 
-        def resto():
-            for p in partes[1:]:
-                if turno != self.turno:
-                    return
-                self.trozos.put((turno, self.sintetizar(p)))
+        def producir():
+            muestras = 0
+            for p in partes:
+                for trozo in self.generar(p):
+                    if turno != self.turno:  # otra pregunta o Esc: se deja de generar
+                        return
+                    self.trozos.put((turno, trozo))
+                    muestras += len(trozo)
+                    if not primer_trozo.is_set():
+                        marca["ms"] = round((time.perf_counter() - t0) * 1000)
+                        primer_trozo.set()
+            dur = muestras / self.sr
+            if dur:
+                self.ultimo_rtf = round((time.perf_counter() - t0) / dur, 3)
             self.trozos.put((turno, None))
-        threading.Thread(target=resto, daemon=True).start()
+            primer_trozo.set()
+        threading.Thread(target=producir, daemon=True).start()
         if pid:
             threading.Thread(target=self._vigilar, args=(int(pid), turno), daemon=True).start()
+        primer_trozo.wait(10)
         self.sonando.wait(2)
-        return primera_ms
+        return marca.get("ms")
 
     def _vigilar(self, pid, turno):
         """Cuando muere quien pregunto, se calla. Espera al HANDLE del
@@ -197,8 +233,9 @@ def servir(voz):
         def do_GET(self):  # noqa: N802
             ruta = self.path.split("?")[0].rstrip("/")
             if ruta in ("", "/salud"):
-                self.responder({"ok": True, "motor": f"supertonic-3 {VOZ}", "gpu": voz.gpu,
-                                "hablando": not voz.callado.is_set()})
+                motor = f"pocket {POCKET_LENGUA} {POCKET_VOZ}" if MOTOR == "pocket" else f"supertonic-3 {VOZ}"
+                self.responder({"ok": True, "motor": motor, "gpu": voz.gpu,
+                                "hablando": not voz.callado.is_set(), "ultimo_rtf": voz.ultimo_rtf})
             elif ruta == "/esperar":
                 voz.callado.wait(60)
                 self.responder({"ok": True})
