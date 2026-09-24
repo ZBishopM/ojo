@@ -15,8 +15,9 @@ Lo esperado, escrito antes de correr:
   6. (fecha vencida) "Hoy hablé con Luis"    -> pregunta como salio el partido
   en todas: como mucho una pregunta; nada guardado que no dijera
 
-    .\prueba-conocer.ps1
+    .\prueba-conocer.ps1 [-Puerto 8097] [-Vista ocr]
 #>
+param([int]$Puerto = 8099, [string]$Vista = 'imagen')
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 $apartar = @("$raiz\personas", "$raiz\conocer\estado.json", "$raiz\historial.json")
@@ -34,7 +35,7 @@ function Preguntar($q) {
     }
     Remove-Item "$raiz\historial.json" -EA SilentlyContinue
     $ErrorActionPreference = 'Continue'
-    $null = & "$raiz\ojo.ps1" -Pregunta $q -Voz '' -Segundos 0 *>&1
+    $null = & "$raiz\ojo.ps1" -Pregunta $q -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista *>&1
     $m = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
     "  [$q]`n    dijo: $($m.dijo)`n    curiosidad: $($m.curiosidad) | valencia: $($m.valencia) | acercar: $($m.acercar) | recordo: $($m.recordo)" | Write-Host
     $script:dichos += $q

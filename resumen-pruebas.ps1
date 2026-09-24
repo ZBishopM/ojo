@@ -161,9 +161,30 @@ if ($Salida) {
         }
         $p | Select-Object * -ExcludeProperty casos | Add-Member -NotePropertyName casos -NotePropertyValue @($casos) -PassThru
     }
+    # La comparacion de modelos (comparar-modelos.ps1), mas el 8B de referencia
+    # medido con el mismo banco de pantalla (banco-pantalla -Nombre M0-v1).
+    $modelos = @()
+    if (Test-Path "$raiz\comparar-modelos.json") {
+        $modelos = @(Leer-Json 'comparar-modelos.json' | ForEach-Object {
+            $m = $_
+            [pscustomobject]@{ id = $m.id; nombre = $m.nombre; tok_s = $m.tok_s; vram = $m.vram_modelo
+                con_lol = "$($m.con_lol.tok_s) tok/s · pantallas reales $($m.con_lol.pantallas_reales) · partida $($m.con_lol.partida)$(if ($m.con_lol.derrama) { ' · DERRAMA' })"
+                vueltas = @($m.vueltas | ForEach-Object { [pscustomobject]@{ pantalla = $_.pantalla.real; sola = $_.pantalla.sola; verdad = "$($_.verdad.aciertos) · $($_.verdad.inventos) inventos"
+                    chat = $_.'prueba-chat'.ok; personas = $_.'prueba-personas'.ok; conocer = $_.'prueba-conocer'.ok; partida = $_.partida.aciertos; partida_real = $_.partida_real.aciertos
+                    fallos = @(@($_.pantalla.fallos | ForEach-Object { "pantalla: $_" }) + @($_.verdad.fallos | ForEach-Object { "verdad: $_" }) +
+                               @($_.'prueba-conocer'.fallos + $_.'prueba-personas'.fallos + $_.'prueba-chat'.fallos | Where-Object { $_ } | ForEach-Object { "conversación: $_" }) +
+                               @(@($_.partida.fallos) + @($_.partida_real.fallos) | Where-Object { $_ } | ForEach-Object { "partida: $_" })) } }) }
+        })
+        $m0 = @(Leer-Json 'banco-pantalla.json' | Where-Object nombre -eq 'M0-v1')[-1]
+        if ($m0) {
+            $modelos = @([pscustomobject]@{ id = 'M0'; nombre = 'Qwen3-VL-8B Q6_K + visión (el de hoy)'; tok_s = 62; vram = 8540; con_lol = 'no cabe: LoL + 8B derraman (47,8 → 6,1 tok/s, medido el 22/09)'
+                vueltas = @([pscustomobject]@{ pantalla = $m0.real; sola = $m0.sola; verdad = '8/8 · 0 inventos'; chat = $true; personas = $true; conocer = $true; partida = '16/16'; partida_real = '8/8'
+                    fallos = @($m0.filas | Where-Object { $_.real -eq $false } | ForEach-Object { "pantalla: [$($_.res), $($_.cat)] $($_.q) -> $($_.dijo)" }) }) }) + $modelos
+        }
+    }
     # La VRAM por proceso (vram.ps1), para el diagrama.
     $vram = @(Get-ChildItem $raiz -Filter 'vram-*.json' | Where-Object Name -ne 'vram-ahora.json' | ForEach-Object { [IO.File]::ReadAllText($_.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json })
-    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);", [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);`nwindow.MODELOS = $(ConvertTo-Json @($modelos) -Depth 6 -Compress);",[Text.UTF8Encoding]::new($false))
     foreach ($a in @($PRUEBAS | ForEach-Object { $_.archivo } | Select-Object -Unique)) {
         Copy-Item (Join-Path $raiz $a) (Join-Path $Salida "codigo\$a.txt") -Force
     }

@@ -27,6 +27,10 @@ param(
     # PRUEBAS, con -Imagen: los controles de UIA congelados junto a la imagen
     # (congelar-escena.ps1), en JSON: el camino real de senalar, sin la ventana.
     [string]$ListaControles,
+    # Con un modelo SIN vision fuera de partida: 'ocr' lee la pantalla por su
+    # texto (OCR a tamano real) y sus controles de UIA, sin mandar imagen.
+    # Para medir si el 4B de texto de LoL vale tambien en el escritorio.
+    [ValidateSet('imagen', 'ocr')][string]$Vista = 'imagen',
     # Apaga las memorias temporales, para medir cuanto aportan.
     [switch]$SinMemoria,
     # Carga esa memoria a la fuerza, sin puntuar. Para cuando el selector duda
@@ -1183,12 +1187,18 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
             if ($pideAumento) {
                 try {
                     Add-Type -AssemblyName System.Drawing, System.Windows.Forms
-                    $hwnd = (Get-Process 'League of Legends' -EA SilentlyContinue | Select-Object -First 1).MainWindowHandle
-                    $pant = $(if ($hwnd -and $hwnd -ne [IntPtr]::Zero) { [Windows.Forms.Screen]::FromHandle($hwnd) } else { [Windows.Forms.Screen]::PrimaryScreen }).Bounds
-                    $img = New-Object Drawing.Bitmap $pant.Width, $pant.Height
-                    $g = [Drawing.Graphics]::FromImage($img)
-                    $g.CopyFromScreen($pant.Location, [Drawing.Point]::Empty, $pant.Size)
-                    $g.Dispose()
+                    if ($Imagen) {
+                        # PRUEBAS (prueba-aumentos-e2e): la pantalla de eleccion de una imagen.
+                        $src = [Drawing.Image]::FromFile((Resolve-Path $Imagen).Path)
+                        $img = New-Object Drawing.Bitmap $src; $src.Dispose()
+                    } else {
+                        $hwnd = (Get-Process 'League of Legends' -EA SilentlyContinue | Select-Object -First 1).MainWindowHandle
+                        $pant = $(if ($hwnd -and $hwnd -ne [IntPtr]::Zero) { [Windows.Forms.Screen]::FromHandle($hwnd) } else { [Windows.Forms.Screen]::PrimaryScreen }).Bounds
+                        $img = New-Object Drawing.Bitmap $pant.Width, $pant.Height
+                        $g = [Drawing.Graphics]::FromImage($img)
+                        $g.CopyFromScreen($pant.Location, [Drawing.Point]::Empty, $pant.Size)
+                        $g.Dispose()
+                    }
                     $muestraEleccion = "$Raiz\prueba-lol\eleccion-ultima.bmp"
                     $img.Save($muestraEleccion, [Drawing.Imaging.ImageFormat]::Bmp)
                     Marca 'captura_aumentos'
@@ -1263,8 +1273,11 @@ $tc = [Diagnostics.Stopwatch]::StartNew()
 # Sin vision no hay captura: mandarle una imagen a un servidor sin mmproj es un
 # error seguro, y adivinar la pantalla sin verla seria inventar.
 $conVision = [bool]$InfoServidor.modalities.vision
+# Sin vision pero con -Vista ocr: se captura igual (para el OCR), y no se
+# le manda la imagen.
+$porTexto = -not $conVision -and $Vista -eq 'ocr' -and -not $hayPartida
 $nativa = $null
-if (-not $hayPartida -and $conVision) {
+if (-not $hayPartida -and ($conVision -or $porTexto)) {
     $tmp = Join-Path $env:TEMP 'ojo.jpg'
     # Y a tamano real, para el OCR (Fase de verificacion): ~75 ms mas. Se lee
     # solo si la pregunta lo pide o si hay que comprobar lo que dijo.
@@ -1337,7 +1350,9 @@ try {
     $tm.Stop()
     $memoria = $mm.texto
 
-    if (-not $hayPartida -and -not $conVision) {
+    if ($porTexto) {
+        $memoria += "`n`nNO RECIBES IMAGEN: ves la pantalla por su TEXTO (OCR, con su posicion) y por la LISTA DE CONTROLES. Contesta solo con eso; lo que no este ahi, no lo ves."
+    } elseif (-not $hayPartida -and -not $conVision) {
         # Perfil de texto sin partida (Hearthstone, o el cliente de LoL antes de
         # la partida). Sin esto, el prompt de sistema le dice que "mira la
         # pantalla" y el modelo la describe inventandosela.
@@ -1435,7 +1450,8 @@ try {
         }
     }
     # (se llama con punto: escribe $ocr y $memoria de aqui)
-    if ($nativa -and ($dec.lectura -or $dec.sitio)) { . $leerPantalla }
+    # Sin imagen, el OCR es TODA la vista: siempre.
+    if ($nativa -and ($dec.lectura -or $dec.sitio -or $porTexto)) { . $leerPantalla }
 
     # Busqueda ADELANTADA para lo que huele a actualidad: con la frase literal
     # del usuario, en otro runspace, mientras piensa el modelo. Si al final no
@@ -1468,7 +1484,7 @@ try {
     # cuenta como respaldo.
     $humor = ''
     if (-not $respuestaFija) { try { . "$Raiz\humor.ps1"; $humor = Referencias-Humor 8 } catch { } }
-    $preguntar = { Preguntar-Modelo $tmp $Pregunta $controles ($memoria + $humor) $(if ($hayPartida) { $partida }) }
+    $preguntar = { Preguntar-Modelo $(if ($conVision) { $tmp }) $Pregunta $controles ($memoria + $humor) $(if ($hayPartida) { $partida }) }
 
     $r = if ($respuestaFija) {
         @{ ms = 0; texto = (@{ decir = $respuestaFija } | ConvertTo-Json -Compress); tok_s = 0; prompt_n = 0 }
@@ -1635,7 +1651,7 @@ try {
             $recordados += $nuevos
             # Reflexion cada 5 hechos (conocer.ps1)
             foreach ($id in @($nuevos | ForEach-Object { ($_ -split ':')[0] } | Select-Object -Unique)) {
-                try { $null = Reflexionar ($personas | Where-Object id -eq $id | Select-Object -First 1) } catch { Write-Warning "sin reflexion de ${id}: $_" }
+                try { $null = Reflexionar ($personas | Where-Object id -eq $id | Select-Object -First 1) "http://127.0.0.1:$Puerto" } catch { Write-Warning "sin reflexion de ${id}: $_" }
             }
             # La pregunta la decide conocer.ps1 si la hay (capa, pendiente); con
             # mala noticia, ninguna.

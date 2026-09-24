@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 La eleccion de aumento de principio a fin, sin partida: dibuja la pantalla de
 eleccion (tres cartas con nombre y descripcion, 1920x1080, fondo oscuro), la
@@ -17,7 +17,7 @@ Add-Type -AssemblyName System.Drawing
 
 $cat = Get-DDragon
 $b = Get-Build 'Kayn' 'KIWI' $cat
-$rank = @($b.ranking_aumentos)
+$rank = @($b.ranking_aumentos | Where-Object { $_ })
 if ($rank.Count -lt 120) { Write-Host "sin clasificacion de Kayn ($($rank.Count))" -ForegroundColor Red; exit 2 }
 
 $fallos = @()

@@ -19,7 +19,9 @@ Cada caso lanza ojo.ps1 SIN VOZ, lee ultima-medida.json y comprueba:
 param(
     [Parameter(Mandatory)][string]$Nombre,
     [string]$Script,
-    [string]$Raiz
+    [string]$Raiz,
+    [int]$Puerto = 8099,
+    [string]$Vista = 'imagen'
 )
 $ErrorActionPreference = 'Stop'
 # En el cuerpo y no como valor por defecto: en 5.1, $PSScriptRoot sale vacio
@@ -50,7 +52,7 @@ $filas = foreach ($c in $CASOS) {
     # Continue: el overlay escribe en stderr ("listo 1920x1080...") y con Stop
     # eso cortaba la pregunta sin escribir la medida.
     $ErrorActionPreference = 'Continue'
-    try { $null = & $Script -Pregunta $c.q -Voz '' -Segundos 0 *>&1 } catch { Write-Warning "$($c.q): $_" }
+    try { $null = & $Script -Pregunta $c.q -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista *>&1 } catch { Write-Warning "$($c.q): $_" }
     $ErrorActionPreference = 'Stop'
     $ms = $sw.ElapsedMilliseconds
     $m = if (Test-Path "$Raiz\ultima-medida.json") { Get-Content "$Raiz\ultima-medida.json" -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }

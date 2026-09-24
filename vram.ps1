@@ -26,9 +26,15 @@ function Nombre($p) {
     $n = "$($p.Name)" -replace '\.exe$', ''
     $cl = "$($p.CommandLine)"
     if ($n -eq 'llama-server') {
-        if ($cl -match 'Qwen3\.5-4B') { return 'Ojo: modelo 4B (texto)' }
-        if ($cl -match 'Qwen3-VL-8B') { return 'Ojo: modelo 8B (visión)' }
-        return 'llama-server (otro modelo)'
+        # El puerto distingue el de Ojo (8099) de uno en pruebas (8097).
+        $pto = if ($cl -match '--port\s+(\d+)') { $Matches[1] } else { '?' }
+        $sufijo = if ($pto -eq '8099') { '' } else { " :$pto" }
+        $vis = if ($cl -match '--mmproj') { 'visión' } else { 'texto' }
+        if ($cl -match 'Qwen3\.5-4B') { return "Ojo: modelo 4B ($vis)$sufijo" }
+        if ($cl -match 'Qwen3-VL-8B') { return "Ojo: modelo 8B (visión)$sufijo" }
+        if ($cl -match 'Qwen3VL-4B') { return "Qwen3-VL-4B ($vis)$sufijo" }
+        if ($cl -match 'gemma-4') { return "Gemma 4 E4B ($vis)$sufijo" }
+        return "llama-server$sufijo"
     }
     if ($n -match '^python' -and $cl -match 'servidor_voz') { return 'Ojo: voz' }
     if ($n -match '^python' -and $cl -match 'escuchar') { return 'Ojo: oído' }

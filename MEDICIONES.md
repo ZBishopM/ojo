@@ -1,4 +1,4 @@
-# Mediciones
+﻿# Mediciones
 
 Todo lo de aquí sale de ejecutar código en este equipo (RTX 4070 SUPER 12 GB,
 driver 610.62). Fecha: 2026-09-19. **Ningún número es estimado.**
@@ -1847,3 +1847,44 @@ Voces (`voz/probar_ligera.py`, sin nada más corriendo):
 | Pocket TTS spanish_24l, eve | 190-233 ms | ~0,69 | CPU |
 
 Escucha a ciegas 3 en la página MVP.
+
+## Escucha 3, Pocket en GPU y qué modelo cabe con LoL (2026-09-23, noche)
+
+Escucha a ciegas 3 (usuario, naturalidad/personalidad/pronunciación): **A
+Pocket spanish_24l «lola» 5/5/4**, B F2 3/2/1, E Pocket clonando F2 2/1/2,
+C eve 1/3/1, D Pocket ligera 1/1/1.
+
+Pocket «lola», 10 frases x 3 vueltas (`voz/probar_ligera.py`):
+
+| | primer audio p50/p95 | RTF p50 | CPU | VRAM |
+|---|---|---|---|---|
+| CPU 2 hilos | 182/213 ms | 0,61 | ~3,4 núcleos | 0 |
+| CPU 4 hilos | 191/208 ms | 0,66 | ~7,3 núcleos | 0 |
+| GPU (cu128) | 129/186 ms | 0,64 | ~1,1 núcleos | ~1,7 GB |
+| GPU con 4,6 GB retenidos | 124/145 ms | 0,61 | ~1,1 núcleos | — |
+
+En GPU no genera más rápido (lote de 1) y ocupa el doble que la F2.
+
+Modelos (`comparar-modelos.ps1`, 2 vueltas, puerto 8097; «con LoL» = 4.600
+MiB retenidos más el 4B de texto cargado a la vez, más presión que en
+partida):
+
+| | pantalla /53 | imagen sola | verdad /8 | conversación | partida | tok/s | VRAM | con LoL |
+|---|---|---|---|---|---|---|---|---|
+| M0 8B visión (hoy) | 50 | 32 | 8 | 3/3 | 16/16, 8/8 | ~62 | 8,5 GB | no cabe |
+| M1 Qwen3.5-4B + visión | 49 / 49 | 29 | 7 / 6 | 3/3 x2 | 8/8, 4/4 x2 | 97 | 4,2 GB | 92 tok/s, sin derrame |
+| M2 Qwen3.5-4B texto + OCR | 39 / 40 | — | 6 / 6 | 3/3 x2 | 8/8, 7/8 | 101 | 3,6 GB | 102 tok/s |
+| M3 Qwen3-VL-4B Q8_0 + visión | 48 / 48 | 37 | 8 / 8 | 3/3 x2 | 8/8, 3/4 x2 | 86 | 5,8 GB | 81 tok/s |
+| M4 Gemma 4 E4B Q4_K_M + visión | 46 / 45 | 24 | 7 / 7 | 3/3, 2/3 | 8/8, 4/4 | 100 | 3,8 GB | 99 tok/s |
+
+El fallo común (también del 8B): la barra de arriba en la segunda escena, con
+otras cifras en pantalla («16.8 GB», «11.99 GiB», «83%» de otras ventanas).
+En uso real esas preguntas las contesta el sistema (hechos masticados); en
+el banco con -Imagen no.
+
+Aumentos de punta a punta (`prueba-aumentos-e2e.ps1`, partida falsa con la
+muestra de Mayhem): **con clasificación 8/8, p50 696 ms, sin modelo**; sin
+clasificación decide el 4B de partida: siempre una de las tres y sin
+porcentajes, pero cambia de elección entre 1080p y 1440p con las mismas
+cartas. Salió además un bug real: `@($null).Count` es 1 y una build de Sylas
+sin clasificación pasaba por buena y no se volvía a bajar nunca.

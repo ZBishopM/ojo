@@ -72,3 +72,5 @@ vram-*.json
 banco-pantalla.json
 banco-verdad.json
 pruebas-resumen.json
+comparar-modelos.json
+banco-aumentos.json

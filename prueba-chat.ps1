@@ -7,8 +7,9 @@ del usuario:
   - "donde esta el boton de enviar": en esta imagen no hay ninguno; no debe
     describir donde estaria.
 
-    .\prueba-chat.ps1
+    .\prueba-chat.ps1 [-Puerto 8097] [-Vista ocr]
 #>
+param([int]$Puerto = 8099, [string]$Vista = 'imagen')
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 Add-Type -AssemblyName System.Drawing
@@ -45,12 +46,12 @@ $img.Save($png, [Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
 
 $fallos = @()
 $ErrorActionPreference = 'Continue'
-$null = & "$raiz\ojo.ps1" -Pregunta '¿Cuál fue el último mensaje que me envió Irene?' -Imagen $png -Voz '' -Segundos 0 *>&1
+$null = & "$raiz\ojo.ps1" -Pregunta '¿Cuál fue el último mensaje que me envió Irene?' -Imagen $png -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista *>&1
 $m1 = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
 "ultimo de Irene -> $($m1.dijo)"
 if ($m1.dijo -notmatch '(?i)postre' -or $m1.dijo -match '(?i)tiramis') { $fallos += "ultimo de Irene: '$($m1.dijo)' (tocaba 'Perfecto, trae el postre')" }
 
-$null = & "$raiz\ojo.ps1" -Pregunta '¿Dónde está el botón de enviar?' -Imagen $png -Voz '' -Segundos 0 *>&1
+$null = & "$raiz\ojo.ps1" -Pregunta '¿Dónde está el botón de enviar?' -Imagen $png -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista *>&1
 $m2 = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
 "boton de enviar -> $($m2.dijo)  [$($m2.via)]"
 if ($m2.dijo -match '(?i)\b(derecha|izquierda|arriba|abajo|esquina)\b' -and -not $m2.senalo) { $fallos += "boton de enviar: describe un sitio sin senalar: '$($m2.dijo)'" }

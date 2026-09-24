@@ -12,8 +12,9 @@ Lo esperado, escrito antes de correr:
   6. "Me llamo Bishop"                              -> recuerda el nombre del usuario
   7. "Cuéntame algo"                                -> curiosidad sobre alguien
 
-    .\prueba-personas.ps1
+    .\prueba-personas.ps1 [-Puerto 8097] [-Vista ocr]
 #>
+param([int]$Puerto = 8099, [string]$Vista = 'imagen')
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dir = Join-Path $raiz 'personas'
@@ -25,7 +26,7 @@ Remove-Item "$raiz\historial.json" -EA SilentlyContinue
 
 function Preguntar($q) {
     $ErrorActionPreference = 'Continue'
-    $null = & "$raiz\ojo.ps1" -Pregunta $q -Voz '' -Segundos 0 *>&1
+    $null = & "$raiz\ojo.ps1" -Pregunta $q -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista *>&1
     [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
 }
 $fallos = @()

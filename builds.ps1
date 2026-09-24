@@ -129,7 +129,10 @@ function Get-BuildCacheada($campeon, $modo, $cat) {
     $f = Archivo-Build $campeon $modo $cat
     if (-not (Test-Path $f)) { return }
     $b = [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
-    if ($modo -eq 'KIWI' -and -not @($b.ranking_aumentos).Count) { return }
+    # Contando SOLO los que hay: @($null).Count es 1, y una build sin
+    # clasificacion pasaba por buena y no se volvia a bajar nunca (Sylas,
+    # prueba-aumentos-e2e, 2026-09-23).
+    if ($modo -eq 'KIWI' -and -not @($b.ranking_aumentos | Where-Object { $_ }).Count) { return }
     $b
 }
 
@@ -197,7 +200,7 @@ if ($args -contains '-Precargar') {
     $id = ($cat.campeones.PSObject.Properties | Where-Object { $_.Value.nombre -eq $nombre } | Select-Object -First 1).Name
     if (-not $id) { exit 1 }
     $b = Get-Build $id "$($s.gameData.queue.gameMode)" $cat
-    "$id $($s.gameData.queue.gameMode): $(if ($b) { "$(@($b.ranking_aumentos).Count) aumentos clasificados" } else { 'sin build' })"
+    "$id $($s.gameData.queue.gameMode): $(if ($b) { "$(@($b.ranking_aumentos | Where-Object { $_ }).Count) aumentos clasificados" } else { 'sin build' })"
     exit 0
 }
 
