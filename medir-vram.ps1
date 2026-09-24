@@ -1,4 +1,4 @@
-<#
+﻿<#
 Cuanta VRAM ocupa una configuracion de llama-server, desglosada, y a que
 velocidad genera. Para comparar palancas de una en una.
 
@@ -96,6 +96,6 @@ $fila = [ordered]@{
 Matar
 
 $f = "$Raiz\medir-vram.json"
-$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json }) + [pscustomobject]$fila
+$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$fila
 $todas | ConvertTo-Json -Depth 5 | Set-Content $f -Encoding utf8
 [pscustomobject]$fila

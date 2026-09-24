@@ -1,4 +1,4 @@
-<#
+﻿<#
 Cuanto tarda el supervisor en cambiar de perfil al empezar y al acabar una
 partida. Usa la partida falsa (partida.ps1): proceso "League of Legends" + API.
 
@@ -35,5 +35,5 @@ $vuelta = Esperar 'Qwen3-VL-8B'
 "sale de partida -> vision en: $(if ($vuelta) { "$vuelta s" } else { "NO volvio en $Tope s" })"
 
 $f = Join-Path (Split-Path $aqui) 'medir-cambio.json'
-$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json }) + [pscustomobject]@{ nombre = $Nombre; ida_s = $ida; vuelta_s = $vuelta; hora = (Get-Date).ToString('HH:mm:ss') }
+$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]@{ nombre = $Nombre; ida_s = $ida; vuelta_s = $vuelta; hora = (Get-Date).ToString('HH:mm:ss') }
 $todas | ConvertTo-Json | Set-Content $f -Encoding utf8

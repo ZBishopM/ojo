@@ -19,10 +19,11 @@ $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 $guardado = Join-Path $raiz 'pruebas-resumen.json'
 
+# Los hay guardados como {value: [...]} y como [...], y anidados a cualquier
+# profundidad (PS 5.1 da el array como UN objeto y cada anexo anidaba lo anterior).
+function Aplanar($x) { foreach ($e in @($x)) { if ($e -is [array]) { Aplanar $e } elseif ($e.value -is [array]) { Aplanar $e.value } elseif ($e) { $e } } }
 function Leer-Json([string]$f) {
-    $j = [IO.File]::ReadAllText((Join-Path $raiz $f), [Text.Encoding]::UTF8) | ConvertFrom-Json
-    # Los hay guardados como {value: [...]} y como [...]; y PS 5.1 da el array como UN objeto.
-    @($j | ForEach-Object { $_ } | ForEach-Object { if ($_.value) { $_.value } else { $_ } } | ForEach-Object { $_ })
+    @(Aplanar ([IO.File]::ReadAllText((Join-Path $raiz $f), [Text.Encoding]::UTF8) | ConvertFrom-Json))
 }
 function Corto([string]$s, [int]$n = 220) { $s = "$s" -replace '\s+', ' '; if ($s.Length -gt $n) { $s.Substring(0, $n) + '…' } else { $s } }
 

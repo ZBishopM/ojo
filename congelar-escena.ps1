@@ -24,10 +24,15 @@ $todo = Join-Path $env:TEMP 'ojo-congelar.bmp'
 $ahora = Get-Date
 $so = Get-CimInstance Win32_OperatingSystem
 $g = (& nvidia-smi --query-gpu=memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits) -split ',\s*'
+# La VRAM, tres veces en ~2 s: si se mueve (un modelo cargando, como al salir de
+# LoL), la barra y el sistema no dicen lo mismo y esa verdad no vale. Paso en la
+# escena del 2026-09-24 01:33: el sistema 7,8 GB, la barra aun 3,3.
+$vr = @([int]$g[0]) + @(1..2 | ForEach-Object { Start-Sleep -Milliseconds 900; [int]((& nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits) | Select-Object -First 1) })
+$vramEstable = (($vr | Measure-Object -Maximum).Maximum - ($vr | Measure-Object -Minimum).Minimum) -le 200
 $hechos = [ordered]@{
     hora      = $ahora.ToString('HH:mm')
     ram_pct   = [math]::Round(100 * (1 - $so.FreePhysicalMemory / $so.TotalVisibleMemorySize))
-    vram_gb   = [math]::Round([int]$g[0] / 1024, 1)
+    vram_gb   = if ($vramEstable) { [math]::Round([int]$g[0] / 1024, 1) } else { $null }
     vram_tot  = [math]::Round([int]$g[1] / 1024)
     gpu_temp  = [int]$g[2]
 }

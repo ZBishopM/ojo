@@ -1,4 +1,4 @@
-<#
+﻿<#
 Banco de VISION sobre una captura fija, para comparar configuraciones del
 modelo (cuantizacion de pesos, del mmproj, del KV) sin depender de lo que haya
 en pantalla ese dia.
@@ -137,6 +137,6 @@ $res = [ordered]@{
     filas       = $filas
 }
 $f = "$Raiz\banco-vision.json"
-$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json }) + [pscustomobject]$res
+$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$res
 $todas | ConvertTo-Json -Depth 6 | Set-Content $f -Encoding utf8
 [pscustomobject]$res

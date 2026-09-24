@@ -1888,3 +1888,47 @@ clasificación decide el 4B de partida: siempre una de las tres y sin
 porcentajes, pero cambia de elección entre 1080p y 1440p con las mismas
 cartas. Salió además un bug real: `@($null).Count` es 1 y una build de Sylas
 sin clasificación pasaba por buena y no se volvía a bajar nunca.
+
+## Partida real con M1, M0 contra M1 a fondo y la luz (2026-09-24)
+
+Partida real de ARAM Mayhem con M1 (el 4B con visión) como modelo de
+partida: **LoL ocupa ~980 MiB en partida y 284 el cliente** (no los ~4,6 GB
+que se suponían); con M1 quedaban 4,4 GB libres y 64-72 tok/s. Elección de
+aumento leyendo las cartas: 2,0 s de punta a punta, sin modelo.
+
+M0 (8B) contra M1, 3 vueltas, 107 casos de pantalla (27 trampas y 80 de 4
+escenas reales: barra con hechos, barra sin hechos, señalar):
+
+| | pantalla /107 | barra con hechos /32 | barra sin hechos /32 | señalar /16 | verdad /8 |
+|---|---|---|---|---|---|
+| M0 | 99 · 99 · 99 | 31 | 25 | 16 | 8 · 8 · 7 |
+| M1 | 88 · 90 · 86 | 28 · 30 · 28 | 17 · 17 · 15 | 16 | 6 · 8 · 6 |
+| M0 + zoom guiado | — | 31 | 28 | 16 | — |
+| M1 + zoom guiado | — | 28 | 23 | 16 | — |
+
+Trampas 27/27 y señalar 16/16 en los dos: toda la diferencia es leer la barra.
+M1 contestaba «la VRAM es de 12 GB» (el total) aun con «10.8 de 12 GB
+usados» delante; el 8B, «16.8» (el OCR lee «10.8» como «16.8»). Por eso:
+**una medida suelta del PC se contesta con el número del sistema, sin
+modelo** (`Respuesta-Metrica`): barra con hechos 30/30 y verdad 8/8 con el 8B.
+Imagen a 1920: no cabe en el contexto de 8.192 con el OCR («8241 tokens»).
+Escena 4 congelada mientras el supervisor recargaba el 8B: su VRAM no vale
+(sistema 7,8 GB, barra 3,3); congelar-escena ya mide la VRAM tres veces.
+
+Otra trampa de PowerShell 5.1: los bancos anexaban con `ConvertFrom-Json`
+dando el array como UN objeto, y cada corrida anidaba la anterior un nivel
+más hasta que `ConvertTo-Json -Depth 5` cortaba corridas enteras (se
+perdieron dos). Arreglado en los 8 scripts que anexan.
+
+La luz (misma cuenta que `rice\consumo`: GPU medida, CPU estimada):
+
+| escenario | en el enchufe | preguntas/min | Wh por pregunta (todo el PC) |
+|---|---|---|---|
+| reposo con Ojo cargado | ~227 W | — | — |
+| reposo sin Ojo | ~249 W (ruido de CPU) | — | — |
+| Ojo contestando, 8B | 413-423 W | 14-16 | 0,44-0,49 |
+| Ojo contestando, M1 | 334 W | 26 | 0,21 |
+| voz Pocket hablando (CPU) | ~281 W | — | — |
+
+Uso real del mes: ~3,3 kWh/día con ~14,5 h encendido, ~S/ 70 al mes a
+S/ 0,70 el kWh. Ojo cargado sin preguntar no se nota.

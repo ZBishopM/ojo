@@ -1,4 +1,4 @@
-<#
+﻿<#
 Resiste el modelo de Ojo a que otro proceso le quite VRAM?
 
 Se mide la velocidad del servidor que haya en el 8099 (el que mantiene el
@@ -40,6 +40,6 @@ Start-Sleep -Seconds 5
 $f.sin_ladron = Tok
 
 $j = "$Raiz\medir-presion.json"
-$todas = @(if (Test-Path $j) { Get-Content $j -Raw | ConvertFrom-Json }) + [pscustomobject]$f
+$todas = @(if (Test-Path $j) { Get-Content $j -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$f
 $todas | ConvertTo-Json | Set-Content $j -Encoding utf8
 [pscustomobject]$f

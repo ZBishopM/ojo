@@ -57,6 +57,7 @@ function Prueba([string]$script, [hashtable]$args_) {
     $ErrorActionPreference = 'Continue'
     # A lista: con -File, un hashtable "splateado" manda "-SoloReal:True" y el
     # interruptor no se enlaza.
+    Avance "$script $($args_.Nombre)"
     $lista = @(foreach ($k in $args_.Keys) { if ($args_[$k] -is [bool]) { if ($args_[$k]) { "-$k" } } else { "-$k"; "$($args_[$k])" } })
     $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File "$raiz\$script" @lista 2>&1 | ForEach-Object { "$_" })
     $codigo = $LASTEXITCODE
@@ -64,8 +65,23 @@ function Prueba([string]$script, [hashtable]$args_) {
     [pscustomobject]@{ ok = ($codigo -eq 0); resumen = ($out | Where-Object { $_ -match 'OK\s*$|todo OK|aciertos|camino real|\d+/\d+' } | Select-Object -Last 3) -join ' · '
                        fallos = @($out | Where-Object { $_ -match '^\s*FALLA|^\s+\d+:|^MAL' } | Select-Object -First 20) }
 }
+# Aplanado a cualquier profundidad: los bancos anexaban con la trampa de
+# ConvertFrom-Json (el array leido como UN objeto) y cada corrida anidaba la
+# anterior un nivel mas. Ya esta arreglado al escribir; esto lee lo viejo.
+function Aplanar($x) { foreach ($e in @($x)) { if ($e -is [array]) { Aplanar $e } elseif ($e.value -is [array]) { Aplanar $e.value } elseif ($e) { $e } } }
 function Ultimo([string]$f, [string]$nombre) {
-    @([IO.File]::ReadAllText("$raiz\$f", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json | ForEach-Object { $_ } | ForEach-Object { if ($_.value) { $_.value } else { $_ } } | ForEach-Object { $_ } | Where-Object nombre -eq $nombre)[-1]
+    @(Aplanar ([IO.File]::ReadAllText("$raiz\$f", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json) | Where-Object nombre -eq $nombre)[-1]
+}
+# Progreso real para la barra (progreso.ps1): pasos hechos de los totales. Por
+# candidato: 7 pruebas por vuelta, las 2 variantes y las 3 medidas "con LoL".
+$script:pasoAhora = 0
+$script:pasosTotal = [math]::Max(1, $Candidatos.Count * (7 * $Vueltas + $(if ($SinVariantes) { 0 } else { 1 }) + 3 + 1))
+$script:inicio = (Get-Date).ToString('o')
+function Avance([string]$que) {
+    $script:pasoAhora++
+    $p = [ordered]@{ tarea = "comparar-modelos $($Candidatos -join ',')"; inicio = $script:inicio; paso = $script:pasoAhora; total = $script:pasosTotal; ahora = $que
+                     juego_inerte = [bool]$juego }
+    try { [IO.File]::WriteAllText("$raiz\progreso.json", ($p | ConvertTo-Json), [Text.UTF8Encoding]::new($false)) } catch { }
 }
 function PorCategoria($bp) { (@($bp.filas | Group-Object cat | ForEach-Object { "$($_.Name) $(@($_.Group | Where-Object real).Count)/$($_.Count)" })) -join ' · ' }
 
@@ -111,7 +127,7 @@ try {
         Esperar { Vivo $P } 300 "$id en el $P"
         & powershell -NoProfile -ExecutionPolicy Bypass -File "$raiz\vram.ps1" -Estado "modelo-$id" | Out-Null
         $v = [IO.File]::ReadAllText("$raiz\vram-modelo-$id.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
-        $delModelo = if ($c.yaCargado) { { $_.nombre -like 'Ojo: modelo*' -and $_.nombre -notlike '*:*' } } else { { $_.nombre -like "*:$P" } }
+        $delModelo = if ($c.yaCargado) { { $_.nombre -like 'Ojo: modelo*' -and $_.nombre -notmatch ':\d+$' } } else { { $_.nombre -like "*:$P" } }
         $fila = [ordered]@{ id = $id; nombre = $c.nombre; fecha = Get-Date -Format 'yyyy-MM-dd HH:mm'; vram_usada = $v.usada_mib
                             vram_modelo = [int](@($v.procesos | Where-Object $delModelo) | Measure-Object mib -Sum).Sum
                             tok_s = Tok $P; vueltas = @(); variantes = [ordered]@{} }
@@ -146,7 +162,9 @@ try {
         }
         # ---- Variantes de vision, en las pantallas reales ----------------------------
         if (-not $SinVariantes -and $c.vista -eq 'imagen') {
-            foreach ($var in @(@{ n = 'zoom'; a = @{ Zoom = 'guiado' } }, @{ n = '1920'; a = @{ LadoImagen = 1920 } })) {
+            # (1920 fuera: con el OCR y los controles pasa del contexto de 8.192
+            # tokens, "request (8241 tokens) exceeds the available context size")
+            foreach ($var in @(@{ n = 'zoom'; a = @{ Zoom = 'guiado' } })) {
                 $tagV = "$id-$($var.n)"
                 $pa = @{ Nombre = $tagV; Puerto = $P; Vista = $c.vista; SoloReal = $true; SoloReales = $true } + $var.a
                 $null = Prueba 'banco-pantalla.ps1' $pa
@@ -165,8 +183,12 @@ try {
         $null = Prueba 'banco-partida.ps1' @{ Nombre = "$tagL-partida"; Puerto = $P; Vueltas = 1 }
         $conLol.partida = (Ultimo 'banco-partida.json' "$tagL-partida").aciertos
         $conLol.tok_s_despues = Tok $P
-        $conLol.derrama = $conLol.tok_s -lt 0.7 * $fila.tok_s
+        Avance "$id con LoL: tok/s despues"
         Stop-Process -Id $reserva.Id -Force -EA SilentlyContinue; $reserva = $null
+        # Lo que gasta este modelo contestando sin parar (medir-consumo.ps1).
+        & powershell -NoProfile -ExecutionPolicy Bypass -File "$raiz\medir-consumo.ps1" -Escenario "ojo-$($id.ToLower())" -Carga ojo -Puerto $P -Segundos 60 | Out-Null
+        Avance "$id consumo"
+        $conLol.derrama = $conLol.tok_s -lt 0.7 * $fila.tok_s
         $fila.con_lol = [pscustomobject]$conLol
         if ($servidor) { Stop-Process -Id $servidor.Id -Force -EA SilentlyContinue; Wait-Process -Id $servidor.Id -Timeout 20 -EA SilentlyContinue; $servidor = $null }
         $todo = @($todo | Where-Object { $_.id -ne $id -or $_.fecha -ne $fila.fecha }) + [pscustomobject]$fila
@@ -177,4 +199,5 @@ try {
     if ($reserva) { Stop-Process -Id $reserva.Id -Force -EA SilentlyContinue }
     if ($servidor) { Stop-Process -Id $servidor.Id -Force -EA SilentlyContinue }
     if ($juego) { Stop-Process -Id $juego.Id -Force -EA SilentlyContinue; Write-Host 'juego inerte quitado; el supervisor vuelve al 8B' }
+    $juego = $null; $script:pasoAhora = $script:pasosTotal - 1; Avance 'terminado'
 }

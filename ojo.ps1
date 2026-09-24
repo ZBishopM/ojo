@@ -678,18 +678,35 @@ function Hechos-Sistema([switch]$SinVentana, [switch]$Metricas) {
     $a = Get-Date
     $es = [Globalization.CultureInfo]::GetCultureInfo('es-MX')
     $l = @("hora: $($a.ToString('HH:mm'))", "fecha: $($a.ToString("dddd d 'de' MMMM 'de' yyyy", $es))")
+    # Los mismos numeros, sueltos, para Respuesta-Metrica (contestar sin modelo).
+    $script:valores = @{ hora = $a.ToString('HH:mm') }
     # Lo que pinta la barra de arriba, pero del sistema: el OCR de la barra lee
     # mal (su letra es diminuta: "16 .5/126" por "10.5/12G"). ~80 ms.
     if ($Metricas) {
         try {
             $g = (& nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw --format=csv,noheader,nounits) -split ',\s*'
-            $l += "VRAM: {0:N1} de {1:N0} GB usados; GPU al {2} %, {3} °C, {4:N0} W" -f ([double]$g[0] / 1024), ([double]$g[1] / 1024), $g[2], $g[3], [double]$g[4]
+            $script:valores.vram_gb = [math]::Round([double]$g[0] / 1024, 1); $script:valores.vram_tot = [math]::Round([double]$g[1] / 1024)
+            $script:valores.gpu_uso = [int]$g[2]; $script:valores.gpu_temp = [int]$g[3]
+            $script:valores.gpu_w = [int][math]::Round([double]::Parse($g[4], [Globalization.CultureInfo]::InvariantCulture))
+            # "usada" delante y el total entre parentesis: con "10,8 de 12 GB
+            # usados" el 4B contestaba "la VRAM es de 12 GB" (el total). Con punto
+            # decimal, como la pinta la barra ("10.8/12G").
+            $l += [string]::Format([Globalization.CultureInfo]::InvariantCulture, 'VRAM usada: {0:0.0} GB (de {1:0} GB en total); GPU al {2} % de uso y a {3} °C; {4:0} W',
+                ([double]$g[0] / 1024), ([double]$g[1] / 1024), $g[2], $g[3], [double]::Parse($g[4], [Globalization.CultureInfo]::InvariantCulture))
         } catch { }
         try {
             $os = Get-CimInstance Win32_OperatingSystem
-            $l += "RAM: {0:N1} de {1:N1} GB usados ({2:N0} %)" -f (($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1MB), ($os.TotalVisibleMemorySize / 1MB),
-                (100 * (1 - $os.FreePhysicalMemory / $os.TotalVisibleMemorySize))
-            $l += "CPU: {0} %" -f (Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'").PercentProcessorTime
+            $l += [string]::Format([Globalization.CultureInfo]::InvariantCulture, 'RAM usada: {2:0} % ({0:0.0} GB de {1:0.0} GB)', (($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1MB), ($os.TotalVisibleMemorySize / 1MB),
+                (100 * (1 - $os.FreePhysicalMemory / $os.TotalVisibleMemorySize)))
+            $cpu = (Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'").PercentProcessorTime
+            $l += "CPU: {0} %" -f $cpu
+            $script:valores.ram_pct = [int][math]::Round(100 * (1 - $os.FreePhysicalMemory / $os.TotalVisibleMemorySize)); $script:valores.cpu_pct = [int]$cpu
+        } catch { }
+        # Los vatios de la barra son los del PC entero (rice\consumo), no los de la GPU.
+        try {
+            $w = [IO.File]::ReadAllText("$env:USERPROFILE\.config\consumo\ahora.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+            $script:valores.pc_w = [int][math]::Round($w.w)
+            $l += "Consumo del PC (estimado por rice): $($script:valores.pc_w) W"
         } catch { }
     }
     if (-not $SinVentana) {
@@ -699,6 +716,35 @@ function Hechos-Sistema([switch]$SinVentana, [switch]$Metricas) {
         } catch { }
     }
     "`n`nHECHOS VERIFICADOS (del sistema, exactos):`n" + ($l -join "`n")
+}
+
+# UNA medida del PC ("¿cuanta VRAM marca la barra?", "¿a que temperatura esta la
+# GPU?"): se contesta con el numero del sistema, SIN modelo. Con el numero
+# delante, los dos modelos seguian cogiendo otro de la pantalla: el 4B "la VRAM
+# es de 12 GB" (el total), el 8B "16.8 GB" (el OCR de la barra), 2026-09-24.
+# $null si pregunta por varias cosas, por un programa concreto o por algo que
+# no es una medida suelta: eso lo contesta el modelo.
+function Respuesta-Metrica([string]$q, $v) {
+    if (-not $v) { return $null }
+    $p = Plano $q
+    if ($p -match '\b(usa|ocupa|gasta|consume el|proceso|juego|modelo|chrome|firefox|discord|lol|league|hearthstone|resolve|davinci|porque|por que|normal|mucho|poco)\b') { return $null }
+    $temas = @(@{ k = 'vram'; m = '\bvram\b|memoria (de video|grafica)' }, @{ k = 'ram'; m = '(?<!v)\bram\b' }, @{ k = 'temp'; m = 'temperatura|grados|caliente' },
+               @{ k = 'cpu'; m = '\bcpu\b|procesador' }, @{ k = 'w'; m = 'vatios|\bwatts?\b|consumo|consume' }, @{ k = 'hora'; m = '\bhora\b|reloj' } |
+             Where-Object { $p -match $_.m })
+    if ($temas.Count -ne 1) { return $null }
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    switch ($temas[0].k) {
+        'vram' { if ($null -eq $v.vram_gb) { return $null }
+                 if ($p -match 'libre|queda|disponible') { return [string]::Format($inv, 'Te quedan {0:0.0} GB libres de VRAM, de {1} GB.', ($v.vram_tot - $v.vram_gb), $v.vram_tot) }
+                 return [string]::Format($inv, 'Estás usando {0:0.0} de {1} GB de VRAM.', $v.vram_gb, $v.vram_tot) }
+        'ram'  { if ($null -eq $v.ram_pct) { return $null }; return "La RAM va al $($v.ram_pct) %." }
+        'temp' { if ($null -eq $v.gpu_temp) { return $null }; return "La GPU está a $($v.gpu_temp) °C." }
+        'cpu'  { if ($null -eq $v.cpu_pct) { return $null }; return "La CPU va al $($v.cpu_pct) %." }
+        'w'    { if ($p -match '\bgpu\b|grafica') { if ($null -eq $v.gpu_w) { return $null }; return "La GPU está gastando $($v.gpu_w) W." }
+                 if ($null -eq $v.pc_w) { return $null }; return "El PC está gastando unos $($v.pc_w) W (estimado)." }
+        # "¿Que hora es en Tokio?" no es la de aqui.
+        'hora' { if ($null -eq $v.hora -or $p -match 'fecha|dia' -or ($p -match '\ben\b' -and $p -notmatch 'en (la barra|el reloj|la pantalla|mi pc)')) { return $null }; return "Son las $($v.hora)." }
+    }
 }
 
 # Preguntas que piden LEER algo de la pantalla: para esas se pasa el OCR a
@@ -1116,6 +1162,7 @@ $dec = Decidir-Con-Reglas $Pregunta
 $partida = $null
 $hayPartida = $false
 $respuestaFija = $null
+$script:valores = $null
 if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
     try {
         . "$Raiz\lol.ps1"
@@ -1404,10 +1451,18 @@ try {
         $hc = ([IO.File]::ReadAllText((Resolve-Path $HechosCongelados).Path, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).hechos
         $l = @("hora: $($hc.hora)")
         if ($dec.metricas) {
-            $l += [string]::Format([Globalization.CultureInfo]::InvariantCulture, 'VRAM: {0:0.0} de {1} GB usados; GPU a {2} °C', $hc.vram_gb, $hc.vram_tot, $hc.gpu_temp)
-            $l += "RAM: $($hc.ram_pct) % usada"
+            if ($null -ne $hc.vram_gb) { $l += [string]::Format([Globalization.CultureInfo]::InvariantCulture, 'VRAM usada: {0:0.0} GB (de {1} GB en total)', $hc.vram_gb, $hc.vram_tot) }
+            $l += "GPU a $($hc.gpu_temp) °C"
+            $l += "RAM usada: $($hc.ram_pct) %"
         }
         $memoria += "`n`nHECHOS VERIFICADOS (del sistema, exactos):`n" + ($l -join "`n")
+        $script:valores = @{ hora = $hc.hora }
+        if ($dec.metricas) { $script:valores.vram_gb = $hc.vram_gb; $script:valores.vram_tot = $hc.vram_tot; $script:valores.gpu_temp = $hc.gpu_temp; $script:valores.ram_pct = $hc.ram_pct }
+    }
+    # Una medida suelta del PC: el numero del sistema, sin modelo (Respuesta-Metrica).
+    if (-not $respuestaFija -and -not $hayPartida -and $script:valores) {
+        $fm = Respuesta-Metrica $Pregunta $script:valores
+        if ($fm) { $respuestaFija = $fm }
     }
     # Su perfil y el de su PC, siempre (perfil.ps1): que no adivine lo que se
     # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de

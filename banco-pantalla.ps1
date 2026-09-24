@@ -139,7 +139,8 @@ foreach ($vf in @(Get-ChildItem (Join-Path $raiz 'escenas\reales') -Filter verda
             $CASOS += @(
                 @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué hora marca el reloj de la barra de arriba?'; esp = "\b($($horas -join '|'))\b"; tocaba = "$($h.hora) (±1 min)" }
                 @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué porcentaje de RAM marca la barra de arriba?'; esp = "\b($(($h.ram_pct - 1)..($h.ram_pct + 1) -join '|'))\s?%"; tocaba = "$($h.ram_pct)% (±1)" }
-                @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Cuánta VRAM marca la barra de arriba?'; esp = "($($vram -join '|'))"; tocaba = "$($h.vram_gb) de $($h.vram_tot) GB (±0,1)" }
+                # Sin VRAM valida (congelar-escena la anula si se movia): sin ese caso.
+                if ($null -ne $h.vram_gb) { @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Cuánta VRAM marca la barra de arriba?'; esp = "($($vram -join '|'))"; tocaba = "$($h.vram_gb) de $($h.vram_tot) GB (±0,1)" } }
                 @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué temperatura marca la GPU en la barra de arriba?'; esp = "\b($(($h.gpu_temp - 2)..($h.gpu_temp + 2) -join '|'))\b"; tocaba = "$($h.gpu_temp)° (±2)" }
             )
         }
@@ -197,9 +198,13 @@ $filas = foreach ($c in $CASOS) {
     $ErrorActionPreference = 'Continue'
     $extra = @{}; if ($c.controles) { $extra.ListaControles = $c.controles }
     if ($c.hechos) { $extra.HechosCongelados = $c.hechos }
-    $null = & "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista -Zoom $Zoom -LadoImagen $LadoImagen @extra *>&1
+    # Sin la medida anterior: si ojo.ps1 falla (p. ej. "exceeds the available
+    # context size" a 1920), se leia la del caso anterior como si fuera esta.
+    Remove-Item "$raiz\ultima-medida.json" -EA SilentlyContinue
+    $salidaOjo = @(& "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista -Zoom $Zoom -LadoImagen $LadoImagen @extra *>&1)
     $ErrorActionPreference = 'Stop'
-    $m = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    $m = if (Test-Path "$raiz\ultima-medida.json") { [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
+         else { [pscustomobject]@{ dijo = "(ERROR: $((@($salidaOjo | Where-Object { $_ -is [Management.Automation.ErrorRecord] }) | Select-Object -First 1) -replace '\s+', ' '))"; senalo = ''; via = 'error' } }
     $pReal = if ($m.senalo) { @($m.senalo -split ',' | ForEach-Object { [double]$_ }) }
     $okReal = if ($c.tipo -eq 'leer') { [bool]($m.dijo -match $c.esp) } else { Dentro $pReal $c.caja $c.img }
     $okSola = $null; $dijoSola = ''
@@ -222,7 +227,7 @@ $res = [ordered]@{ nombre = $Nombre; fecha = Get-Date -Format 'yyyy-MM-dd HH:mm'
     sola = if ($SoloReal) { '' } else { "{0}/{1}" -f @($filas | Where-Object sola).Count, $filas.Count }
     filas = @($filas) }
 $f = "$raiz\banco-pantalla.json"
-$todas = @(if (Test-Path $f) { [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }) + [pscustomobject]$res
+$todas = @(if (Test-Path $f) { [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$res
 [IO.File]::WriteAllText($f, (ConvertTo-Json @($todas) -Depth 5), [Text.UTF8Encoding]::new($false))
 
 "$Nombre   camino real $($res.real)   imagen sola $($res.sola)"

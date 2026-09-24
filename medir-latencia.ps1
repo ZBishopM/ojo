@@ -1,4 +1,4 @@
-<#
+﻿<#
 Latencia de Ojo por pregunta, medida como la percibe `hablar.ps1`: desde que se
 lanza `ojo.ps1` hasta que la escena sale hacia el overlay.
 
@@ -57,6 +57,6 @@ $res = [ordered]@{
     filas    = $filas
 }
 $f = "$Raiz\medir-latencia.json"
-$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json }) + [pscustomobject]$res
+$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$res
 $todas | ConvertTo-Json -Depth 5 | Set-Content $f -Encoding utf8
 [pscustomobject]$res

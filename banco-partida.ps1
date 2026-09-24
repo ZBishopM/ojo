@@ -123,6 +123,6 @@ $res = [ordered]@{
     filas    = $filas
 }
 $f = "$Raiz\banco-partida.json"
-$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json }) + [pscustomobject]$res
+$todas = @(if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$res
 $todas | ConvertTo-Json -Depth 5 | Set-Content $f -Encoding utf8
 [pscustomobject]$res

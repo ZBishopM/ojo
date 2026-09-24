@@ -73,7 +73,7 @@ $res = [ordered]@{
     filas    = @($filas)
 }
 $f = "$Raiz\banco-verdad.json"
-$todas = @(if (Test-Path $f) { [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }) + [pscustomobject]$res
+$todas = @(if (Test-Path $f) { [IO.File]::ReadAllText($f, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json | ForEach-Object { $_ } }) + [pscustomobject]$res
 [IO.File]::WriteAllText($f, (ConvertTo-Json @($todas) -Depth 5), [Text.UTF8Encoding]::new($false))
 "{0}: {1} aciertos, {2} inventos, {3} ms de media" -f $Nombre, $res.aciertos, $res.inventos, $res.ms_medio
 $filas | ForEach-Object { "{0} {1} {2,6} ms  {3}`n      dijo: {4}{5}" -f $(if ($_.ok) { 'OK ' } else { 'MAL' }), $(if ($_.invento) { 'INVENTO' } else { '       ' }), $_.ms, $_.q, $_.dijo,
