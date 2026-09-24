@@ -165,9 +165,12 @@ if ($Salida) {
     # medido con el mismo banco de pantalla (banco-pantalla -Nombre M0-v1).
     $modelos = @()
     if (Test-Path "$raiz\comparar-modelos.json") {
-        $modelos = @(Leer-Json 'comparar-modelos.json' | ForEach-Object {
+        # La ultima corrida de cada modelo (una corrida cortada deja filas a medias).
+        $modelos = @(Leer-Json 'comparar-modelos.json' | Group-Object id | ForEach-Object { $_.Group[-1] } | ForEach-Object {
             $m = $_
             [pscustomobject]@{ id = $m.id; nombre = $m.nombre; tok_s = $m.tok_s; vram = $m.vram_modelo
+                variantes = (@($m.variantes.PSObject.Properties | ForEach-Object { "$($_.Name): $($_.Value.real) ($($_.Value.ms_medio) ms)" }) -join ' · ')
+                categorias = "$(@($m.vueltas)[0].pantalla.categorias)"
                 con_lol = "$($m.con_lol.tok_s) tok/s · pantallas reales $($m.con_lol.pantallas_reales) · partida $($m.con_lol.partida)$(if ($m.con_lol.derrama) { ' · DERRAMA' })"
                 vueltas = @($m.vueltas | ForEach-Object { [pscustomobject]@{ pantalla = $_.pantalla.real; sola = $_.pantalla.sola; verdad = "$($_.verdad.aciertos) · $($_.verdad.inventos) inventos"
                     chat = $_.'prueba-chat'.ok; personas = $_.'prueba-personas'.ok; conocer = $_.'prueba-conocer'.ok; partida = $_.partida.aciertos; partida_real = $_.partida_real.aciertos
@@ -176,15 +179,23 @@ if ($Salida) {
                                @(@($_.partida.fallos) + @($_.partida_real.fallos) | Where-Object { $_ } | ForEach-Object { "partida: $_" })) } }) }
         })
         $m0 = @(Leer-Json 'banco-pantalla.json' | Where-Object nombre -eq 'M0-v1')[-1]
-        if ($m0) {
+        if ($m0 -and -not @($modelos | Where-Object id -eq 'M0').Count) {
             $modelos = @([pscustomobject]@{ id = 'M0'; nombre = 'Qwen3-VL-8B Q6_K + visión (el de hoy)'; tok_s = 62; vram = 8540; con_lol = 'no cabe: LoL + 8B derraman (47,8 → 6,1 tok/s, medido el 22/09)'
                 vueltas = @([pscustomobject]@{ pantalla = $m0.real; sola = $m0.sola; verdad = '8/8 · 0 inventos'; chat = $true; personas = $true; conocer = $true; partida = '16/16'; partida_real = '8/8'
                     fallos = @($m0.filas | Where-Object { $_.real -eq $false } | ForEach-Object { "pantalla: [$($_.res), $($_.cat)] $($_.q) -> $($_.dijo)" }) }) }) + $modelos
         }
     }
+    # Lo que gasta el PC por escenario (medir-consumo.ps1) y el historico de
+    # rice\consumo, para la seccion "Cuanto gasta".
+    $consumo = @(if (Test-Path "$raiz\consumo-escenarios.json") { Leer-Json 'consumo-escenarios.json' | Group-Object escenario | ForEach-Object { $_.Group[-1] } })
+    $mes = try { [IO.File]::ReadAllText("$env:USERPROFILE\.config\consumo\$(Get-Date -Format 'yyyy-MM').json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json } catch { $null }
+    $dias = @(if ($mes) { $mes.PSObject.Properties | Where-Object { $_.Value.segundos -gt 4 * 3600 } | ForEach-Object { [pscustomobject]@{ kwh = $_.Value.wh / 1000; h = $_.Value.segundos / 3600 } } })
+    $precio = try { [double](([IO.File]::ReadAllText("$env:USERPROFILE\.config\rice.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).consumo.precio_kwh) } catch { 0.70 }
+    $historico = if ($dias.Count) { [ordered]@{ dias = $dias.Count; kwh_dia = [math]::Round(($dias | Measure-Object kwh -Average).Average, 2); horas_dia = [math]::Round(($dias | Measure-Object h -Average).Average, 1)
+                                                 soles_mes = [math]::Round(($dias | Measure-Object kwh -Average).Average * 30 * $precio, 1); precio = $precio } }
     # La VRAM por proceso (vram.ps1), para el diagrama.
     $vram = @(Get-ChildItem $raiz -Filter 'vram-*.json' | Where-Object Name -ne 'vram-ahora.json' | ForEach-Object { [IO.File]::ReadAllText($_.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json })
-    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);`nwindow.MODELOS = $(ConvertTo-Json @($modelos) -Depth 6 -Compress);",[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);`nwindow.MODELOS = $(ConvertTo-Json @($modelos) -Depth 6 -Compress);`nwindow.CONSUMO = $(ConvertTo-Json ([ordered]@{ escenarios = @($consumo); historico = $historico }) -Depth 4 -Compress);", [Text.UTF8Encoding]::new($false))
     foreach ($a in @($PRUEBAS | ForEach-Object { $_.archivo } | Select-Object -Unique)) {
         Copy-Item (Join-Path $raiz $a) (Join-Path $Salida "codigo\$a.txt") -Force
     }

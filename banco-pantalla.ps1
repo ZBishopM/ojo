@@ -212,7 +212,9 @@ $filas = foreach ($c in $CASOS) {
                        dijo = "$($m.dijo)"; via = "$($m.via)"; busco = "$($m.busco)"; dijo_sola = $dijoSola
                        # Para ensenar el fallo: que tocaba, que vio, donde senalo, sobre que imagen.
                        tocaba = if ($c.tocaba) { $c.tocaba } elseif ($c.esp) { "que diga: $($c.esp)" } else { 'señalar dentro de la caja verde' }
-                       vio = @($m.ocr_vio); senalo = "$($m.senalo)"; img = $c.img; caja = $c.caja }
+                       vio = @($m.ocr_vio); senalo = "$($m.senalo)"; img = $c.img; caja = $c.caja
+                       # Coste: lo que tardo el modelo y cuanto contexto se gasto.
+                       ms = $m.modelo_ms; prompt_n = $m.prompt_n }
 }
 
 $res = [ordered]@{ nombre = $Nombre; fecha = Get-Date -Format 'yyyy-MM-dd HH:mm'
