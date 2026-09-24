@@ -145,6 +145,13 @@ function Resumir-Partida($d, $cat, $pregunta = $null) {
     # muertes, el KDA de siempre, con las muertes a 1 como minimo.
     $fuerte = { param($eq) $eq | Sort-Object { ($_.scores.kills + $_.scores.assists) / [math]::Max(1, $_.scores.deaths) } -Descending |
                 Select-Object -First 1 | ForEach-Object { "$($_.championName) ($($_.scores.kills)/$($_.scores.deaths)/$($_.scores.assists))" } }
+    # El MARCADOR, sumado aqui: a "¿como vamos?" el modelo sumaba los
+    # asesinatos por su cuenta y el verificador no encontraba la cifra en los
+    # datos (partida real, 2026-09-24).
+    $suma = { param($eq, $k) [int](@($eq | ForEach-Object { $_.scores.$k }) | Measure-Object -Sum).Sum }
+    $mios = @($d.allPlayers | Where-Object team -eq $yo.team); $suyos = @($d.allPlayers | Where-Object team -ne $yo.team)
+    $h['marcador'] = "asesinatos: tu equipo {0}, rival {1}; muertes: tu equipo {2}, rival {3}; minions: tu equipo {4}, rival {5}" -f `
+        (& $suma $mios 'kills'), (& $suma $suyos 'kills'), (& $suma $mios 'deaths'), (& $suma $suyos 'deaths'), (& $suma $mios 'creepScore'), (& $suma $suyos 'creepScore')
     $h['mas_fuerte_mi_equipo'] = & $fuerte @($d.allPlayers | Where-Object team -eq $yo.team)
     $h['mas_fuerte_rival']     = & $fuerte @($d.allPlayers | Where-Object team -ne $yo.team)
 

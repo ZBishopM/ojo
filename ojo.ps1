@@ -31,6 +31,16 @@ param(
     # texto (OCR a tamano real) y sus controles de UIA, sin mandar imagen.
     # Para medir si el 4B de texto de LoL vale tambien en el escritorio.
     [ValidateSet('imagen', 'ocr')][string]$Vista = 'imagen',
+    # PRUEBAS, con -Imagen: los hechos del sistema CONGELADOS con la imagen
+    # (verdad.json de congelar-escena), como los daria Hechos-Sistema en ese
+    # instante. Sin esto el banco quitaba justo lo que Ojo usa de verdad para
+    # "¿que marca la barra?", y el OCR de la barra lee "16.8" por "10.8".
+    [string]$HechosCongelados,
+    # MEDIR: 'guiado' manda, junto a la imagen reducida, un recorte a tamano
+    # nativo (x2) de la zona que nombra la pregunta (hoy: la barra de arriba).
+    [ValidateSet('no', 'guiado')][string]$Zoom = 'no',
+    # MEDIR (con -Imagen): lado mayor de la imagen que recibe el modelo.
+    [int]$LadoImagen = 1280,
     # Apaga las memorias temporales, para medir cuanto aportan.
     [switch]$SinMemoria,
     # Carga esa memoria a la fuerza, sin puntuar. Para cuando el selector duda
@@ -208,7 +218,9 @@ $MODELOS = @{
     # es lo que la V cuantizada exige.
     '4b-texto' = @{
         gguf   = 'F:\ai\models\Qwen3.5-4B-UD-Q5_K_XL.gguf'
-        mmproj = $null
+        # PRUEBA en partida real (2026-09-24): M1, el mismo 4B CON vision
+        # (+0,6 GB). En partida no se le manda imagen; se mide si cabe con LoL.
+        mmproj = 'F:\ai\models\qwen3.5-4b\mmproj-F16.gguf'
         extra  = @('-ctk', 'q8_0', '-ctv', 'q8_0')
     }
 }
@@ -721,9 +733,12 @@ function Decidir-Con-Reglas([string]$q) {
         web        = ($q -match '(?i)\bhoy\b|[uú]ltim|actual|ahora mismo|precio|cu[aá]nto (cuesta|est[aá]|vale)|qui[eé]n gan|resultado|noticia|clima|tiempo hace|parche|versi[oó]n|reciente|esta semana|este a[nñ]o') -and
                      -not $personal -and $q -notmatch '(?i)qu[eé] (d[ií]a|fecha|hora)|\bhora es\b'
         personal   = $personal
-        aumento    = $q -match '(?i)aument.*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen)|recomi|conviene|tomo|cojo|agarro|\bo el otro)' -or
-                     $q -match '(?i)(cu[aá]l|elij|escoj|recomi).*aument' -or
-                     $q -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)'
+        # (en partida real, 2026-09-24: "Que aumento que estoy viendo" no entraba,
+        # y el oido escribio "¿Que MOMENTO deberia escoger?" por "aumento")
+        aumento    = $q -notmatch '(?i)qu[eé] hace|para qu[eé] sirve|c[oó]mo funciona|qu[eé] es el' -and (
+                     $q -match '(?i)(aument|moment).*(cu[aá]l|elij|elig|escoj|escog|ofrec|estos|me (dan|salen|tocan|tocaron|aparecen)|recomi|conviene|tomo|cojo|agarro|\bo el otro|viendo|\bveo\b|pantalla|salen|salieron)' -or
+                     $q -match '(?i)(cu[aá]l|elij|escoj|recomi|qu[eé]).*aument' -or
+                     $q -match '(?i)cu[aá]l (de (estos|estas|los|las) (tres|3)|elijo|escojo|cojo|tomo|agarro)')
         workspaces = $q -match '(?i)workspace|escritorio|abiert|ventanas|otro monitor'
         metricas   = $q -match '(?i)\bram\b|vram|cpu|gpu|temperatura|vatios|consum|memoria|procesador|gr[aá]fica'
     }
@@ -965,8 +980,9 @@ function Verificar-Decir([string]$decir, [string]$evidencia) {
     @($faltan | Select-Object -Unique)
 }
 
-function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $null) {
+function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $null, $ampliacion = $null) {
     $b64 = if ($imagen) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($imagen)) } else { $null }
+    $b64z = if ($imagen -and $ampliacion) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($ampliacion)) } else { $null }
     $lista = ''
     if ($controles.Count) {
         $lineas = $controles | ForEach-Object { "{0}. [{1}] {2}" -f $_.n, $_.tipo, $_.nombre }
@@ -976,6 +992,10 @@ function Preguntar-Modelo($imagen, $pregunta, $controles, $memoria, $partida = $
     # `image_url` vacio con un modelo sin mmproj devuelve 500.
     $contenido = @(
         if ($b64) { @{ type = 'image_url'; image_url = @{ url = "data:image/jpeg;base64,$b64" } } }
+        if ($b64z) {
+            @{ type = 'text'; text = 'AMPLIACION (la barra de arriba de la misma pantalla, a tamano real x2):' }
+            @{ type = 'image_url'; image_url = @{ url = "data:image/jpeg;base64,$b64z" } }
+        }
         @{ type = 'text'; text = ($pregunta + $lista + $memoria) }
     )
     $sistema = $SISTEMA
@@ -1184,7 +1204,12 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
             # Se guarda la ultima captura (eleccion-ultima.bmp), y cada vez que
             # NO lee tres aumentos, una copia fechada: con esas se afina.
             $pideAumento = $dec.aumento
-            if ($pideAumento) {
+            # En MAYHEM se mira la pantalla del juego en CADA pregunta (~0,2 s):
+            # si estan las cartas, se sabe sin depender de como lo diga. En la
+            # partida real del 2026-09-24, "Que aumento que estoy viendo" no
+            # disparaba la lectura y el modelo recomendo uno que no estaba.
+            $mayhem = "$($datosLol.gameData.gameMode)" -eq 'KIWI'
+            if ($pideAumento -or $mayhem) {
                 try {
                     Add-Type -AssemblyName System.Drawing, System.Windows.Forms
                     if ($Imagen) {
@@ -1207,11 +1232,20 @@ if (Get-Process -Name 'League of Legends' -EA SilentlyContinue) {
                     Marca 'ocr'
                     $ofrecidos = @(Aumentos-En-Lineas $catLol $lineasOcr | Select-Object -First 3)
                     Marca 'aumentos_leidos'
-                    if ($ofrecidos.Count -lt 3) {
+                    # Copia para afinar el OCR cuando se pidio y no leyo tres, o
+                    # cuando leyo alguno pero no los tres (seguro que era la eleccion).
+                    if (($pideAumento -and $ofrecidos.Count -lt 3) -or ($ofrecidos.Count -ge 1 -and $ofrecidos.Count -lt 3)) {
                         $img.Save(("$Raiz\prueba-lol\eleccion-{0:yyyyMMdd-HHmmss}.png" -f (Get-Date)), [Drawing.Imaging.ImageFormat]::Png)
                     }
                     $img.Dispose()
-                    if ($ofrecidos.Count) {
+                    # Con las cartas a la vista, se elige aunque la pregunta no diga
+                    # "aumento" (el oido escribe "momento", o "¿cual cojo?"), salvo
+                    # que pregunte claramente por otra cosa de la partida.
+                    $otraCosa = $Pregunta -match '(?i)qu[eé] hace|para qu[eé] sirve|compos|\boro\b|[ií]tem|muert|minuto|marcador|c[oó]mo vamos|build|me armo|compro|rival|enemig'
+                    if ($ofrecidos.Count -ge 2 -and -not $otraCosa) { $pideAumento = $true }
+                    if ($ofrecidos.Count -and -not $pideAumento) { $hp['aumentos_en_pantalla'] = $ofrecidos }
+                    elseif (-not $pideAumento) { }
+                    elseif ($ofrecidos.Count) {
                         $hp['aumentos_en_pantalla'] = $ofrecidos
                         $mejor = if ($bp) { Elegir-Aumento $ofrecidos $bp.ranking_aumentos }
                         if ($mejor) {
@@ -1294,7 +1328,7 @@ if (-not $hayPartida -and ($conVision -or $porTexto)) {
         Add-Type -AssemblyName System.Drawing
         $src = [Drawing.Image]::FromFile($nativa)
         $script:anchoNativa = $src.Width
-        $k = [math]::Min(1.0, 1280.0 / [math]::Max($src.Width, $src.Height))
+        $k = [math]::Min(1.0, [double]$LadoImagen / [math]::Max($src.Width, $src.Height))
         $red = New-Object Drawing.Bitmap ([int]($src.Width * $k)), ([int]($src.Height * $k))
         $gr = [Drawing.Graphics]::FromImage($red); $gr.InterpolationMode = 'HighQualityBicubic'
         $gr.DrawImage($src, 0, 0, $red.Width, $red.Height); $gr.Dispose(); $src.Dispose()
@@ -1365,6 +1399,16 @@ try {
     # Con -Imagen (pruebas) sin hechos del sistema: la imagen es de otro momento,
     # y el modelo contestaba la RAM y la hora de AHORA en vez de las de la imagen.
     if (-not $Imagen) { $memoria += Hechos-Sistema -SinVentana:$hayPartida -Metricas:$dec.metricas }
+    elseif ($HechosCongelados) {
+        # Mismo formato que Hechos-Sistema, con lo que se congelo junto a la imagen.
+        $hc = ([IO.File]::ReadAllText((Resolve-Path $HechosCongelados).Path, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json).hechos
+        $l = @("hora: $($hc.hora)")
+        if ($dec.metricas) {
+            $l += [string]::Format([Globalization.CultureInfo]::InvariantCulture, 'VRAM: {0:0.0} de {1} GB usados; GPU a {2} °C', $hc.vram_gb, $hc.vram_tot, $hc.gpu_temp)
+            $l += "RAM: $($hc.ram_pct) % usada"
+        }
+        $memoria += "`n`nHECHOS VERIFICADOS (del sistema, exactos):`n" + ($l -join "`n")
+    }
     # Su perfil y el de su PC, siempre (perfil.ps1): que no adivine lo que se
     # sabe. En los retos dijo "23% de la bateria de tu portatil" en un PC de
     # escritorio sin bateria.
@@ -1484,7 +1528,22 @@ try {
     # cuenta como respaldo.
     $humor = ''
     if (-not $respuestaFija) { try { . "$Raiz\humor.ps1"; $humor = Referencias-Humor 8 } catch { } }
-    $preguntar = { Preguntar-Modelo $(if ($conVision) { $tmp }) $Pregunta $controles ($memoria + $humor) $(if ($hayPartida) { $partida }) }
+    # Zoom guiado: la barra de arriba recortada a tamano nativo, x2.
+    $ampliacion = $null
+    if ($Zoom -eq 'guiado' -and $conVision -and $nativa -and $Pregunta -match '(?i)\bbarra\b') {
+        try {
+            Add-Type -AssemblyName System.Drawing
+            $src = [Drawing.Image]::FromFile($nativa)
+            $alto = [int][math]::Ceiling($src.Height * 0.03)
+            $bmp = New-Object Drawing.Bitmap ($src.Width * 2), ($alto * 2)
+            $gz = [Drawing.Graphics]::FromImage($bmp); $gz.InterpolationMode = 'HighQualityBicubic'
+            $gz.DrawImage($src, (New-Object Drawing.Rectangle 0, 0, $bmp.Width, $bmp.Height), (New-Object Drawing.Rectangle 0, 0, $src.Width, $alto), 'Pixel')
+            $gz.Dispose(); $src.Dispose()
+            $ampliacion = Join-Path $env:TEMP "ojo-zoom-$PID.jpg"
+            $bmp.Save($ampliacion, [Drawing.Imaging.ImageFormat]::Jpeg); $bmp.Dispose()
+        } catch { Write-Warning "sin ampliacion: $_"; $ampliacion = $null }
+    }
+    $preguntar = { Preguntar-Modelo $(if ($conVision) { $tmp }) $Pregunta $controles ($memoria + $humor) $(if ($hayPartida) { $partida }) $ampliacion }
 
     $r = if ($respuestaFija) {
         @{ ms = 0; texto = (@{ decir = $respuestaFija } | ConvertTo-Json -Compress); tok_s = 0; prompt_n = 0 }
@@ -1534,13 +1593,18 @@ try {
         # pantalla): ahi internet no sabe nada y "no tengo acceso" es la verdad.
         # ("no existe" / "no hay informacion": fuera de partida dijo que el
         # aumento Locomotora "no existe" sin buscarlo.)
-        $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo|existe|hay (informacion|datos))'
+        # Y "Dejame buscarlo" SIN rellenar "buscar": sin esto se quedaba como
+        # respuesta final (M1, banco-verdad, "¿A cuanto esta el dolar?").
+        $seRinde = (Plano $d.decir) -match '\bno (puedo|tengo (acceso|informacion|datos)|se\b|lo se\b|dispongo|existe|hay (informacion|datos))|\bdejame buscar|\b(lo|voy a) busc'
         # Tambien si nombra a alguien de su vida o pide tema: "¿que sabes de
         # Melly?" busco en internet y contesto con un rapero.
         # Y las preguntas de PANTALLA (leer, senalar): lo que no esta en la
         # pantalla no esta en internet ("¿que codigo pone en la nota gris?"
         # acababa buscando en la web).
-        $esSuyo = $dec.personal -or $dec.lectura -or $dec.sitio -or ($pt -and ($pt.ids.Count -or $pt.tema)) -or $nombresDichos.Count
+        # Y en PARTIDA: internet no sabe nada de tu partida. A "¿como vamos en
+        # esta partida?" dijo dos cifras sumadas por el (34, 110), el verificador
+        # no las encontro en los datos y acabo buscando en la web (2026-09-24).
+        $esSuyo = $hayPartida -or $dec.personal -or $dec.lectura -or $dec.sitio -or ($pt -and ($pt.ids.Count -or $pt.tema)) -or $nombresDichos.Count
         # De SUS cosas no se busca en internet ni aunque falte respaldo: lo que
         # falta ahi no esta en la web. Se le dice que no lo pudo comprobar.
         # (Se probo a contestar SIEMPRE con la web en las preguntas de

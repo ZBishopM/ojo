@@ -220,9 +220,23 @@ function Build-Aumentos {
     $aum
 }
 
+# El resumen de un aumento, para DECIRLO: sin los iconos del motor
+# ("%i:scaleCrit%") y sin las frases con cifras que el cliente no rellena
+# ("Obtienes un X% de Probabilidad de Golpe Critico"). Salio asi en voz alta en
+# una partida real (2026-09-24). Si todas llevan X, se quita la X y su "un ... de".
+function Limpiar-Resumen([string]$s) {
+    $s = ($s -replace '%i:[^%]*%', '' -replace '\s+', ' ').Trim()
+    $frases = @([regex]::Split($s, '(?<=[.!?])\s+') | Where-Object { $_ })
+    $sinX = @($frases | Where-Object { $_ -notmatch '\bX\b' })
+    $r = if ($sinX.Count) { $sinX -join ' ' } else { $frases[0] -replace '\b(un |una )?X\s*(%|vez/veces|veces)?\s*(de )?', '' -replace '\by de\b', 'y' }
+    ($r -replace '\s+', ' ' -replace '\s+([.,])', '$1').Trim()
+}
+
 function Leer-Cache($dir) {
     $leer = { param($f) [IO.File]::ReadAllText((Join-Path $dir $f), [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json }
-    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = (& $leer 'aumentos.json')
+    $aum = & $leer 'aumentos.json'
+    foreach ($p in @($aum.PSObject.Properties)) { $p.Value = Limpiar-Resumen $p.Value }
+    @{ parche = (Split-Path $dir -Leaf); items = (& $leer 'items.json'); campeones = (& $leer 'campeones.json'); aumentos = $aum
        campeones_n = (& $leer 'campeones-por-numero.json'); aumentos_n = (& $leer 'aumentos-por-numero.json')
        aumentos_k = (& $leer 'aumentos-por-clave.json'); aumentos_en = (& $leer 'aumentos-por-ingles.json'); dir = $dir }
 }

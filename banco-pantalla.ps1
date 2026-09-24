@@ -21,7 +21,9 @@ param([Parameter(Mandatory)][string]$Nombre, [switch]$SoloReal, [int]$Puerto = 8
       # 'ocr': modelo sin vision que ve la pantalla por OCR y controles (ojo.ps1 -Vista).
       [string]$Vista = 'imagen',
       # Solo los casos de las pantallas reales (la prueba corta, "con LoL" simulado).
-      [switch]$SoloReales)
+      [switch]$SoloReales,
+      # Variantes de vision que se miden (ojo.ps1 -Zoom / -LadoImagen).
+      [string]$Zoom = 'no', [int]$LadoImagen = 1280)
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $MyInvocation.MyCommand.Path
 Add-Type -AssemblyName System.Drawing
@@ -128,12 +130,19 @@ foreach ($vf in @(Get-ChildItem (Join-Path $raiz 'escenas\reales') -Filter verda
     foreach ($m in $v.monitores) {
         $img = Join-Path $vf.DirectoryName $m.imagen
         $r = "$($m.alto)p real"
-        $CASOS += @(
-            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué hora marca el reloj de la barra de arriba?'; esp = "\b($($horas -join '|'))\b"; tocaba = "$($h.hora) (±1 min)" }
-            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué porcentaje de RAM marca la barra de arriba?'; esp = "\b($(($h.ram_pct - 1)..($h.ram_pct + 1) -join '|'))\s?%"; tocaba = "$($h.ram_pct)% (±1)" }
-            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Cuánta VRAM marca la barra de arriba?'; esp = "($($vram -join '|'))"; tocaba = "$($h.vram_gb) de $($h.vram_tot) GB (±0,1)" }
-            @{ res = $r; img = $img; cat = 'real: barra'; tipo = 'leer'; q = '¿Qué temperatura marca la GPU en la barra de arriba?'; esp = "\b($(($h.gpu_temp - 2)..($h.gpu_temp + 2) -join '|'))\b"; tocaba = "$($h.gpu_temp)° (±2)" }
-        )
+        # Dos veces: como en uso real (con los hechos del sistema congelados en
+        # ese instante, que es de donde Ojo saca estas cifras) y SOLO con la
+        # imagen y el OCR (la vision pura, sin ayuda).
+        foreach ($conHechos in $true, $false) {
+            $hv = if ($conHechos) { $vf.FullName } else { $null }
+            $cat = if ($conHechos) { 'real: barra' } else { 'real: barra sin hechos' }
+            $CASOS += @(
+                @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué hora marca el reloj de la barra de arriba?'; esp = "\b($($horas -join '|'))\b"; tocaba = "$($h.hora) (±1 min)" }
+                @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué porcentaje de RAM marca la barra de arriba?'; esp = "\b($(($h.ram_pct - 1)..($h.ram_pct + 1) -join '|'))\s?%"; tocaba = "$($h.ram_pct)% (±1)" }
+                @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Cuánta VRAM marca la barra de arriba?'; esp = "($($vram -join '|'))"; tocaba = "$($h.vram_gb) de $($h.vram_tot) GB (±0,1)" }
+                @{ res = $r; img = $img; hechos = $hv; cat = $cat; tipo = 'leer'; q = '¿Qué temperatura marca la GPU en la barra de arriba?'; esp = "\b($(($h.gpu_temp - 2)..($h.gpu_temp + 2) -join '|'))\b"; tocaba = "$($h.gpu_temp)° (±2)" }
+            )
+        }
         # Señalar: nombres únicos en todo el monitor, hasta 5, repartidos entre ventanas.
         $todos = @($m.ventanas | ForEach-Object { $w = $_; @($_.controles) | ForEach-Object { [pscustomobject]@{ c = $_; w = $w } } })
         $cuenta = @{}; foreach ($x in @($m.ventanas | ForEach-Object { @($_.lista) })) { $cuenta[$x.nombre] = 1 + [int]$cuenta[$x.nombre] }
@@ -148,7 +157,7 @@ foreach ($vf in @(Get-ChildItem (Join-Path $raiz 'escenas\reales') -Filter verda
         foreach ($e in $elegidos) {
             $lista = Join-Path $vf.DirectoryName ("controles-{0}.json" -f ([Math]::Abs($e.w.titulo.GetHashCode())))
             [IO.File]::WriteAllText($lista, (ConvertTo-Json @($e.w.lista) -Depth 3), [Text.UTF8Encoding]::new($false))
-            $CASOS += @{ res = $r; img = $img; cat = 'real: señalar'; tipo = 'senalar'; q = "Señala «$($e.c.nombre)»"; caja = @($e.c.caja); controles = $lista; tocaba = "$($e.c.nombre) ($($e.c.tipo), en $($e.w.proceso))" }
+            $CASOS += @{ res = $r; img = $img; hechos = $vf.FullName; cat = 'real: señalar'; tipo = 'senalar'; q = "Señala «$($e.c.nombre)»"; caja = @($e.c.caja); controles = $lista; tocaba = "$($e.c.nombre) ($($e.c.tipo), en $($e.w.proceso))" }
         }
     }
 }
@@ -187,7 +196,8 @@ if ($SoloReales) { $CASOS = @($CASOS | Where-Object { $_.cat -like 'real*' }) }
 $filas = foreach ($c in $CASOS) {
     $ErrorActionPreference = 'Continue'
     $extra = @{}; if ($c.controles) { $extra.ListaControles = $c.controles }
-    $null = & "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista @extra *>&1
+    if ($c.hechos) { $extra.HechosCongelados = $c.hechos }
+    $null = & "$raiz\ojo.ps1" -Pregunta $c.q -Imagen $c.img -Voz '' -Segundos 0 -Puerto $Puerto -Vista $Vista -Zoom $Zoom -LadoImagen $LadoImagen @extra *>&1
     $ErrorActionPreference = 'Stop'
     $m = [IO.File]::ReadAllText("$raiz\ultima-medida.json", [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
     $pReal = if ($m.senalo) { @($m.senalo -split ',' | ForEach-Object { [double]$_ }) }
