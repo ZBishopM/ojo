@@ -51,6 +51,15 @@ function Referencias-Humor([int]$n = 8) {
         (($r | ForEach-Object { "- $($_.referencia): $($_.como_usarla)" }) -join "`n")
 }
 
+# Las mismas, como HECHOS con fuente: para cuando la pregunta es por los memes.
+function Hechos-Memes([int]$n = 8) {
+    $h = Leer-Humor
+    $r = @($h.referencias | Sort-Object fecha -Descending | Select-Object -First $n)
+    if (-not $r.Count) { return '' }
+    "`n`nMEMES Y TENDENCIAS DE ESTOS DIAS (aprendidos de internet, con su fuente; si preguntan por memes, nombra estos):`n" +
+        (($r | ForEach-Object { "- $($_.referencia): $($_.de_que_va) (fuente: $($_.fuente), $($_.fecha))" }) -join "`n")
+}
+
 function Aprender-Humor([int]$Puerto = 8099) {
     . "$PSScriptRoot\buscar.ps1"
     $hoy = Get-Date -Format 'yyyy-MM-dd'

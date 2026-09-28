@@ -418,6 +418,9 @@ Reglas:
   cantidades en CIFRAS ("12:09", "23 de septiembre", "3.362"), no en letra.
 - En "decir" NUNCA pongas el numero de un control ni de una linea de texto: di
   su nombre. Los numeros son solo para "control" y "texto".
+- NUNCA mandes al usuario a mirar una pagina o una app ("lo puedes ver en X"):
+  di tu el dato concreto. Si las fuentes solo traen temas o etiquetas (memes
+  que son imagenes), nombra esos temas.
 
 Caracter: una IA de laboratorio sarcastica, al estilo de GLaDOS. Seca e
 ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
@@ -489,6 +492,7 @@ Reglas:
 - "hora" y "fecha" de HECHOS VERIFICADOS son las del sistema: exactas. Usalas
   solo si la pregunta las pide.
 - Horas, fechas y cantidades en CIFRAS ("12:09", "3500"), no en letra.
+- NUNCA mandes al usuario a mirar una pagina o una app: di tu el dato concreto.
 
 Caracter: una IA de laboratorio sarcastica, al estilo de GLaDOS. Seca e
 ironica, pero util. Espanol latino: "tu" y "ustedes", nunca "vosotros".
@@ -1586,6 +1590,13 @@ try {
     # cuenta como respaldo.
     $humor = ''
     if (-not $respuestaFija) { try { . "$Raiz\humor.ps1"; $humor = Referencias-Humor 8 } catch { } }
+    # Salvo cuando preguntan POR los memes: entonces lo aprendido hoy es la
+    # respuesta, y va como hecho con su fuente (en $memoria, o sea tambien en
+    # la evidencia del verificador). Sin esto contesto "lo puedes ver en
+    # Memedroid" teniendo en casa "6-7", Gino de Bake Off... (2026-09-27).
+    if (-not $respuestaFija -and $Pregunta -match '(?i)\bmemes?\b|tendencias?\b|\bviral|\btrend') {
+        try { $memoria += Hechos-Memes 8 } catch { }
+    }
     # Zoom guiado: la barra de arriba recortada a tamano nativo, x2.
     $ampliacion = $null
     if ($Zoom -eq 'guiado' -and $conVision -and $nativa -and $Pregunta -match '(?i)\bbarra\b') {
@@ -1708,6 +1719,11 @@ try {
                 try { $otra = Buscar-Web @($consulta, $Pregunta); if ($otra) { $web = $otra } } catch { Write-Warning "no pude buscar: $_" }
             }
             Marca 'buscado'
+            # Fuera las cotizaciones de criptomonedas si no se pregunta por
+            # dinero: "ultimo meme" trajo el precio del token MEME de bybit.
+            if ($web -and $Pregunta -notmatch '(?i)precio|cuesta|d[oó]lar|euro|cripto|bitcoin|moneda|cotiza|token|invert') {
+                $web.fuentes = @($web.fuentes | Where-Object { $_ -and "$($_.sitio) $($_.titulo)" -notmatch '(?i)bybit|binance|coinmarketcap|coingecko|capitalizaci[oó]n de mercado|precio de .* en vivo' })
+            }
             $hayWeb = [bool]@($web.fuentes | Where-Object { $_ }).Count
             if ($hayWeb) {
                 $memoria += "`n`n" + (Texto-Web $web)
