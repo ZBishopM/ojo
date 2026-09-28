@@ -41,7 +41,11 @@ VOZ = "F2"
 MODELO = Path(r"F:\ai\voz\supertonic-3")
 POCKET_VOZ = "lola"
 POCKET_LENGUA = "spanish_24l"
-POCKET_HILOS = 2  # 4 hilos fue mas lento (RTF 0,66 contra 0,61) y ocupaba 7 nucleos
+# 1 hilo, como fija Kyutai al importar pocket_tts (tts_model.py:57). Medido
+# 2026-09-28, frase de 9,7 s: 2 hilos = 3,45 nucleos y RTF 0,52; 1 hilo =
+# 1,26 nucleos y RTF 0,57; bajo carga los dos 1,30. Mismo RTF por un tercio
+# de la CPU. 3 hilos: 5,6 nucleos y peor bajo carga (1,65).
+POCKET_HILOS = 1
 # El tono: Pocket sortea la entonacion en cada frase (el espanol no fija
 # temperatura: 0,7). Escucha a ciegas 4 (2026-09-28): gano temp 0,3 con
 # semilla 42, "desganada, molestada pero expresiva". Con otras semillas la
