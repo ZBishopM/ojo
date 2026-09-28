@@ -81,10 +81,6 @@ $PRUEBAS = @(
        que = 'Sin modelo: la build y la clasificación de aumentos contra una página guardada.' }
     @{ id = 'aumentos'; nombre = 'Elegir aumento'; grupo = 'codigo'; archivo = 'prueba-aumentos.ps1'; correr = @()
        que = 'Pantalla de elección dibujada: OCR de las tres cartas y elige el mejor por la clasificación (sin tasas de victoria).' }
-    @{ id = 'decidir'; nombre = 'Decisiones tipadas «a lo Jev» (descartado)'; grupo = 'descartado'; archivo = 'banco-decidir.ps1'; mediciones = 'banco-decidir\.ps1'
-       que = 'El modelo decidiendo la ruta de cada pregunta contra las reglas en código. Perdió: se quedan las reglas.' }
-    @{ id = 'extractor'; nombre = 'Extractor web: regex contra Trafilatura (descartado)'; grupo = 'descartado'; archivo = 'ab-extractor.ps1'; mediciones = 'ab-extractor\.ps1'
-       que = 'Cuántas páginas traen el dato al modelo con cada extractor. Ganó el regex.' }
 )
 
 $previo = @{}
@@ -185,6 +181,9 @@ if ($Salida) {
                 vueltas = @([pscustomobject]@{ pantalla = $m0.real; sola = $m0.sola; verdad = '8/8 · 0 inventos'; chat = $true; personas = $true; conocer = $true; partida = '16/16'; partida_real = '8/8'
                     fallos = @($m0.filas | Where-Object { $_.real -eq $false } | ForEach-Object { "pantalla: [$($_.res), $($_.cat)] $($_.q) -> $($_.dijo)" }) }) }) + $modelos
         }
+        # Solo los que se usan: el 8B en el escritorio y M1 en LoL. M2-M4 se
+        # descartaron el 2026-09-24 y quedan en comparar-modelos.json.
+        $modelos = @($modelos | Where-Object { $_.id -in 'M0', 'M1' })
     }
     # Lo que gasta el PC por escenario (medir-consumo.ps1) y el historico de
     # rice\consumo, para la seccion "Cuanto gasta".
@@ -195,7 +194,7 @@ if ($Salida) {
     $historico = if ($dias.Count) { [ordered]@{ dias = $dias.Count; kwh_dia = [math]::Round(($dias | Measure-Object kwh -Average).Average, 2); horas_dia = [math]::Round(($dias | Measure-Object h -Average).Average, 1)
                                                  soles_mes = [math]::Round(($dias | Measure-Object kwh -Average).Average * 30 * $precio, 1); precio = $precio } }
     # La VRAM por proceso (vram.ps1), para el diagrama.
-    $vram = @(Get-ChildItem $raiz -Filter 'vram-*.json' | Where-Object Name -ne 'vram-ahora.json' | ForEach-Object { [IO.File]::ReadAllText($_.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json })
+    $vram = @(Get-ChildItem $raiz -Filter 'vram-*.json' | Where-Object Name -in 'vram-sin-juego.json', 'vram-con-lol.json' | ForEach-Object { [IO.File]::ReadAllText($_.FullName, [Text.UTF8Encoding]::new($false)) | ConvertFrom-Json })
     [IO.File]::WriteAllText((Join-Path $Salida 'pruebas.js'), "window.PRUEBAS = $(ConvertTo-Json @($web) -Depth 5 -Compress);`nwindow.VRAM = $(ConvertTo-Json @($vram) -Depth 4 -Compress);`nwindow.MODELOS = $(ConvertTo-Json @($modelos) -Depth 6 -Compress);`nwindow.CONSUMO = $(ConvertTo-Json ([ordered]@{ escenarios = @($consumo); historico = $historico }) -Depth 4 -Compress);", [Text.UTF8Encoding]::new($false))
     foreach ($a in @($PRUEBAS | ForEach-Object { $_.archivo } | Select-Object -Unique)) {
         Copy-Item (Join-Path $raiz $a) (Join-Path $Salida "codigo\$a.txt") -Force
