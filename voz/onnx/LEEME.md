@@ -1,5 +1,32 @@
 # Pocket TTS en ONNX (experimento, 2026-09-28)
 
+## Lo que hace sonar igual que la voz de siempre (actualizado)
+
+Tres escuchas a ciegas seguidas: la voz actual siempre ganaba (4/4) y el ONNX
+sonaba «más claro pero monótono». No era el ruido ni la temperatura:
+
+1. **Otra revisión de los pesos.** `export.py` bajaba la última de
+   `kyutai/pocket-tts` (75cfe24), con un tokenizador nuevo. El Pocket instalado
+   fija **39592ff** y tokeniza con el `tokenizer.json` del repo sin clonación
+   (@00eac05): los ids salen completamente distintos. Hay que fijar la revisión
+   en `pocket_tts/config/spanish_24l.yaml` del exportador
+   (`...model.safetensors@39592ff23c9ef80098bb74895d104c26275fe2c9`).
+2. **La voz «lola» precalculada por Kyutai** (`lola.safetensors`), no clonada desde
+   el mp3. Su estado difiere del clonado más que su propio tamaño medio.
+3. **Dos detalles del bucle** (`voz/motor_onnx.py` los replica): PyTorch sortea
+   ruido también en el prellenado del texto (el paso 0 usa el segundo sorteo) e
+   ignora el EOS en los 6 primeros pasos. Más el ruido de torch con semilla 42
+   (`ruido_torch42.npy`), reiniciado por frase como hace el servidor.
+
+Con todo igualado: ONNX FP32 = PyTorch FP32 (misma duración, correlación de la
+onda +1,000). El INT8 de ONNX Runtime no es el mismo que el de torch: parecido,
+no idéntico. Coste medido (1 hilo, sin carga): **ONNX INT8 1,0 núcleo, RTF 0,45,
+primer audio 122 ms** (PyTorch INT8: 1,26 / 0,57 / 137 ms). FP32: RTF 1,07, no
+llega. Paquete: `F:\ai\tts\pocket-onnx\lola-v39` (flow_lm_main con caché que
+crece, tokenizer.json, lola.safetensors, ruido_torch42.npy).
+
+## Lo anterior (con los pesos equivocados)
+
 Para bajar la CPU de la voz Lola. No está integrado en `servidor_voz.py`.
 
 - `export_flow_lm_crece.py`: se pone en `scripts/` de
