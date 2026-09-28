@@ -42,6 +42,7 @@ MODELO = Path(r"F:\ai\voz\supertonic-3")
 POCKET_VOZ = "lola"
 POCKET_LENGUA = "spanish_24l"
 POCKET_HILOS = 2  # 4 hilos fue mas lento (RTF 0,66 contra 0,61) y ocupaba 7 nucleos
+SEG_POR_LETRA = 0.058  # lola habla ~17 letras/s (medido: 6,4 s para 110 letras)
 
 
 # El mutex ANTES de los imports pesados, como el oido: asi el supervisor lo ve
@@ -118,6 +119,15 @@ def cargar():
     return generar, t.sample_rate, gpu
 
 
+def hay_partida():
+    """LoL en marcha: la CPU va ocupada y la voz necesita colchon."""
+    try:
+        import psutil
+        return any(p.info["name"] == "League of Legends.exe" for p in psutil.process_iter(["name"]))
+    except ImportError:
+        return False
+
+
 def frases(texto):
     """Troceado por final de frase. La primera, corta: es la que se espera."""
     return [f for f in re.split(r"(?<=[.!?…;:])\s+", texto.strip()) if f]
@@ -127,6 +137,8 @@ class Voz:
     def __init__(self):
         self.generar, self.sr, self.gpu = cargar_pocket() if MOTOR == "pocket" else cargar()
         self.ultimo_rtf = None  # de la ultima respuesta: >1 es que se entrecorta (CPU ocupada)
+        self.huecos = 0         # bloques de ~21 ms en que el altavoz se quedo sin audio a media respuesta
+        self.retener = threading.Event(); self.retener.set()  # clear = esperar el colchon
         self.trozos = queue.Queue()
         self.actual = np.zeros(0, dtype=np.float32)
         self.turno = 0                  # cada /decir abre un turno; el viejo se descarta
@@ -141,11 +153,13 @@ class Voz:
 
     def _llenar(self, out, n, _t, _st):
         i = 0
-        while i < n:
+        while i < n and self.retener.is_set():
             if not len(self.actual):
                 try:
                     turno, trozo = self.trozos.get_nowait()
                 except queue.Empty:
+                    if self.sonando.is_set() and not self.callado.is_set():
+                        self.huecos += 1
                     break
                 if turno != self.turno:
                     continue
@@ -172,8 +186,18 @@ class Voz:
             turno = self.turno
             self.actual = np.zeros(0, dtype=np.float32)
             self.sonando.clear(); self.callado.clear()
+            self.huecos = 0
+            # Con la CPU ocupada (partida) se genera mas lento de lo que suena
+            # (RTF > 1) y salen huecos: voz robotica. Entonces se retiene el
+            # audio justo para que lo que queda por generar llegue a tiempo:
+            # colchon = total * (1 - 1/RTF), con el total estimado por letras.
+            colchon = hay_partida() or (self.ultimo_rtf or 0) > 0.95
+            (self.retener.clear if colchon else self.retener.set)()
         t0 = time.perf_counter()
-        partes = frases(para_decir(texto))
+        dicho = para_decir(texto)
+        partes = frases(dicho)
+        r = max(self.ultimo_rtf or 1.3, 1.1)
+        colchon_s = len(dicho) * SEG_POR_LETRA * (1 - 1 / r) * 1.2 if colchon else 0
         primer_trozo = threading.Event()
         marca = {}
 
@@ -185,7 +209,8 @@ class Voz:
                         return
                     self.trozos.put((turno, trozo))
                     muestras += len(trozo)
-                    if not primer_trozo.is_set():
+                    if not primer_trozo.is_set() and muestras / self.sr >= colchon_s:
+                        self.retener.set()
                         marca["ms"] = round((time.perf_counter() - t0) * 1000)
                         primer_trozo.set()
             dur = muestras / self.sr
@@ -193,6 +218,12 @@ class Voz:
                 self.ultimo_rtf = round((time.perf_counter() - t0) / dur, 3)
             self.trozos.put((turno, None))
             primer_trozo.set()
+            if turno == self.turno:
+                self.retener.set()
+                self.callado.wait(60)
+            with open(Path(__file__).parent / "voz.log", "a", encoding="utf-8") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} rtf={self.ultimo_rtf} primera_ms={marca.get('ms')} "
+                        f"huecos={self.huecos} colchon={colchon} audio_s={dur:.1f}\n")
         threading.Thread(target=producir, daemon=True).start()
         if pid:
             threading.Thread(target=self._vigilar, args=(int(pid), turno), daemon=True).start()
@@ -262,6 +293,13 @@ def servir(voz):
 
 if __name__ == "__main__":
     os.chdir(Path(__file__).parent)
+    # Prioridad alta: con la CPU cargada (8 hilos quemando) el RTF pasa de
+    # 1,3-2,3 a ~1,05 (medido 2026-09-27). Solo compite mientras habla.
+    try:
+        import psutil
+        psutil.Process().nice(psutil.HIGH_PRIORITY_CLASS)
+    except ImportError:
+        pass
     v = Voz()
     if "--probar" in sys.argv:
         ms = v.decir("Vas 0/7/2 contra Jax AP. Impresionante. Para el otro equipo.")
