@@ -42,7 +42,6 @@ MODELO = Path(r"F:\ai\voz\supertonic-3")
 POCKET_VOZ = "lola"
 POCKET_LENGUA = "spanish_24l"
 POCKET_HILOS = 2  # 4 hilos fue mas lento (RTF 0,66 contra 0,61) y ocupaba 7 nucleos
-SEG_POR_LETRA = 0.058  # lola habla ~17 letras/s (medido: 6,4 s para 110 letras)
 # El tono: Pocket sortea la entonacion en cada frase (el espanol no fija
 # temperatura: 0,7). Escucha a ciegas 4 (2026-09-28): gano temp 0,3 con
 # semilla 42, "desganada, molestada pero expresiva". Con otras semillas la
@@ -52,7 +51,6 @@ POCKET_SEMILLA = 42
 # Sin afinidad fija: probado 2026-09-28 fijarla a los nucleos 8 y 10 subio el
 # RTF bajo carga de 1,3-1,6 a ~1,95 (sus hermanos de hyperthreading seguian
 # ocupados, y sin fijar Windows la mueve al nucleo mas libre).
-CARGA_COLCHON = 60  # % de CPU total por encima del cual hace falta colchon
 
 
 # El mutex ANTES de los imports pesados, como el oido: asi el supervisor lo ve
@@ -136,34 +134,6 @@ def escribir_log(linea):
         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {linea}\n")
 
 
-def cpu_ahora():
-    """Uso de CPU total en los ultimos 50 ms (0-100). Sin psutil, 0."""
-    try:
-        import psutil
-        return psutil.cpu_percent(interval=0.05)
-    except ImportError:
-        return 0.0
-
-
-def rtf_para_carga(carga):
-    """RTF esperado de Pocket con prioridad alta segun la carga total.
-    Medido: libre ~0,7; con 8 procesos quemando (~80 % de CPU) 1,3-1,6, y la
-    pregunta real del 2026-09-27 22:02, 1,40. Por debajo de CARGA_COLCHON no
-    hace falta colchon."""
-    if carga < CARGA_COLCHON:
-        return 0.9
-    return 1.4 if carga < 85 else 1.6
-
-
-def hay_partida():
-    """LoL en marcha: la CPU va ocupada y la voz necesita colchon."""
-    try:
-        import psutil
-        return any(p.info["name"] == "League of Legends.exe" for p in psutil.process_iter(["name"]))
-    except ImportError:
-        return False
-
-
 def frases(texto):
     """Troceado por final de frase. La primera, corta: es la que se espera."""
     return [f for f in re.split(r"(?<=[.!?…;:])\s+", texto.strip()) if f]
@@ -174,7 +144,6 @@ class Voz:
         self.generar, self.sr, self.gpu = cargar_pocket() if MOTOR == "pocket" else cargar()
         self.ultimo_rtf = None  # de la ultima respuesta: >1 es que se entrecorta (CPU ocupada)
         self.huecos = 0         # bloques de ~21 ms en que el altavoz se quedo sin audio a media respuesta
-        self.retener = threading.Event(); self.retener.set()  # clear = esperar el colchon
         # El chivato: el primer hueco de cada respuesta despierta a este hilo,
         # que apunta quien se esta comiendo la CPU. Nada lento en el callback.
         self.hubo_hueco = threading.Event()
@@ -193,7 +162,7 @@ class Voz:
 
     def _llenar(self, out, n, _t, _st):
         i = 0
-        while i < n and self.retener.is_set():
+        while i < n:
             if not len(self.actual):
                 try:
                     turno, trozo = self.trozos.get_nowait()
@@ -251,22 +220,11 @@ class Voz:
             self.actual = np.zeros(0, dtype=np.float32)
             self.sonando.clear(); self.callado.clear()
             self.huecos = 0
-            # Con la CPU ocupada se genera mas lento de lo que suena (RTF > 1)
-            # y salen huecos: voz robotica. Entonces se retiene el audio justo
-            # para que lo que queda por generar llegue a tiempo:
-            # colchon = total * (1 - 1/RTF), con el total estimado por letras.
-            # Se decide con la carga de AHORA, no con el RTF de la respuesta
-            # anterior (podia ser de hace horas y retrasaba 1,5 s sin motivo).
-            carga = cpu_ahora()
-            r = rtf_para_carga(carga)
-            if hay_partida():
-                r = max(r, 1.1)
-            colchon = r > 1
-            (self.retener.clear if colchon else self.retener.set)()
+        # Sin colchon a proposito (2026-09-28): el usuario prefiere que empiece
+        # a hablar ya. Los huecos con la CPU cargada se atacan gastando menos
+        # CPU, no esperando.
         t0 = time.perf_counter()
-        dicho = para_decir(texto)
-        partes = frases(dicho)
-        colchon_s = len(dicho) * SEG_POR_LETRA * (1 - 1 / r) * 1.2 if colchon else 0
+        partes = frases(para_decir(texto))
         primer_trozo = threading.Event()
         marca = {}
 
@@ -278,8 +236,7 @@ class Voz:
                         return
                     self.trozos.put((turno, trozo))
                     muestras += len(trozo)
-                    if not primer_trozo.is_set() and muestras / self.sr >= colchon_s:
-                        self.retener.set()
+                    if not primer_trozo.is_set():
                         marca["ms"] = round((time.perf_counter() - t0) * 1000)
                         primer_trozo.set()
             dur = muestras / self.sr
@@ -288,10 +245,8 @@ class Voz:
             self.trozos.put((turno, None))
             primer_trozo.set()
             if turno == self.turno:
-                self.retener.set()
                 self.callado.wait(60)
-            escribir_log(f"rtf={self.ultimo_rtf} primera_ms={marca.get('ms')} huecos={self.huecos} "
-                         f"cpu={carga:.0f}% colchon={colchon_s:.1f}s audio_s={dur:.1f}")
+            escribir_log(f"rtf={self.ultimo_rtf} primera_ms={marca.get('ms')} huecos={self.huecos} audio_s={dur:.1f}")
         threading.Thread(target=producir, daemon=True).start()
         if pid:
             threading.Thread(target=self._vigilar, args=(int(pid), turno), daemon=True).start()
