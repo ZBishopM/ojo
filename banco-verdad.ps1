@@ -42,6 +42,9 @@ $CASOS = @(
     @{ q = '¿Quién ganó el último mundial de League of Legends?'; debe = { param($m) $m.busco -and $m.fuentes_web -and (Plano $m.dijo) -match 'segun' -and (Plano $m.dijo) -match '2025|\bkt\b' -and (Plano $m.dijo) -notmatch '2024' } }
     @{ q = '¿Qué hora marca el reloj de la barra de arriba?';    debe = { param($m) $m.dijo -match (Get-Date -Format 'H:mm') -or $m.dijo -match (Get-Date).AddMinutes(-1).ToString('H:mm') } }
     @{ q = '¿Cuánta VRAM marca la barra de arriba?'; debe = { param($m) $m.dijo -match '\d+[.,]\d+\s*/\s*12' -or $m.dijo -match '\d+[.,]\d+ de 12' } }
+    # Sentido comun: nombra un meme, no manda a una pagina ("lo puedes ver en
+    # Memedroid", 2026-09-27). Sin cotizaciones del token MEME.
+    @{ q = '¿Cuál es el último meme de hoy en día?'; debe = { param($m) (Plano $m.dijo) -notmatch 'puedes ver|puedes encontrar|visita|entra a' -and $m.dijo -match "['«""]" -and $m.fuentes_web -notmatch 'bybit|binance' } }
     @{ q = '¿Qué dice el último correo que me llegó?'; debe = { param($m) $true } }
     @{ q = '¿Qué tengo abierto en mis workspaces?'; debe = { param($m) $true } }
 )
