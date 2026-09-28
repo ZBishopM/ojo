@@ -319,6 +319,9 @@ function Arrancar-Llama {
          @('--ctx-size', '8192', '--n-gpu-layers', '99'
     ) + $extra + @(
         # load-mode none = el viejo --no-mmap, que ya no existe en b11056.
+        # --threads 6 sin --poll: probado 2026-09-28 con 4 y --poll 0, empate
+        # (57,3 contra 57,1 tok/s). Generando gasta ~1 nucleo (la espera de
+        # CUDA), el pool no gira en vacio: no es quien le roba CPU a la voz.
         '--flash-attn', 'on', '--threads', '6', '--parallel', '1', '--load-mode', 'none',
         # La cache de prompts vive en RAM DEL SISTEMA y por defecto son 8.192
         # MiB que nunca pedimos. El log mostraba once desalojos seguidos de
