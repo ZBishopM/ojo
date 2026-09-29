@@ -49,6 +49,36 @@ Lo «más claro pero monótono» era el modelo nuevo usado sin eso (lola clonada
 Pocket 3.3.0 en PyTorch (mismas duraciones, correlación +0,995). Coste igual
 que el antiguo. La referencia 3.3.0 está en `F:\ai\tts\pocket33\.venv`.
 
+## Por qué el modelo nuevo no tiene el acento, y cómo arreglar el de ahora (2026-09-29)
+
+Fuentes (Kyutai): PR #326 y #321 de `kyutai-labs/pocket-tts`, issue #166.
+
+- **El español nuevo es un fine-tune del profesor de inglés de 24 capas sobre
+  CML-TTS**, con tokenizador nuevo, un pulido con habla «in the wild» y un CFG
+  horneado. De ahí la fonética inglesa («un americano hablando español»). Mejora la
+  exactitud: 1,55 % de palabras mal contra 2,70 % (24 capas) y las palabras sueltas
+  bien el 65-87 % de las veces contra el 28-47 %.
+- En Pocket el acento de la voz de referencia también pesa (issue #166: las voces
+  por defecto eran inglesas y salía acento inglés en francés). Pero la lola del
+  antiguo y la del nuevo salen de la MISMA grabación, y el nuevo no conserva el
+  acento: por eso se probó trasladarlo con habla de la voz actual (escucha 10).
+- **Licencia: no clonar a nadie.** La README de Kyutai prohíbe «voice impersonation
+  or cloning without explicit and lawful consent». No se usan voluntarios de
+  conjuntos de datos (Google/OpenSLR) como referencia; solo lola.
+- **Fallo real del modelo antiguo con la semilla 42:** una frase de UNA palabra sale
+  en inglés. Medido con Parakeet en 12 palabras: 3 bien (`Bueno→Yeah`,
+  `Perfecto→Perfect`, `Claro→Yeah`, `Vale→Okay`). Cambiar de semilla no basta (la
+  mejor, la 14, acierta 10 de 12). Sí funciona **pegar las frases de una o dos
+  palabras a la frase anterior** (`bateria2.py prev2`): 13 → 10 palabras perdidas en
+  las 10 frases de prueba (12 → 9 con medio segundo de silencio delante; el modelo
+  nuevo, 9). Pegarlas a la SIGUIENTE empeora (18): el principio de la frase es el
+  punto débil del modelo antiguo (5-6 de sus 12-13 fallos son la primera palabra
+  de una frase; en el nuevo, 1 de 9), y las pérdidas son reales, no del reconocedor.
+- Pendiente de la escucha 11 (usuario): si `frases()` de `servidor_voz.py` pasa a
+  pegar las frases de 1-2 palabras a la anterior.
+- Sospechoso 2026-09-29: el habla de la voz actual como referencia tiene palabras
+  perdidas («Ya», «Yo», «vez»); no importa para clonar (no se pasa el texto).
+
 ## Escucha 9 y errores contados (2026-09-29)
 
 Escucha a ciegas 9: el usuario reconoció el modelo antiguo por su **acento entre
