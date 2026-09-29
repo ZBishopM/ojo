@@ -75,6 +75,20 @@ class LolaOnnx:
         self.ruido = np.load(carpeta / "ruido_torch42.npy")
         self.temperatura = temperatura
         self.tts._run_flow_lm_chunk = self._pasos
+        # Modelos reentrenados (Pocket 3.3.0): caracteres que no vieron al
+        # entrenar ("¿", "¡", comillas...) se quitan antes de tokenizar; si no,
+        # el modelo dice silabas de relleno donde aparecen.
+        rep = carpeta / "reemplazos.json"
+        import json
+        self.reemplazos = str.maketrans(json.loads(rep.read_text(encoding="utf-8"))) if rep.exists() else None
+
+    def _limpiar(self, texto):
+        """replace_characters de Pocket 3.3.0 (models/text_chunking.py)."""
+        if not self.reemplazos:
+            return texto
+        import re
+        texto = " ".join(texto.translate(self.reemplazos).split())
+        return re.sub(r"([.!?…])\s*[,;:]", r"\1", texto)
 
     # El bucle de generacion, calcado de TTSModel._autoregressive_generation de
     # Pocket, en lugar del del runtime, que difiere en dos cosas que cambian la
@@ -116,7 +130,7 @@ class LolaOnnx:
     def generar(self, texto):
         """Una frase -> trozos de audio float32. El ruido empieza de cero en cada
         frase, como torch.manual_seed(42) antes de cada frase en el servidor."""
-        for trozo in self.tts.stream(texto, voice="lola"):
+        for trozo in self.tts.stream(self._limpiar(texto), voice="lola"):
             yield np.asarray(trozo, dtype=np.float32).reshape(-1)
 
 

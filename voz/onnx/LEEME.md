@@ -25,6 +25,30 @@ primer audio 122 ms** (PyTorch INT8: 1,26 / 0,57 / 137 ms). FP32: RTF 1,07, no
 llega. Paquete: `F:\ai\tts\pocket-onnx\lola-v39` (flow_lm_main con caché que
 crece, tokenizer.json, lola.safetensors, ruido_torch42.npy).
 
+## El modelo nuevo (reentrenado el 2026-09-24) y por qué sonaba «peor»
+
+Kyutai reentrenó español, italiano, portugués, alemán y neerlandés (commit
+`2dd944b` en `kyutai/pocket-tts`: «new tokenizers, recomputed voice embeddings») y
+sacó **Pocket 3.3.0** el mismo día. Diferencias con 3.2.0 (el instalado):
+
+- `replace_characters` en la config: quita `" “ ” „ « » ( ) [ ] ¡ ¿` y normaliza
+  apóstrofes antes de tokenizar. Su comentario: el entrenamiento nunca vio esos
+  caracteres, sus embeddings no están entrenados y el modelo «dice sílabas de
+  relleno donde aparecen».
+- Temperatura por defecto 0,7 → 0,3 («gana en WER y UTMOS en todos los modelos»).
+- Voces predefinidas recalculadas (`pocket-tts-without-voice-cloning@4e1e0a3`) y
+  `tokenizer.json` nuevo en la misma revisión.
+- El bucle de generación no cambia.
+- **Fallo en Windows:** 3.3.0 lee el YAML con cp1252 y revienta con las comillas de
+  `replace_characters`. Arranca con `PYTHONUTF8=1`.
+
+Lo «más claro pero monótono» era el modelo nuevo usado sin eso (lola clonada,
+«¿» dentro, ruido y EOS del runtime). Bien montado (`lola-nuevo`: los pesos
+2dd944b = 75cfe24, mismo hash; lola y tokenizer.json @4e1e0a3;
+`reemplazos.json`, que `motor_onnx.py` aplica), el ONNX FP32 coincide con
+Pocket 3.3.0 en PyTorch (mismas duraciones, correlación +0,995). Coste igual
+que el antiguo. La referencia 3.3.0 está en `F:\ai\tts\pocket33\.venv`.
+
 ## Lo anterior (con los pesos equivocados)
 
 Para bajar la CPU de la voz Lola. No está integrado en `servidor_voz.py`.
