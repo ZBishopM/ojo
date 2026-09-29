@@ -49,6 +49,36 @@ Lo «más claro pero monótono» era el modelo nuevo usado sin eso (lola clonada
 Pocket 3.3.0 en PyTorch (mismas duraciones, correlación +0,995). Coste igual
 que el antiguo. La referencia 3.3.0 está en `F:\ai\tts\pocket33\.venv`.
 
+## Escucha 9 y errores contados (2026-09-29)
+
+Escucha a ciegas 9: el usuario reconoció el modelo antiguo por su **acento entre
+chileno y argentino** (PyTorch: expresión 5, gusto 4). El nuevo, en PyTorch 3.3.0 y en
+ONNX: claridad 4, expresión 1, «un americano intentando hablar español». La lola
+nueva sale de la MISMA grabación (common_voice_es_19762977): el acento lo neutraliza
+el modelo reentrenado, no la referencia.
+
+Palabras perdidas en las 10 frases de `frases_prueba.json`, transcritas con el
+Parakeet del oído (scratchpad `bateria.py` y `errores_bateria.py`). Hay una base de
+~9 (siglas y nombres: elperu, VRAM, GB, DaVinci, vóley) que falla en todas:
+
+| variante (frases separadas, como el servidor) | perdidas |
+|---|---|
+| nuevo, ONNX INT8 | 9 (solo la base) |
+| **antiguo, PyTorch INT8 (el servidor de hoy)** | **13** («bueno» suelto, «Calante» por «adelante») |
+| antiguo, FP32 (PyTorch = ONNX) | 15 |
+| antiguo, PyTorch INT8 + relleno de frases cortas | 15 |
+| antiguo, ONNX INT8 + relleno | 20 |
+| antiguo, ONNX INT8 (por tensor o por canal) | 22 |
+| cualquiera uniendo frases de 1-2 palabras a la siguiente | peor |
+
+Conclusión:
+- El modelo antiguo en ONNX INT8 pronuncia peor que en PyTorch INT8 (22 contra 13),
+  con cualquiera de las dos cuantizaciones. **No integrar el ONNX del modelo antiguo:
+  el servidor sigue con PyTorch.**
+- El modelo nuevo no falla, pero no tiene el acento.
+- Pendiente: darle acento al modelo nuevo (clonar referencias con acento
+  chileno o argentino, temperatura) o arreglar los fallos del antiguo.
+
 ## Lo anterior (con los pesos equivocados)
 
 Para bajar la CPU de la voz Lola. No está integrado en `servidor_voz.py`.
