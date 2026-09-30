@@ -74,8 +74,33 @@ Fuentes (Kyutai): PR #326 y #321 de `kyutai-labs/pocket-tts`, issue #166.
   nuevo, 9). Pegarlas a la SIGUIENTE empeora (18): el principio de la frase es el
   punto débil del modelo antiguo (5-6 de sus 12-13 fallos son la primera palabra
   de una frase; en el nuevo, 1 de 9), y las pérdidas son reales, no del reconocedor.
-- Pendiente de la escucha 11 (usuario): si `frases()` de `servidor_voz.py` pasa a
-  pegar las frases de 1-2 palabras a la anterior.
+- **Escucha 10 (usuario, 2026-09-29)**: el acento SÍ se traslada en parte con el
+  habla de la voz actual como referencia (acento 3-4 contra 1-2 sin ella):
+
+  | voz | claridad | acento | expresión | gusta |
+  |---|---|---|---|---|
+  | la de ahora (antiguo) | 3 | 5 | 5 | 5 |
+  | nuevo + lola clonada, t 0,3 | 4 | 2 | 1 | 1 |
+  | nuevo + habla actual (8 s), t 0,7 | 4 | 3 | 4 | 4 |
+  | nuevo + lola precalculada, t 0,7 | 5 | 1 | 2 | 1 |
+  | nuevo por defecto (t 0,3) | 4 | 2 | 2 | 2 |
+  | nuevo + habla actual (8 s), t 0,3 | 3 | 4 | 2 | 3 |
+  | nuevo + habla actual (21 s), t 0,3 | 1 | 3 | 2 | 1 |
+
+  Con t 0,7 gana expresión; la referencia larga empeora (se salta «experto»).
+  Quejas concretas: pronuncia la «c» de «veces» como española (θ; el nuevo se ajustó
+  sobre CML-TTS) y **falta el silencio entre frases** («corre»). Ideas: reescribir
+  c/z → s antes de sintetizar (seseo) y meter 250-300 ms de silencio entre frases.
+- **Escucha 11 (usuario)**: la voz de hoy (A) y con las frases cortas pegadas (B):
+  expresión 5 y «misma voz» 5 las dos; palabras 1 contra 2. Siguen los «saltos de
+  frase» en los dos: el FINAL de un bloque se corta («minu-», «Iren-»,
+  «impresion-») y el PRINCIPIO se come («Iren-fecto»). El pegado no basta.
+- Causa sospechosa de los cortes (banco `scratchpad/banco_voz.py`): el modelo
+  antiguo con la semilla 42 estropea el primer fotograma de cada bloque (el mismo
+  sorteo en todos), y tras detectar el fin solo genera 1-3 fotogramas (80-240 ms),
+  poco para una voz lenta. Kyutai agrupa frases en bloques de hasta 50 tokens y
+  solo parte en `,;:` los bloques más largos «para evitar palabras saltadas»;
+  nosotros partimos en `; :` siempre.
 - Sospechoso 2026-09-29: el habla de la voz actual como referencia tiene palabras
   perdidas («Ya», «Yo», «vez»); no importa para clonar (no se pasa el texto).
 
